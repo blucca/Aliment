@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/template_shelf_body",
+  "textures": {
+    "all": "outbreak:block/willow_shelf",
+    "particle": "outbreak:block/stripped_willow_log"
+  }
+}

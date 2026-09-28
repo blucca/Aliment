@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "id": "outbreak",
+  "version": "${version}",
+  "name": "Outbreak",
+  "description": "An AI mod.",
+  "authors": [
+    "Kusa233",
+    "DeepSeek V4.1 Flash"
+  ],
+  "contact": {},
+  "license": "GPL-3.0",
+  "icon": "assets/outbreak/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "client": [
+      "com.github.kusa233.outbreak.client.OutbreakClient"
+    ],
+    "main": [
+      "com.github.kusa233.outbreak.Outbreak"
+    ]
+  },
+  "mixins": [
+    "outbreak.mixins.json",
+    {
+      "config": "outbreak.client.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric-language-kotlin": ">=${kotlin_loader_version}",
+    "fabric-api": "*",
+    "minecraft": "${minecraft_version}"
+  }
+}

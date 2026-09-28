@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/template_sign_rot_2",
+  "textures": {
+    "all": "outbreak:block/willow_sign",
+    "particle": "outbreak:block/willow_planks"
+  }
+}

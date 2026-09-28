@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/outer_stairs",
+  "textures": {
+    "bottom": "outbreak:block/willow_planks",
+    "side": "outbreak:block/willow_planks",
+    "top": "outbreak:block/willow_planks"
+  }
+}

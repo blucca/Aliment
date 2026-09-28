@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=east": {
+      "model": "outbreak:block/willow_wall_sign",
+      "y": 270
+    },
+    "facing=north": {
+      "model": "outbreak:block/willow_wall_sign",
+      "y": 180
+    },
+    "facing=south": {
+      "model": "outbreak:block/willow_wall_sign"
+    },
+    "facing=west": {
+      "model": "outbreak:block/willow_wall_sign",
+      "y": 90
+    }
+  }
+}

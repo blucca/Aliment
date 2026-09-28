@@ -1,0 +1,22 @@
+{
+  "variants": {
+    "cooked=false,level=1": {
+      "model": "outbreak:block/willow_soup_cauldron_raw_1"
+    },
+    "cooked=false,level=2": {
+      "model": "outbreak:block/willow_soup_cauldron_raw_2"
+    },
+    "cooked=false,level=3": {
+      "model": "outbreak:block/willow_soup_cauldron_raw_3"
+    },
+    "cooked=true,level=1": {
+      "model": "outbreak:block/willow_soup_cauldron_cooked_1"
+    },
+    "cooked=true,level=2": {
+      "model": "outbreak:block/willow_soup_cauldron_cooked_2"
+    },
+    "cooked=true,level=3": {
+      "model": "outbreak:block/willow_soup_cauldron_cooked_3"
+    }
+  }
+}

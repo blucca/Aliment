@@ -1,0 +1,10 @@
+{
+  "pack": {
+    "description": "Outbreak willow worldgen verification (dev only)",
+    "max_format": 107,
+    "min_format": [
+      107,
+      1
+    ]
+  }
+}

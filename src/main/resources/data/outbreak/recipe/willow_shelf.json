@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "group": "shelf",
+  "key": {
+    "#": "outbreak:stripped_willow_log"
+  },
+  "pattern": [
+    "###",
+    "   ",
+    "###"
+  ],
+  "result": {
+    "count": 6,
+    "id": "outbreak:willow_shelf"
+  }
+}

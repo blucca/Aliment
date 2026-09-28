@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "conditions": [
+        {
+          "condition": "minecraft:survives_explosion"
+        }
+      ],
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "outbreak:willow_stairs"
+        }
+      ],
+      "rolls": 1.0
+    }
+  ],
+  "random_sequence": "outbreak:blocks/willow_stairs"
+}
