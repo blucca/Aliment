@@ -13,7 +13,6 @@ import net.minecraft.util.valueproviders.IntProviders
 import net.minecraft.world.level.WorldGenLevel
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.levelgen.feature.TreeFeature
-import net.minecraft.world.level.levelgen.feature.configurations.TreeConfiguration
 import net.minecraft.world.level.levelgen.feature.foliageplacers.FoliagePlacer
 import net.minecraft.world.level.levelgen.feature.trunkplacers.TrunkPlacer
 
@@ -56,10 +55,10 @@ class LeaningWillowTrunkPlacer(
         random: RandomSource,
         treeHeight: Int,
         origin: BlockPos,
-        config: TreeConfiguration,
+        tree: TreeFeature,
     ): List<FoliagePlacer.FoliageAttachment> {
         val pos = origin.mutable()
-        placeBelowTrunkBlock(level, trunkSetter, random, pos.below(), config)
+        placeBelowTrunkBlock(level, trunkSetter, random, pos.below(), tree)
 
         val leanDirection = this.findWaterDirection(level, origin)
         // Never lean further than the trunk is tall, otherwise the "bend" would start below the
@@ -81,7 +80,7 @@ class LeaningWillowTrunkPlacer(
                 pos.move(leanDirection)
             }
             if (TreeFeature.validTreePos(level, pos)) {
-                this.placeLog(level, trunkSetter, random, pos, config)
+                this.placeLog(level, trunkSetter, random, pos, tree)
             }
             pos.move(Direction.UP)
         }

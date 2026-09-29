@@ -1,8 +1,7 @@
 {
   "type": "minecraft:tree",
-  "config": {
     "below_trunk_provider": {
-      "type": "minecraft:rule_based_state_provider",
+      "type": "minecraft:rule_based",
       "rules": [
         {
           "if_true": {
@@ -13,10 +12,8 @@
             }
           },
           "then": {
-            "type": "minecraft:simple_state_provider",
-            "state": {
-              "Name": "minecraft:dirt"
-            }
+            "type": "minecraft:simple",
+            "state": "minecraft:dirt"
           }
         }
       ]
@@ -24,7 +21,7 @@
     "decorators": [
       {
         "type": "outbreak:willow_hanging",
-        "probability": 0.18,
+        "probability": 0.28,
         "max_length": 3
       }
     ],
@@ -35,10 +32,10 @@
       "radius": 3
     },
     "foliage_provider": {
-      "type": "minecraft:simple_state_provider",
+      "type": "minecraft:simple",
       "state": {
-        "Name": "outbreak:willow_leaves",
-        "Properties": {
+        "id": "outbreak:willow_leaves",
+        "properties": {
           "distance": "7",
           "persistent": "false",
           "waterlogged": "false"
@@ -54,24 +51,23 @@
     },
     "trunk_placer": {
       "type": "outbreak:leaning_willow_trunk_placer",
-      "base_height": 5,
+      "base_height": 8,
       "height_rand_a": 2,
       "height_rand_b": 0,
       "lean_length": {
         "type": "minecraft:uniform",
         "min_inclusive": 1,
-        "max_inclusive": 3
+        "max_inclusive": 4
       },
       "search_radius": 7
     },
     "trunk_provider": {
-      "type": "minecraft:simple_state_provider",
+      "type": "minecraft:simple",
       "state": {
-        "Name": "outbreak:willow_log",
-        "Properties": {
+        "id": "outbreak:willow_log",
+        "properties": {
           "axis": "y"
         }
       }
     }
-  }
 }

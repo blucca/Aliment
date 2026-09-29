@@ -1,6 +1,6 @@
 package com.github.kusa233.outbreak.mixin;
 
-import com.github.kusa233.outbreak.physiology.OutbreakInfection;
+import com.github.kusa233.outbreak.physiology.OutbreakIngestion;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.Item;
@@ -16,7 +16,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  *
  * Vanilla has no event for this and the item stack is gone by the time a server tick could notice,
  * so this is the one place a mixin is genuinely required. The handler only forwards to
- * {@link OutbreakInfection}, which keeps the injected code trivial.
+ * {@link OutbreakIngestion}, which keeps the injected code trivial.
  */
 @Mixin(Item.class)
 public abstract class ItemMixin {
@@ -28,7 +28,7 @@ public abstract class ItemMixin {
             final LivingEntity user,
             final CallbackInfoReturnable<ItemStack> cir) {
         if (user instanceof ServerPlayer player) {
-            OutbreakInfection.onItemConsumed(player, stack);
+            OutbreakIngestion.onItemConsumed(player, stack);
         }
     }
 }

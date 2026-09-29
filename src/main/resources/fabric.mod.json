@@ -3,7 +3,7 @@
   "id": "outbreak",
   "version": "${version}",
   "name": "Outbreak",
-  "description": "An AI mod.",
+  "description": "A mod about physiology, disease, drugs and contagion: infections and the immune response that fights them, fever and body temperature, water, electrolytes and iodine, and the willow bark soup and dexamethasone that treat it all.\n关于生理、疾病、药物与传染的模组：感染与免疫反应、发烧与体温、水量 / 电解质 / 碘，以及用来治疗它们的柳树皮汤与地塞米松。",
   "authors": [
     "Kusa233",
     "DeepSeek V4.1 Flash"

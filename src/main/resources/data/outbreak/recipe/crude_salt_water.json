@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "outbreak:crude_salt",
+    "minecraft:potion"
+  ],
+  "result": {
+    "count": 1,
+    "id": "outbreak:crude_salt_water"
+  }
+}

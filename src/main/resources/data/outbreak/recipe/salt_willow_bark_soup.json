@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "outbreak:salt_powder",
+    "outbreak:willow_bark_soup_bowl"
+  ],
+  "result": {
+    "count": 1,
+    "id": "outbreak:salt_willow_bark_soup"
+  }
+}

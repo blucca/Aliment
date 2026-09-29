@@ -1,7 +1,7 @@
 package com.github.kusa233.outbreak.client
 
 import com.github.kusa233.outbreak.physiology.OutbreakAttachments
-import com.github.kusa233.outbreak.physiology.OutbreakShakeState
+import com.github.kusa233.outbreak.physiology.OutbreakClientState
 import com.github.kusa233.outbreak.physiology.OutbreakSymptoms
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
 import kotlin.math.PI
@@ -33,11 +33,11 @@ object OutbreakClientShake {
     fun initialize() {
         ClientTickEvents.END_CLIENT_TICK.register { client ->
             val player = client.player ?: return@register
-            val state = player.getAttachedOrElse(OutbreakAttachments.SHAKE, OutbreakShakeState.INACTIVE)
+            val state = player.getAttachedOrElse(OutbreakAttachments.CLIENT, OutbreakClientState.INACTIVE)
 
-            if (state.sequence != this.lastSequence) {
-                this.lastSequence = state.sequence
-                this.amplitude = state.amplitude
+            if (state.shakeSequence != this.lastSequence) {
+                this.lastSequence = state.shakeSequence
+                this.amplitude = state.shakeAmplitude
                 this.ticksRemaining = OutbreakSymptoms.SHAKE_DURATION_TICKS
                 val random = player.level().random
                 this.yawPhase = random.nextFloat() * (2f * PI.toFloat())

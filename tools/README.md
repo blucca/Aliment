@@ -77,10 +77,20 @@ towards the water.
 
 ### `dev/OutbreakPhysiologySelfTest.kt` - physiology
 
-Runs the whole inflammation / electrolyte / pathogen / salicin model headlessly in a few
-milliseconds, then exercises the mixins end to end: it really eats raw meat through
-`ItemStack.finishUsingItem` and counts the infection rate, drinks soup to check the salicin dose,
-and checks the exhaustion multiplier, the mining penalty and the camera-shake counter. 28 checks.
+Runs the whole model headlessly in a few milliseconds: homeostasis, infection clearance,
+untreated immune storm, salicin and dexamethasone control, overdose, drug metabolism, the immune
+competence curve, the mediator weights, thirst over a game day, over-hydration, electrolyte
+dilution from heavy drinking, the iodine steady state, the temperature model (fever, hypothermia,
+the environment, the thyroid) and the fever command. Then it exercises the mixins and the symptom
+layer end to end: it really eats raw meat through `ItemStack.finishUsingItem` and counts the
+infection rate, drinks all twelve of the drinks to check the 15 water each, drinks salt water and
+sea water to check the minerals, checks that swamp water is foul and sea water is not, walks every
+mineral across both sides of its safe band, asserts the camera-shake chance is zero for every
+state the player cannot see, checks which screen effects each fever tier asks for, drives a real
+`GrindstoneMenu` to prove the two grindstone mixins applied, and checks the exhaustion multiplier,
+the mining penalty and the synced client state. It also enumerates every item and entity type the
+mod registers and fails, naming the key, if any of them has no name in `en_us.json` or `zh_cn.json`.
+201 checks.
 
 ### Running either one
 

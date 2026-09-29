@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "outbreak:crude_salt",
+    "outbreak:swamp_water_bottle"
+  ],
+  "result": {
+    "count": 1,
+    "id": "outbreak:crude_salt_swamp_water"
+  }
+}

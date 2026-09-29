@@ -4,6 +4,8 @@
   "package": "com.github.kusa233.outbreak.mixin",
   "compatibilityLevel": "JAVA_25",
   "mixins": [
+    "GrindstoneInputSlotMixin",
+    "GrindstoneMenuMixin",
     "ItemMixin",
     "PlayerMixin"
   ],

@@ -4,7 +4,8 @@
   "package": "com.github.kusa233.outbreak.mixin.client",
   "compatibilityLevel": "JAVA_25",
   "client": [
-    "CameraMixin"
+    "CameraMixin",
+    "HudMixin"
   ],
   "injectors": {
     "defaultRequire": 1

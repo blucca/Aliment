@@ -15,12 +15,13 @@ $bdir   = Join-Path $assets "textures\block"
 $idir   = Join-Path $assets "textures\item"
 $edir   = Join-Path $assets "textures\entity\boat"
 $cdir   = Join-Path $assets "textures\entity\chest_boat"
+$gdir   = Join-Path $assets "textures\gui\sprites\hud"  # thirst hud cells (gui atlas sprites)
 $work   = Join-Path $root ".scratch\genwork"           # scratch intermediates
 $van    = Join-Path $work "vanilla-ref"                # READ-ONLY reference art
 
 if (-not (Test-Path $magick)) { throw "ImageMagick not found at $magick" }
 
-New-Item -ItemType Directory -Force -Path $bdir, $idir, $edir, $cdir | Out-Null
+New-Item -ItemType Directory -Force -Path $bdir, $idir, $edir, $cdir, $gdir | Out-Null
 New-Item -ItemType Directory -Force -Path $work, $van | Out-Null
 
 # ---------------------------------------------------------------------
@@ -34,7 +35,8 @@ if ($clientJar.Count -eq 0) { throw "Could not find the Minecraft client jar und
 $clientJar = $clientJar[0].FullName
 
 $refNames = @('oak_sign.png', 'oak_hanging_sign.png', 'oak_boat.png', 'oak_chest_boat.png',
-              'mushroom_stew.png', 'dragon_breath.png')
+              'mushroom_stew.png', 'dragon_breath.png',
+              'stick.png')   # shading + palette reference for item/stirring_rod.png
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $zip = [System.IO.Compression.ZipFile]::OpenRead($clientJar)
 try {
@@ -1279,7 +1281,10 @@ Save-Png (Join-Path $idir 'willow_bark_pieces.png') $g 16 16
 #          .  clear        s  bowl wall / inner wall    b  bowl body
 #          o  outer shadow r  lit rim                   B/S/H  broth tones
 # ---------------------------------------------------------------------
-function New-SoupBowl([string]$colOut,[string]$brothBase,[string]$brothShad,[string]$brothLite,[bool]$raw){
+# Optional $grainCoords / $grainCol: a handful of salt grains scattered over
+# the finished surface, used by the salted variants of the willow bark soups.
+function New-SoupBowl([string]$colOut,[string]$brothBase,[string]$brothShad,[string]$brothLite,[bool]$raw,
+                      [array]$grainCoords = $null,[string]$grainCol = ''){
     if($raw){
         # vanilla broth placement: the lit band sits across the middle row
         $rows = @(
@@ -1361,6 +1366,10 @@ function New-SoupBowl([string]$colOut,[string]$brothBase,[string]$brothShad,[str
             $g[$bb[0],($bb[1]+1)] = $brothShad
         }
     }
+    # the salt grains go on last so they always sit on the surface
+    if($null -ne $grainCoords){
+        foreach($sgp in $grainCoords){ GridPx $g $sgp[0] $sgp[1] $grainCol }
+    }
     Save-Png $colOut $g 16 16
 }
 New-SoupBowl (Join-Path $idir 'raw_willow_bark_soup_bowl.png') $cBrothRB $cBrothRS $cBrothRH $true
@@ -1375,7 +1384,14 @@ New-SoupBowl (Join-Path $idir 'willow_bark_soup_bowl.png')     $cBrothCB $cBroth
 #          O  glass line  C  cork light        K  cork dark
 #          B/S/L  liquid base / shadow / surface highlight
 # ---------------------------------------------------------------------
-function New-SoupBottle([string]$colOut,[string]$brothBase,[string]$brothShad,[string]$brothLite,[bool]$raw){
+# Optional $speckCol overrides the suspended-fleck colour of the cloudy (raw)
+# variant, so the same bottle can hold murky brine instead of murky broth.
+# Optional $grainCoords / $grainCol: a handful of salt grains scattered over
+# the finished liquid surface, used by the salted water bottles. The whole
+# silhouette is identical for every water type; only the three liquid tones,
+# the speck colour and the grains differ.
+function New-SoupBottle([string]$colOut,[string]$brothBase,[string]$brothShad,[string]$brothLite,[bool]$raw,
+                        [string]$speckCol = '',[array]$grainCoords = $null,[string]$grainCol = ''){
     $rows = @(
         '................',
         '................',
@@ -1411,6 +1427,7 @@ function New-SoupBottle([string]$colOut,[string]$brothBase,[string]$brothShad,[s
             elseif($bCh -ceq 'L'){ $g[$bx,$by] = $brothLite }
         }
     }
+    if($speckCol -eq ''){ $speckCol = $cFleckA }
     if($raw){
         # cloudy broth: a deterministic cloud pass over the base tone
         for($by=7;$by -le 13;$by++){
@@ -1422,8 +1439,12 @@ function New-SoupBottle([string]$colOut,[string]$brothBase,[string]$brothShad,[s
             }
         }
         # a couple of dark specks still suspended in the broth
-        $g[7,10]  = $cFleckA
-        $g[11,12] = $cFleckA
+        $g[7,10]  = $speckCol
+        $g[11,12] = $speckCol
+    }
+    # the salt grains go on last so they always sit on the surface
+    if($null -ne $grainCoords){
+        foreach($bgp in $grainCoords){ GridPx $g $bgp[0] $bgp[1] $grainCol }
     }
     Save-Png $colOut $g 16 16
 }
@@ -1493,6 +1514,494 @@ function New-SoupTop([string]$colOut,[string]$baseCol,[string]$darkCol,[string]$
 New-SoupTop (Join-Path $bdir 'willow_soup_raw.png')    $cSoupRM $cSoupRD $cSoupRL $cSoupRL $cSoupRD $false
 New-SoupTop (Join-Path $bdir 'willow_soup_cooked.png') $cTopCkBase $cTopCkPool $cTopCkHi $cTopCkHi $cTopCkPool $true
 
+# =====================================================================
+#  SALT / BRINE / THIRST SET
+#  Same recipe as the willow set above: a palette block, ASCII role maps for
+#  the shaped sprites, deterministic Noise() passes for the granular and the
+#  liquid surfaces, and Save-Png so every pixel lands on the integer grid
+#  with no resampling (hard pixels, no anti-aliasing).
+# =====================================================================
+
+# --- palette ---------------------------------------------------------
+# rock salt: item lump + block crystals
+$cSaltRkH ='#F2E2E0'; $cSaltRkM ='#E4C9C6'; $cSaltRkD ='#D3AFAB'; $cSaltRkS ='#BE9A96'
+$cSaltOl  ='#5E5E5E'
+$cStnL    ='#A8A8A8'; $cStnM    ='#8A8A8A'; $cStnD    ='#6E6E6E'
+# salt grades: coarse grains, ground crude powder, refined powder
+$cGrainL  ='#EDE7DC'; $cGrainM  ='#DCD3C4'; $cGrainD  ='#C4B9A6'; $cGrainSp ='#9C907C'
+$cPwdrL   ='#E8E0D2'; $cPwdrM   ='#D6CCB9'; $cPwdrD   ='#BDB098'
+$cRefL    ='#FFFFFF'; $cRefM    ='#EFEFEF'; $cRefD    ='#D8D8D8'; $cRefSh   ='#B4B4B4'
+# wooden stirring rod: the vanilla stick.png browns (lit upper-left, shaded
+# lower-right), reused by A5 below instead of the old lab-glass blues.
+$cRodHi   ='#C39A63'; $cRodMid  ='#A0784A'; $cRodLo   ='#6B4F2A'
+$cRodRim  ='#4A3418'; $cRodKnob ='#6B4F2A'
+# lab glassware
+$cSyGlassH='#FFFFFF'; $cSyGlassM='#E8F2F6'; $cSyGlassD='#A8BDC7'
+$cSyLiqH  ='#D9E8A8'; $cSyLiqD  ='#BCD07E'
+$cSyPlH   ='#5A5A5A'; $cSyPlD   ='#3E3E3E'
+$cSyNdH   ='#C0C6CC'; $cSyNdD   ='#8E959B'
+# brine: cloudy / dirty versus clear / bright
+$cBr1B    ='#C9CDBE'; $cBr1D    ='#B0B5A4'; $cBr1L    ='#DDE0D4'; $cBr1Sp   ='#8E937F'
+$cBr2B    ='#DDE8EA'; $cBr2D    ='#C2D2D6'; $cBr2L    ='#F2F7F8'
+# swamp / sea water: stagnant olive-brown versus clean deep sea blue
+$cSwB     ='#5E6B3A'; $cSwD     ='#4A5530'; $cSwL     ='#78854C'; $cSwSp    ='#3A4226'
+$cSeaB    ='#2E6C9E'; $cSeaD    ='#23547C'; $cSeaL    ='#4E90C4'
+# mushroom stew broth (the bowl wood reuses the vanilla-derived bowl palette)
+$cStewB   ='#96613A'; $cStewD   ='#7A4C2B'; $cStewL   ='#B07A4A'
+# salt grains scattered over a finished dish
+$cSltGr   ='#EDE7DC'; $cSltGrW  ='#FFFFFF'
+# rock salt ore block
+$cOreStnB ='#7E7E7E'; $cOreStnD ='#6A6A6A'; $cOreStnL ='#939393'
+$cOreCrH  ='#F4E6E4'; $cOreCrM  ='#E0C6C3'; $cOreCrD  ='#C9A9A5'; $cOreCrW  ='#FFFFFF'
+# cauldron brine surfaces: crude, concentrated, dense
+$cBrT1B   ='#B9BFAE'; $cBrT1D   ='#A2A896'; $cBrT1L   ='#CDD2C2'
+$cBrT2B   ='#A8B097'; $cBrT2D   ='#8F977E'; $cBrT2L   ='#C0C7AE'; $cBrT2P   ='#767D66'
+$cBrT3B   ='#D8DCC8'; $cBrT3D   ='#BFC4AB'; $cBrT3L   ='#EDEFE0'; $cBrT3C   ='#F7F7F0'
+$cBrT3P   ='#A9AE95'
+# thirst hud cell
+$cGuiOl   ='#1E1E1E'; $cGuiIn   ='#3A3A3A'; $cGuiSh   ='#2C2C2C'
+$cGuiWat  ='#3E7BD6'; $cGuiWatH ='#7FB2F0'; $cGuiWatD ='#2A5AA8'
+
+# ---------------------------------------------------------------------
+# NOTE: there is deliberately no item/rock_salt_ore.png. The ore is a block
+# item, so its item model parents the block model and shows the block sprite
+# (block/rock_salt_ore.png, generated below) instead of a separate icon.
+# ---------------------------------------------------------------------
+
+# ---------------------------------------------------------------------
+# A2/A3/A4. the three salt grades
+#     One heap silhouette, drawn as a smooth mound: half-width grows like a
+#     square root from the top row down to the ground row, so the profile is
+#     a proper pile rather than a triangle.
+#       $coarse   true  -> irregular grain-by-grain tone scatter + strays
+#                 false -> smooth lit-to-shaded gradient (powder)
+#       $heapRim  the right edge / ground shadow tone
+# ---------------------------------------------------------------------
+function New-SaltHeap([string]$colOut,[string]$heapL,[string]$heapM,[string]$heapD,[string]$heapRim,
+                      [string]$speckCol,[int]$seed,[bool]$coarse,[int]$strayCount,[int]$speckCount){
+    $g = New-Grid 16 16
+    for($y=6;$y -le 14;$y++){
+        $hw = 6.05 * [Math]::Sqrt(([double]($y - 5)) / 10.0)
+        $jv = (Noise 1 $y $seed) - 0.5
+        $jit = $jv * 0.5
+        if($coarse){ $jit = $jv * 1.0 }
+        $x0 = [int][Math]::Round(7.5 - $hw - $jit)
+        $x1 = [int][Math]::Round(7.5 + $hw + $jit)
+        if($x0 -lt 1){ $x0 = 1 }
+        if($x1 -gt 14){ $x1 = 14 }
+        if($x1 -lt $x0){ $x1 = $x0 }
+        $hRow = ([double]($y - 6)) / 8.0
+        for($x=$x0;$x -le $x1;$x++){
+            $col = $heapM
+            $hn = Noise ($x*5) ($y*3) ($seed + 7)
+            if($coarse){
+                if($hn -gt 0.44){ $col = $heapL }
+                elseif($hn -lt 0.20){ $col = $heapD }
+                else { $col = $heapM }
+                # global lighting layered over the grain scatter
+                if(($hRow -lt 0.25) -and ($hn -gt 0.22)){ $col = $heapL }
+                if(($hRow -gt 0.80) -and ($hn -lt 0.74)){ $col = $heapD }
+            } else {
+                if($hRow -lt 0.34){ $col = $heapL }
+                elseif($hRow -lt 0.72){ $col = $heapM }
+                else { $col = $heapD }
+            }
+            if($x -eq $x1){ $col = $heapRim }
+            if($coarse -and $x -eq $x0){ $col = $heapD }
+            if($y -eq 14){
+                # the ground shadow of a granular heap is grainy, not a plinth
+                $col = $heapRim
+                if($coarse){
+                    $gb = Noise ($x*3) 14 ($seed + 11)
+                    if($gb -gt 0.62){ $col = $heapM }
+                    elseif($gb -lt 0.20){ $col = $heapL }
+                }
+            }
+            $g[$x,$y] = $col
+        }
+    }
+    # a few grains thrown clear of the pile (coarse salt only)
+    $strays = @(@(11,4),@(4,4),@(13,7),@(2,8),@(9,3))
+    for($i=0;$i -lt $strayCount;$i++){
+        $sp = $strays[$i]
+        $g[$sp[0],$sp[1]] = $heapL
+        if((Noise $sp[0] $sp[1] ($seed + 3)) -gt 0.5){ $g[$sp[0],$sp[1]] = $heapM }
+    }
+    # undissolved specks left in the heap
+    $specks = @(@(6,10),@(9,12),@(5,12),@(10,9))
+    for($i=0;$i -lt $speckCount;$i++){
+        $sp = $specks[$i]
+        $g[$sp[0],$sp[1]] = $speckCol
+    }
+    Save-Png $colOut $g 16 16
+}
+
+# ---------------------------------------------------------------------
+# A5. item/stirring_rod.png
+#     A thin wooden stirrer running lower-left to upper-right, with a rounded
+#     knob at either end. Distance-to-segment shading: the upper-left side of
+#     the rod is the lit face, the lower-right side the shaded one, exactly as
+#     vanilla stick.png is shaded. The palette is stick.png's brown family, so
+#     the sprite reads as a plain whittled stick rather than a glass rod, and
+#     the end knobs sit a shade darker than the shaft.
+# ---------------------------------------------------------------------
+function New-StirringRod([string]$colOut){
+    $g = New-Grid 16 16
+    $ax = 3.0; $ay = 12.6; $bx = 11.4; $by = 3.2
+    $dx = $bx - $ax; $dy = $by - $ay
+    $len = [Math]::Sqrt(($dx*$dx) + ($dy*$dy))
+    $ux = $dx / $len; $uy = $dy / $len
+    $px = -1.0 * $uy; $py = $ux
+    for($y=0;$y -lt 16;$y++){
+        for($x=0;$x -lt 16;$x++){
+            $rx = ([double]$x) - $ax; $ry = ([double]$y) - $ay
+            $rt = (($rx*$ux) + ($ry*$uy)) / $len
+            $rs = ($rx*$px) + ($ry*$py)
+            if($rt -lt -0.02 -or $rt -gt 1.02){ continue }
+            if([Math]::Abs($rs) -gt 0.95){ continue }
+            $rc = $cRodMid
+            if($rs -lt -0.35){ $rc = $cRodHi }        # lit upper-left edge
+            elseif($rs -gt 0.30){ $rc = $cRodRim }    # dark lower-right edge
+            elseif(($y % 2) -eq 1){ $rc = $cRodLo }   # grain, as stick.png alternates
+            $g[$x,$y] = $rc
+        }
+    }
+    # Rounded knobs at both ends: darker wood than the shaft and only faintly
+    # lit, so they read as whittled ends rather than glass bulbs. The lit/dark
+    # split uses the same cross-axis as the shaft, so both ends match.
+    foreach($kn in @(@($ax,$ay),@($bx,$by))){
+        for($y=0;$y -lt 16;$y++){
+            for($x=0;$x -lt 16;$x++){
+                $kdx = ([double]$x) - ([double]$kn[0])
+                $kdy = ([double]$y) - ([double]$kn[1])
+                if((($kdx*$kdx) + ($kdy*$kdy)) -gt 2.9){ continue }
+                $ks = ($kdx*$px) + ($kdy*$py)
+                $g[$x,$y] = $cRodKnob
+                if($ks -lt -0.55){ $g[$x,$y] = $cRodMid }
+                if($ks -gt 0.90){ $g[$x,$y] = $cRodRim }
+            }
+        }
+    }
+    Save-Png $colOut $g 16 16
+}
+
+# ---------------------------------------------------------------------
+# A6. item/dexamethasone_injection.png
+#     A syringe lying diagonally, needle at the lower left, plunger at the
+#     upper right. Everything is placed by distance along the axis ($st) and
+#     signed distance across it ($ss), so the parts line up exactly:
+#       st 0.00-0.26 needle | 0.26-0.78 barrel | 0.78-0.83 grip | 0.83-1 plunger
+# ---------------------------------------------------------------------
+function New-Syringe([string]$colOut){
+    $g = New-Grid 16 16
+    $ax = 3.0; $ay = 13.0; $bx = 12.2; $by = 3.0
+    $dx = $bx - $ax; $dy = $by - $ay
+    $len = [Math]::Sqrt(($dx*$dx) + ($dy*$dy))
+    $ux = $dx / $len; $uy = $dy / $len
+    $px = -1.0 * $uy; $py = $ux
+    # the needle is walked pixel by pixel so the 1px line stays connected
+    # (a distance test alone leaves a dotted diagonal at 16x16)
+    for($si=0;$si -le 48;$si++){
+        $wt = 0.26 * $si / 48.0
+        $wx = [int][Math]::Round($ax + ($ux * $wt * $len))
+        $wy = [int][Math]::Round($ay + ($uy * $wt * $len))
+        if($wx -lt 0 -or $wy -lt 0 -or $wx -gt 15 -or $wy -gt 15){ continue }
+        $g[$wx,$wy] = $cSyNdD
+        if($si % 4 -eq 0){ $g[$wx,$wy] = $cSyNdH }
+    }
+    for($y=0;$y -lt 16;$y++){
+        for($x=0;$x -lt 16;$x++){
+            $rx = ([double]$x) - $ax; $ry = ([double]$y) - $ay
+            $st = (($rx*$ux) + ($ry*$uy)) / $len
+            $ss = ($rx*$px) + ($ry*$py)
+            if($st -le 0.26 -or $st -gt 1.03){ continue }
+            $col = ''
+            if($st -le 0.78){
+                # clear barrel with a pale yellow-green dose inside it
+                if([Math]::Abs($ss) -gt 1.70){ continue }
+                if([Math]::Abs($ss) -gt 1.15){ $col = $cSyGlassD }
+                else {
+                    $col = $cSyGlassM
+                    if($ss -lt -0.72){ $col = $cSyGlassH }
+                }
+                if(($st -gt 0.31) -and ($st -lt 0.74) -and ([Math]::Abs($ss) -le 1.00)){
+                    $col = $cSyLiqH
+                    if([Math]::Abs($ss) -gt 0.58){ $col = $cSyLiqD }
+                    if($st -gt 0.68){ $col = $cSyLiqD }
+                }
+            }
+            elseif($st -le 0.83){
+                # finger grip: a wider glass flange at the top of the barrel
+                if([Math]::Abs($ss) -gt 1.95){ continue }
+                $col = $cSyGlassM
+                if([Math]::Abs($ss) -gt 1.30){ $col = $cSyGlassD }
+            }
+            else {
+                # dark grey plunger head, wider than the barrel bore
+                if([Math]::Abs($ss) -gt 1.85){ continue }
+                $col = $cSyPlH
+                if([Math]::Abs($ss) -gt 1.15){ $col = $cSyPlD }
+                if(($st -gt 0.95) -and ([Math]::Abs($ss) -gt 0.95)){ $col = $cSyPlD }
+            }
+            if($col -ne ''){ $g[$x,$y] = $col }
+        }
+    }
+    Save-Png $colOut $g 16 16
+}
+
+# ---------------------------------------------------------------------
+# A7/A8. the two brine bottles reuse the willow soup bottle silhouette (see
+#        New-SoupBottle) with brine tones in place of broth, so the crude and
+#        the clean bottle line up pixel for pixel.
+#
+# B16/B17/B18. cauldron brine surfaces, seen from above and fully opaque.
+#        Same swirl language as New-SoupTop above (four crossed sine waves
+#        plus a wide dome), so the brine pot matches the soup pot; only the
+#        specks and the dry crust are brine-specific.
+# ---------------------------------------------------------------------
+function New-BrineTop([string]$colOut,[string]$baseCol,[string]$darkCol,[string]$lightCol,[string]$deepCol,
+                      [string]$crustCol,[string]$speckCol,[int]$seed,[bool]$dense,[int]$speckCount){
+    $g = New-Grid 16 16
+    for($y=0;$y -lt 16;$y++){
+        for($x=0;$x -lt 16;$x++){
+            $mv = 0.0
+            $mv = $mv + (1.00 * [Math]::Sin(($x * 0.42) + ($y * 0.30)))
+            $mv = $mv + (0.85 * [Math]::Sin(($x * 0.28) - ($y * 0.47) + 1.7))
+            $mv = $mv + (0.60 * [Math]::Sin(($x * 0.72) + ($y * 0.66) + 0.4))
+            $mv = $mv + (0.50 * [Math]::Sin(($x * 0.95) - ($y * 0.31) + 2.6))
+            $mv = $mv + (0.80 * [Math]::Exp(-(([Math]::Pow([double]$x - 5.5,2)) + ([Math]::Pow([double]$y - 6.0,2))) / 46.0))
+            $mv = $mv + (0.35 * (Noise $x $y $seed))
+            $col = $baseCol
+            # five tones: the swirls only read if the crests and the troughs
+            # are separated further than the three base tones alone allow
+            if($mv -gt 1.20){ $col = $lightCol }
+            if($mv -gt 2.10){ $col = Get-MixHex $lightCol '#FFFFFF' 0.40 }
+            if($mv -lt -1.20){ $col = $darkCol }
+            if($mv -lt -2.00){ $col = $deepCol }
+            $g[$x,$y] = $col
+        }
+    }
+    # undissolved salt: mostly single grains, a couple of short clusters,
+    # each with a darker underside so it sits in the liquid
+    $runs = @(@(2,4,1,0),@(11,6,2,1),@(5,11,1,0),@(9,3,1,0),@(13,9,2,1),
+              @(6,3,1,0),@(1,9,2,1),@(12,13,1,0),@(4,7,1,1),@(8,1,2,0))
+    for($i=0;$i -lt $speckCount;$i++){
+        $r = $runs[$i]
+        for($k=0;$k -lt $r[2];$k++){
+            $xx = $r[0] + $k; $yy = $r[1]
+            if($r[3] -eq 1){ $yy = $r[1] + $k }
+            if($xx -gt 15 -or $yy -gt 15){ continue }
+            $g[$xx,$yy] = $speckCol
+            if(($yy + 1) -le 15){ $g[$xx,($yy + 1)] = Get-MixHex $speckCol $darkCol 0.55 }
+        }
+    }
+    if($dense){
+        # salt crust creeping in from the rim: the pool is nearly dry.
+        # The crust is F7F7F0, which is too close to the pale brine to read on
+        # its own, so it is 1-3px thick in places and gets a dark seam where it
+        # meets the open brine.
+        $crust = New-Object 'bool[,]' 16,16
+        for($y=0;$y -lt 16;$y++){
+            for($x=0;$x -lt 16;$x++){
+                $ce = [Math]::Min([Math]::Min($x, 15 - $x), [Math]::Min($y, 15 - $y))
+                if($ce -gt 2){ continue }
+                $cn = Noise ($x*3) ($y*5) ($seed + 31)
+                $cis = $false
+                if($ce -eq 0){ $cis = ($cn -lt 0.82) }
+                elseif(($ce -eq 1) -and ($cn -gt 0.28)){ $cis = $true }
+                elseif(($ce -eq 2) -and ($cn -gt 0.74)){ $cis = $true }
+                if($cis){
+                    $g[$x,$y] = $crustCol
+                    $crust[$x,$y] = $true
+                    if($cn -gt 0.93){ $g[$x,$y] = $cRefL }
+                }
+            }
+        }
+        for($y=0;$y -lt 16;$y++){
+            for($x=0;$x -lt 16;$x++){
+                if($crust[$x,$y]){ continue }
+                $ctouch = $false
+                foreach($cv in @(@(1,0),@(-1,0),@(0,1),@(0,-1))){
+                    $cxx = $x + $cv[0]; $cyy = $y + $cv[1]
+                    if($cxx -lt 0 -or $cyy -lt 0 -or $cxx -gt 15 -or $cyy -gt 15){ continue }
+                    if($crust[$cxx,$cyy]){ $ctouch = $true; break }
+                }
+                if($ctouch){ $g[$x,$y] = $deepCol }
+            }
+        }
+    }
+    Save-Png $colOut $g 16 16
+}
+
+# ---------------------------------------------------------------------
+# B15. block/rock_salt_ore.png  (fully opaque)
+#      Vanilla-stone-like speckle with a few 2x2 clumps, then five embedded
+#      pale pink salt crystal clusters:
+#        H  crystal pale   P  crystal mid   q  crystal deep   W  sparkle
+# ---------------------------------------------------------------------
+function New-RockSaltOreBlock([string]$colOut){
+    $g = New-Grid 16 16
+    for($y=0;$y -lt 16;$y++){
+        for($x=0;$x -lt 16;$x++){
+            # clumpy base: a 5-tap blur of the value hash gives irregular
+            # blobs, which is how vanilla stone reads at 16x16 (per-pixel
+            # noise alone is flat static, 2x2 blocks look like a quilt)
+            $sm = 4.0 * (Noise $x $y 811)
+            $sm = $sm + (Noise ($x - 1) $y 811) + (Noise ($x + 1) $y 811)
+            $sm = $sm + (Noise $x ($y - 1) 811) + (Noise $x ($y + 1) 811)
+            $sm = $sm / 8.0
+            $col = $cOreStnB
+            if($sm -gt 0.660){ $col = $cOreStnL }
+            elseif($sm -lt 0.400){ $col = $cOreStnD }
+            $jn = Noise ($x*7) ($y*5) 823
+            if($jn -gt 0.92){ $col = $cOreStnL }
+            elseif($jn -lt 0.08){ $col = $cOreStnD }
+            $g[$x,$y] = $col
+        }
+    }
+    # a few larger dark and light chips so the stone is not uniform
+    foreach($cl in @(@(4,1,$cOreStnD),@(10,6,$cOreStnD),@(1,12,$cOreStnL),
+                     @(13,12,$cOreStnD),@(6,9,$cOreStnL))){
+        GridPx $g $cl[0] $cl[1] $cl[2]
+        GridPx $g ($cl[0]+1) $cl[1] $cl[2]
+        GridPx $g $cl[0] ($cl[1]+1) $cl[2]
+    }
+    $crustA = @('.HP.','HPWP','.qPq')
+    $crustB = @('HPq','qP.')
+    $clusters = @(@(1,3,'A'),@(10,2,'B'),@(11,8,'A'),@(2,10,'A'),@(7,12,'B'))
+    foreach($cl in $clusters){
+        $pat = $crustB
+        if($cl[2] -eq 'A'){ $pat = $crustA }
+        for($py=0;$py -lt $pat.Count;$py++){
+            $pline = $pat[$py]
+            for($px=0;$px -lt $pline.Length;$px++){
+                $pch = $pline.Substring($px,1)
+                $pc = ''
+                if($pch -ceq 'H'){ $pc = $cOreCrH }
+                elseif($pch -ceq 'P'){ $pc = $cOreCrM }
+                elseif($pch -ceq 'q'){ $pc = $cOreCrD }
+                elseif($pch -ceq 'W'){ $pc = $cOreCrW }
+                if($pc -ne ''){ GridPx $g ($cl[0] + $px) ($cl[1] + $py) $pc }
+            }
+        }
+        # a dark chip under the cluster so the crystal reads as embedded
+        GridPx $g ($cl[0] + 1) ($cl[1] + $pat.Count) $cOreStnD
+    }
+    Save-Png $colOut $g 16 16
+}
+
+# ---------------------------------------------------------------------
+# C19/C20/C21. the nine-by-nine thirst hud cells
+#      One droplet silhouette shared by all three sprites, so they can be
+#      swapped in place: '#' is the dark outline, '+' is interior and '.' is
+#      background, which must be left fully transparent.
+#      The droplet is deliberately slim - only five pixels wide at its widest -
+#      so a row of ten cells does not crowd out the hunger bar beside it.
+# ---------------------------------------------------------------------
+function New-ThirstCell([string]$colOut,[string]$cellMode){
+    $rows = @(
+        '....#....',
+        '....#....',
+        '....#....',
+        '...#+#...',
+        '...#+#...',
+        '..#+++#..',
+        '..#+++#..',
+        '..#+++#..',
+        '..#####..'
+    )
+    foreach($row in $rows){ if($row.Length -ne 9){ throw "thirst cell row is not 9px: [$row]" } }
+    $g = New-Grid 9 9
+    for($y=0;$y -lt 9;$y++){
+        $line = $rows[$y]
+        for($x=0;$x -lt 9;$x++){
+            $ch = $line.Substring($x,1)
+            # Background: skip entirely so New-Grid's transparent fill survives.
+            # (Writing an interior colour here is what made the whole cell opaque.)
+            if($ch -ceq '.'){ continue }
+            if($ch -ceq '#'){
+                $g[$x,$y] = $cGuiOl
+                continue
+            }
+            # Interior. 'full' is all water, 'half' fills the left of the droplet.
+            $isWater = $false
+            if($cellMode -eq 'full'){ $isWater = $true }
+            elseif($cellMode -eq 'half'){ $isWater = ($x -le 4) }
+            if($isWater){
+                $col = $cGuiWat
+                if($y -ge 6){ $col = $cGuiWatD }
+                if(($x -le 3) -and ($y -le 5)){ $col = $cGuiWatH }
+            } else {
+                $col = $cGuiIn
+                if($y -ge 6){ $col = $cGuiSh }
+            }
+            $g[$x,$y] = $col
+        }
+    }
+    Save-Png $colOut $g 9 9
+}
+
+# --- the twenty new sprites ------------------------------------------
+# New-SaltHeap: out, light, mid, dark, rim/shadow, speck, seed, coarse, strays, specks
+New-SaltHeap (Join-Path $idir 'crude_salt.png')        $cGrainL $cGrainM $cGrainD $cGrainD $cGrainSp 701 $true  3 3
+New-SaltHeap (Join-Path $idir 'crude_salt_powder.png') $cPwdrL  $cPwdrM  $cPwdrD  $cPwdrD  $cGrainSp 719 $false 0 2
+New-SaltHeap (Join-Path $idir 'salt_powder.png')       $cRefL   $cRefM   $cRefD   $cRefSh  $cRefSh  733 $false 0 0
+
+New-StirringRod   (Join-Path $idir 'stirring_rod.png')
+New-Syringe       (Join-Path $idir 'dexamethasone_injection.png')
+
+# brine bottles: same silhouette as raw_willow_bark_soup_bottle.png, cloudy
+# grey brine for the crude one, clean bright brine for the refined one
+New-SoupBottle (Join-Path $idir 'crude_salt_water.png') $cBr1B $cBr1D $cBr1L $true  $cBr1Sp
+New-SoupBottle (Join-Path $idir 'salt_water.png')       $cBr2B $cBr2D $cBr2L $false
+
+# ---------------------------------------------------------------------
+# A9/A10 + C22..C25. swamp and sea water bottles  (16x16 item sprites)
+#        The very same squat water-bottle silhouette as crude_salt_water.png
+#        / salt_water.png above; only the liquid inside changes. The swamp
+#        pair keeps the cloudy pass and the two suspended dark specks (it is
+#        stagnant, dirty water), the sea pair is left clean and speck-free.
+#        The salted variants then lay hard-coded salt grains over the liquid
+#        surface: pale beige for the crude grade, bright white for the
+#        refined one, exactly like the salted soups higher up. The grain
+#        coordinates are literals, so every run reproduces them exactly.
+# ---------------------------------------------------------------------
+# Grain coordinates are literals so every run reproduces them exactly. They all
+# sit on liquid pixels of the bottle interior (x >= 8), never on the glass and
+# never on the two suspended specks at (7,10) / (11,12): the white refined
+# grains would otherwise fuse with the white glass highlight on the left rim.
+$grainsCrudeB = @(@(8,8),@(10,8),@(9,9),@(11,9))
+$grainsSaltB  = @(@(8,8),@(10,8),@(9,9),@(11,9),@(8,10),@(11,11))
+
+New-SoupBottle (Join-Path $idir 'swamp_water_bottle.png') $cSwB  $cSwD  $cSwL  $true  $cSwSp
+New-SoupBottle (Join-Path $idir 'sea_water_bottle.png')   $cSeaB $cSeaD $cSeaL $false
+
+New-SoupBottle (Join-Path $idir 'crude_salt_swamp_water.png') $cSwB  $cSwD  $cSwL  $true  $cSwSp -grainCoords $grainsCrudeB -grainCol $cSltGr
+New-SoupBottle (Join-Path $idir 'salt_swamp_water.png')       $cSwB  $cSwD  $cSwL  $true  $cSwSp -grainCoords $grainsSaltB  -grainCol $cSltGrW
+New-SoupBottle (Join-Path $idir 'crude_salt_sea_water.png')   $cSeaB $cSeaD $cSeaL $false         -grainCoords $grainsCrudeB -grainCol $cSltGr
+New-SoupBottle (Join-Path $idir 'salt_sea_water.png')         $cSeaB $cSeaD $cSeaL $false         -grainCoords $grainsSaltB  -grainCol $cSltGrW
+
+# salted soups: the existing bowls, with salt grains scattered on the surface
+$grainsCrude = @(@(4,7),@(7,6),@(8,7),@(11,7))
+$grainsSalt  = @(@(4,7),@(5,6),@(7,6),@(8,7),@(9,6),@(10,7),@(11,7),@(6,8))
+New-SoupBowl (Join-Path $idir 'crude_salt_mushroom_stew.png') $cStewB $cStewD $cStewL $false $grainsCrude $cSltGr
+New-SoupBowl (Join-Path $idir 'salt_mushroom_stew.png')       $cStewB $cStewD $cStewL $false $grainsSalt  $cSltGrW
+New-SoupBowl (Join-Path $idir 'crude_salt_willow_bark_soup.png')     $cBrothCB $cBrothCS $cBrothCH $false $grainsCrude $cSltGr
+New-SoupBowl (Join-Path $idir 'salt_willow_bark_soup.png')           $cBrothCB $cBrothCS $cBrothCH $false $grainsSalt  $cSltGrW
+New-SoupBowl (Join-Path $idir 'crude_salt_raw_willow_bark_soup.png') $cBrothRB $cBrothRS $cBrothRH $true  $grainsCrude $cSltGr
+New-SoupBowl (Join-Path $idir 'salt_raw_willow_bark_soup.png')       $cBrothRB $cBrothRS $cBrothRH $true  $grainsSalt  $cSltGrW
+
+New-RockSaltOreBlock (Join-Path $bdir 'rock_salt_ore.png')
+
+# New-BrineTop: out, base, dark, light, deep trough, crust, speck, seed, dense, specks
+New-BrineTop (Join-Path $bdir 'brine_crude.png')        $cBrT1B $cBrT1D $cBrT1L $cBr1Sp $cBrT1L $cGrainL 837 $false 4
+New-BrineTop (Join-Path $bdir 'brine_concentrated.png') $cBrT2B $cBrT2D $cBrT2L $cBrT2P $cBrT2L $cGrainL 853 $false 8
+New-BrineTop (Join-Path $bdir 'brine_dense.png')        $cBrT3B $cBrT3D $cBrT3L $cBrT3P $cBrT3C $cGrainL 877 $true  6
+
+New-ThirstCell (Join-Path $gdir 'thirst_empty.png') 'empty'
+New-ThirstCell (Join-Path $gdir 'thirst_half.png')  'half'
+New-ThirstCell (Join-Path $gdir 'thirst_full.png')  'full'
+
 # ---------------------------------------------------------------------
 # Normalise every output: force RGBA8 and strip all metadata, so that
 # re-running the script produces byte-identical files.
@@ -1502,6 +2011,7 @@ $outputs += Get-ChildItem $bdir -Filter '*.png' -File
 $outputs += Get-ChildItem $idir -Filter '*.png' -File
 $outputs += Get-ChildItem $edir -Filter '*.png' -File
 $outputs += Get-ChildItem $cdir -Filter '*.png' -File
+$outputs += Get-ChildItem $gdir -Filter '*.png' -File
 $outputs += Get-Item (Join-Path $assets 'icon.png')
 $normPath = Join-Path $work 'norm.png'
 foreach($f in $outputs){

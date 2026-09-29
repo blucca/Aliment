@@ -1,5 +1,6 @@
-package com.github.kusa233.outbreak.registry
+﻿package com.github.kusa233.outbreak.registry
 
+import com.github.kusa233.outbreak.world.block.BrineCauldronBlock
 import com.github.kusa233.outbreak.world.block.WillowSoupCauldronBlock
 import com.github.kusa233.outbreak.world.block.WillowVinesBlock
 import com.github.kusa233.outbreak.world.block.WillowVinesPlantBlock
@@ -102,9 +103,9 @@ object OutbreakBlocks {
             .sound(SoundType.GRASS)
             .noOcclusion()
             .isSuffocating { _, _, _ -> false }
-            .isViewBlocking { _, _, _ -> false }
+            .isViewBlocking { _, _, _, _ -> false }
             .ignitedByLava()
-            .pushReaction(PushReaction.DESTROY)
+            .pushReaction(PushReaction.POPPED)
             .isRedstoneConductor { _, _, _ -> false },
     ) { TintedParticleLeavesBlock(0.01F, it) }
 
@@ -116,7 +117,7 @@ object OutbreakBlocks {
             .randomTicks()
             .instabreak()
             .sound(SoundType.GRASS)
-            .pushReaction(PushReaction.DESTROY),
+            .pushReaction(PushReaction.POPPED),
     ) { SaplingBlock(OutbreakTreeGrowers.WILLOW, it) }
 
     // ---------------------------------------------------------------- willow vines (drooping strands)
@@ -129,7 +130,7 @@ object OutbreakBlocks {
             .randomTicks()
             .instabreak()
             .sound(SoundType.GRASS)
-            .pushReaction(PushReaction.DESTROY),
+            .pushReaction(PushReaction.POPPED),
     ) { WillowVinesBlock(it) }
 
     val WILLOW_VINES_PLANT: Block = Registration.registerBlock(
@@ -139,12 +140,12 @@ object OutbreakBlocks {
             .noCollision()
             .instabreak()
             .sound(SoundType.GRASS)
-            .pushReaction(PushReaction.DESTROY),
+            .pushReaction(PushReaction.POPPED),
     ) { WillowVinesPlantBlock(it) }
 
     val POTTED_WILLOW_SAPLING: Block = Registration.registerBlock(
         "potted_willow_sapling",
-        BlockBehaviour.Properties.of().instabreak().noOcclusion().pushReaction(PushReaction.DESTROY),
+        BlockBehaviour.Properties.of().instabreak().noOcclusion().pushReaction(PushReaction.POPPED),
     ) { FlowerPotBlock(WILLOW_SAPLING, it) }
 
     // ---------------------------------------------------------------- shaped wooden blocks
@@ -168,7 +169,7 @@ object OutbreakBlocks {
             .instrument(NoteBlockInstrument.BASS)
             .strength(3.0F)
             .noOcclusion()
-            .pushReaction(PushReaction.DESTROY)
+            .pushReaction(PushReaction.POPPED)
             .ignitedByLava(),
         Item.Properties().stacksTo(16),
         { block, props -> DoubleHighBlockItem(block, props) },
@@ -183,7 +184,7 @@ object OutbreakBlocks {
             .noOcclusion()
             .isValidSpawn { _, _, _, _ -> false }
             .ignitedByLava()
-            .pushReaction(PushReaction.DESTROY),
+            .pushReaction(PushReaction.POPPED),
     ) { TrapDoorBlock(OutbreakWoodTypes.WILLOW_SET_TYPE, it) }
 
     val WILLOW_PRESSURE_PLATE: Block = Registration.registerBlockWithItem(
@@ -195,12 +196,12 @@ object OutbreakBlocks {
             .noCollision()
             .strength(0.5F)
             .ignitedByLava()
-            .pushReaction(PushReaction.DESTROY),
+            .pushReaction(PushReaction.POPPED),
     ) { PressurePlateBlock(OutbreakWoodTypes.WILLOW_SET_TYPE, it) }
 
     val WILLOW_BUTTON: Block = Registration.registerBlockWithItem(
         "willow_button",
-        BlockBehaviour.Properties.of().noCollision().strength(0.5F).pushReaction(PushReaction.DESTROY),
+        BlockBehaviour.Properties.of().noCollision().strength(0.5F).pushReaction(PushReaction.POPPED),
     ) { ButtonBlock(OutbreakWoodTypes.WILLOW_SET_TYPE, 30, it) }
 
     val WILLOW_SHELF: Block = Registration.registerBlockWithItem(
@@ -277,6 +278,34 @@ object OutbreakBlocks {
             .strength(2.0F)
             .noOcclusion(),
     ) { WillowSoupCauldronBlock(it) }
+
+    // ---------------------------------------------------------------- salt
+
+    /**
+     * Rock salt ore. Grinding the ore itself (not a drop) yields nine crude salt, so it drops
+     * itself and is mined with a pickaxe.
+     */
+    val ROCK_SALT_ORE: Block = Registration.registerBlockWithItem(
+        "rock_salt_ore",
+        BlockBehaviour.Properties.of()
+            .mapColor(MapColor.STONE)
+            .requiresCorrectToolForDrops()
+            .strength(3.0F, 3.0F)
+            .sound(SoundType.STONE),
+    ) { Block(it) }
+
+    /**
+     * Holds crude brine while it evaporates over a fire. Created by using
+     * [OutbreakItems.CRUDE_SALT_POWDER] on a water cauldron, so it has no item form of its own.
+     */
+    val BRINE_CAULDRON: Block = Registration.registerBlock(
+        "brine_cauldron",
+        BlockBehaviour.Properties.of()
+            .mapColor(MapColor.STONE)
+            .requiresCorrectToolForDrops()
+            .strength(2.0F)
+            .noOcclusion(),
+    ) { BrineCauldronBlock(it) }
 
     /** Touching this forces the whole object graph to be built. */
     fun initialize() {

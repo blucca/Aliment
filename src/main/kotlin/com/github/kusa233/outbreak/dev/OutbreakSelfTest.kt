@@ -17,7 +17,7 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.LayeredCauldronBlock
-import net.minecraft.world.level.levelgen.feature.ConfiguredFeature
+import net.minecraft.world.level.levelgen.feature.Feature
 import net.minecraft.world.phys.BlockHitResult
 import net.minecraft.world.phys.Vec3
 import org.apache.logging.log4j.LogManager
@@ -141,7 +141,10 @@ class OutbreakSelfTest : ModInitializer {
         val player = FakePlayer.get(level)
         player.inventory.clearContent()
         player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(OutbreakItems.WILLOW_BARK, 2))
+        // The instant conversion is the sneak-right-click shortcut; a plain click opens the menu.
+        player.isShiftKeyDown = true
         useOn(level, player, GRINDSTONE)
+        player.isShiftKeyDown = false
 
         val held = player.mainHandItem
         val pieces = player.inventory.countItem(OutbreakItems.WILLOW_BARK_PIECES) +
@@ -212,13 +215,14 @@ class OutbreakSelfTest : ModInitializer {
             }
         }
 
+        // 26.3 removed ConfiguredFeature: the feature itself is now the registry entry.
         val feature = level.registryAccess()
-            .lookupOrThrow(Registries.CONFIGURED_FEATURE)
-            .get(ResourceKey.create(Registries.CONFIGURED_FEATURE, Registration.id("willow")))
+            .lookupOrThrow(Registries.FEATURE)
+            .get(ResourceKey.create(Registries.FEATURE, Registration.id("willow")))
             .orElse(null)
 
         if (feature == null) {
-            check("outbreak:willow configured feature is registered", false)
+            check("outbreak:willow feature is registered", false)
             return
         }
 

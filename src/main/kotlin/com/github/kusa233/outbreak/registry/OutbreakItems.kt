@@ -1,5 +1,7 @@
 package com.github.kusa233.outbreak.registry
 
+import com.github.kusa233.outbreak.Outbreak
+import net.minecraft.core.Direction
 import net.minecraft.world.effect.MobEffectInstance
 import net.minecraft.world.effect.MobEffects
 import net.minecraft.world.food.FoodProperties
@@ -7,7 +9,8 @@ import net.minecraft.world.item.BoatItem
 import net.minecraft.world.item.HangingSignItem
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.Items
-import net.minecraft.world.item.SignItem
+import net.minecraft.world.item.StandingAndWallBlockItem
+import net.minecraft.world.item.component.Consumable
 import net.minecraft.world.item.component.Consumables
 import net.minecraft.world.item.consume_effects.ApplyStatusEffectsConsumeEffect
 
@@ -17,11 +20,19 @@ import net.minecraft.world.item.consume_effects.ApplyStatusEffectsConsumeEffect
  */
 object OutbreakItems {
 
+    /**
+     * The standing/wall sign pair.
+     *
+     * `useBlockDescriptionPrefix()` is not optional here: a sign's name lives under
+     * `block.outbreak.willow_sign` (that is where vanilla keeps its own signs, and where
+     * `tools/gen_data.ps1` writes it), so without it the item looks up `item.outbreak.willow_sign`
+     * and the player is shown the raw key in their inventory instead of a name.
+     */
     val WILLOW_SIGN: Item = Registration.registerItem(
         "willow_sign",
-        Item.Properties().stacksTo(16).useBlockDescriptionPrefix(),
+        Item.Properties().stacksTo(16).useBlockDescriptionPrefix().signText(),
     ) { properties ->
-        SignItem(OutbreakBlocks.WILLOW_SIGN, OutbreakBlocks.WILLOW_WALL_SIGN, properties)
+        StandingAndWallBlockItem(OutbreakBlocks.WILLOW_SIGN, OutbreakBlocks.WILLOW_WALL_SIGN, Direction.DOWN, properties)
     }
 
     val WILLOW_HANGING_SIGN: Item = Registration.registerItem(
@@ -78,6 +89,130 @@ object OutbreakItems {
         soupProperties(Items.BOWL, drink = false, raw = false),
     ) { Item(it) }
 
+    // ---------------------------------------------------------------- salt chain
+
+    /** Ground out of [OutbreakBlocks.ROCK_SALT_ORE] - nine per ore. */
+    val CRUDE_SALT: Item = Registration.registerItem("crude_salt", Item.Properties()) { Item(it) }
+
+    /** [CRUDE_SALT] ground again; this is what goes into the cauldron. */
+    val CRUDE_SALT_POWDER: Item = Registration.registerItem("crude_salt_powder", Item.Properties()) { Item(it) }
+
+    /** What is left when a brine cauldron boils dry. Refined, so it is almost pure sodium chloride. */
+    val SALT_POWDER: Item = Registration.registerItem("salt_powder", Item.Properties()) { Item(it) }
+
+    /** Right-click a brine cauldron to skip it to the next evaporation stage. Wears out. */
+    val STIRRING_ROD: Item = Registration.registerItem(
+        "stirring_rod",
+        Item.Properties().durability(16).stacksTo(1),
+    ) { Item(it) }
+
+    /** A corticosteroid injection: a much stronger anti-inflammatory than willow bark soup. */
+    val DEXAMETHASONE_INJECTION: Item = Registration.registerItem(
+        "dexamethasone_injection",
+        Item.Properties().stacksTo(8),
+    ) { Item(it) }
+
+    // ---------------------------------------------------------------- salted food
+
+    val CRUDE_SALT_WATER: Item = Registration.registerItem(
+        "crude_salt_water",
+        brineProperties(Items.GLASS_BOTTLE),
+    ) { Item(it) }
+
+    val SALT_WATER: Item = Registration.registerItem(
+        "salt_water",
+        brineProperties(Items.GLASS_BOTTLE),
+    ) { Item(it) }
+
+    // ---------------------------------------------------------------- biome water
+
+    /**
+     * Filling a glass bottle from a water source gives different water depending on the biome:
+     * ordinary rivers keep vanilla's water bottle, but swamps and oceans have their own.
+     */
+    val SWAMP_WATER_BOTTLE: Item = Registration.registerItem(
+        "swamp_water_bottle",
+        brineProperties(Items.GLASS_BOTTLE),
+    ) { Item(it) }
+
+    val SEA_WATER_BOTTLE: Item = Registration.registerItem(
+        "sea_water_bottle",
+        brineProperties(Items.GLASS_BOTTLE),
+    ) { Item(it) }
+
+    val CRUDE_SALT_SWAMP_WATER: Item = Registration.registerItem(
+        "crude_salt_swamp_water",
+        brineProperties(Items.GLASS_BOTTLE),
+    ) { Item(it) }
+
+    val SALT_SWAMP_WATER: Item = Registration.registerItem(
+        "salt_swamp_water",
+        brineProperties(Items.GLASS_BOTTLE),
+    ) { Item(it) }
+
+    val CRUDE_SALT_SEA_WATER: Item = Registration.registerItem(
+        "crude_salt_sea_water",
+        brineProperties(Items.GLASS_BOTTLE),
+    ) { Item(it) }
+
+    val SALT_SEA_WATER: Item = Registration.registerItem(
+        "salt_sea_water",
+        brineProperties(Items.GLASS_BOTTLE),
+    ) { Item(it) }
+
+    val CRUDE_SALT_MUSHROOM_STEW: Item = Registration.registerItem(
+        "crude_salt_mushroom_stew",
+        stewProperties(Items.BOWL, nutrition = 6, saturation = 0.6F),
+    ) { Item(it) }
+
+    val SALT_MUSHROOM_STEW: Item = Registration.registerItem(
+        "salt_mushroom_stew",
+        stewProperties(Items.BOWL, nutrition = 6, saturation = 0.6F),
+    ) { Item(it) }
+
+    val CRUDE_SALT_WILLOW_BARK_SOUP: Item = Registration.registerItem(
+        "crude_salt_willow_bark_soup",
+        stewProperties(Items.BOWL, nutrition = SOUP_NUTRITION, saturation = COOKED_SOUP_SATURATION),
+    ) { Item(it) }
+
+    val SALT_WILLOW_BARK_SOUP: Item = Registration.registerItem(
+        "salt_willow_bark_soup",
+        stewProperties(Items.BOWL, nutrition = SOUP_NUTRITION, saturation = COOKED_SOUP_SATURATION),
+    ) { Item(it) }
+
+    /** Salted raw soup: still carries the bark's irritants, so it keeps the raw soup effects. */
+    val CRUDE_SALT_RAW_WILLOW_BARK_SOUP: Item = Registration.registerItem(
+        "crude_salt_raw_willow_bark_soup",
+        stewProperties(Items.BOWL, nutrition = SOUP_NUTRITION, saturation = RAW_SOUP_SATURATION, raw = true),
+    ) { Item(it) }
+
+    val SALT_RAW_WILLOW_BARK_SOUP: Item = Registration.registerItem(
+        "salt_raw_willow_bark_soup",
+        stewProperties(Items.BOWL, nutrition = SOUP_NUTRITION, saturation = RAW_SOUP_SATURATION, raw = true),
+    ) { Item(it) }
+
+    /**
+     * Salt water is a drink that restores no hunger on its own; its whole point is the water and
+     * the salt, which the physiology system picks up when it is swallowed.
+     */
+    private fun brineProperties(container: Item): Item.Properties {
+        val food = FoodProperties.Builder().nutrition(0).saturationModifier(0f).alwaysEdible().build()
+        return Item.Properties()
+            .food(food, Consumables.defaultDrink().build())
+            .usingConvertsTo(container)
+            .stacksTo(16)
+    }
+
+    private fun stewProperties(
+        container: Item,
+        nutrition: Int,
+        saturation: Float,
+        raw: Boolean = false,
+    ): Item.Properties = Item.Properties()
+        .food(buildFood(nutrition, saturation), buildConsumable(drink = false, raw = raw).build())
+        .usingConvertsTo(container)
+        .stacksTo(1)
+
     /** Hunger restored by one serving. Both the raw and the cooked soup give one drumstick. */
     private const val SOUP_NUTRITION = 1
 
@@ -94,17 +229,26 @@ object OutbreakItems {
     private const val RAW_SOUP_NAUSEA_CHANCE = 0.25F
     private const val RAW_SOUP_HUNGER_CHANCE = 0.15F
 
+    private fun buildFood(nutrition: Int, saturation: Float): FoodProperties = FoodProperties.Builder()
+        .nutrition(nutrition)
+        .saturationModifier(saturation)
+        .build()
+
     /**
      * Bottles behave like honey bottles (stack of 16, drink animation, gives the glass bottle
      * back); bowls behave like mushroom stew (stack of one, eat animation, gives the bowl back).
      */
     private fun soupProperties(container: Item, drink: Boolean, raw: Boolean): Item.Properties {
-        val food = FoodProperties.Builder()
-            .nutrition(SOUP_NUTRITION)
-            .saturationModifier(if (raw) RAW_SOUP_SATURATION else COOKED_SOUP_SATURATION)
-            .build()
+        val food = buildFood(SOUP_NUTRITION, if (raw) RAW_SOUP_SATURATION else COOKED_SOUP_SATURATION)
+        val properties = Item.Properties()
+            .food(food, buildConsumable(drink, raw).build())
+            .usingConvertsTo(container)
+        return if (drink) properties.stacksTo(16) else properties.stacksTo(1)
+    }
 
-        val consumable = (if (drink) Consumables.defaultDrink() else Consumables.defaultFood())
+    /** Raw willow bark soup still contains the bark's irritants: nausea and hunger. */
+    private fun buildConsumable(drink: Boolean, raw: Boolean): Consumable.Builder {
+        val consumable = if (drink) Consumables.defaultDrink() else Consumables.defaultFood()
         if (raw) {
             consumable.onConsume(
                 ApplyStatusEffectsConsumeEffect(
@@ -119,9 +263,7 @@ object OutbreakItems {
                 ),
             )
         }
-
-        val properties = Item.Properties().food(food, consumable.build()).usingConvertsTo(container)
-        return if (drink) properties.stacksTo(16) else properties.stacksTo(1)
+        return consumable
     }
 
     fun initialize() {

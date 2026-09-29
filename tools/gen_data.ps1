@@ -1,4 +1,4 @@
-<#
+﻿<#
     gen_data.ps1 - regenerates every data / asset JSON file of the Outbreak willow set.
 
     The vanilla JSON that ships inside the Minecraft jar is used as the template for all the
@@ -23,13 +23,25 @@ $ns = "outbreak"
 
 # assets live in the client-only jar, data (loot tables, tags, ...) in the common jar
 $mavenRoot = Join-Path $root ".gradle\loom-cache\minecraftMaven\net\minecraft"
+
+# Several Minecraft versions stay cached side by side, and their asset formats differ (26.3
+# flattened loot table conditions, for instance), so only ever read the version this project
+# actually builds against.
+$mcVersion = (Select-String -Path (Join-Path $root "gradle.properties") -Pattern '^minecraft_version=(.+)$').Matches[0].Groups[1].Value.Trim()
+if (-not $mcVersion) { throw "Could not read minecraft_version from gradle.properties" }
+
 $jars = @()
 if (Test-Path $mavenRoot) {
     $jars = @(Get-ChildItem $mavenRoot -Recurse -Filter "minecraft-*.jar" |
-        Where-Object { $_.Name -notlike "*.backup" -and $_.Name -match "minecraft-(clientOnly|common)-" } |
+        Where-Object {
+            $_.Name -notlike "*.backup" -and
+            $_.Name -match "minecraft-(clientOnly|common)-" -and
+            $_.FullName -match [regex]::Escape($mcVersion)
+        } |
         Select-Object -ExpandProperty FullName)
 }
-if ($jars.Count -eq 0) { throw "Could not locate the Minecraft jars in .gradle/loom-cache" }
+if ($jars.Count -eq 0) { throw "Could not locate the Minecraft $mcVersion jars in .gradle/loom-cache" }
+Write-Host "reading vanilla assets from Minecraft $mcVersion"
 
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $vanilla = @{}
@@ -106,6 +118,17 @@ foreach ($pair in @(@('weeping_vines', 'willow_vines'), @('weeping_vines_plant',
     $body = Convert-VineAsset (Get-Vanilla "assets/minecraft/blockstates/$($pair[0]).json")
     Write-Json "assets/$ns/blockstates/$($pair[1]).json" $body
 }
+
+# Rock salt ore is a plain cube, so a single-variant blockstate is all it needs.
+Write-Json "assets/$ns/blockstates/rock_salt_ore.json" @"
+{
+  "variants": {
+    "": {
+      "model": "$ns`:block/rock_salt_ore"
+    }
+  }
+}
+"@
 
 # ---------------------------------------------------------------------------- assets: block models
 
@@ -229,6 +252,95 @@ foreach ($cooked in @($false, $true)) {
 }
 Write-Json "assets/$ns/blockstates/willow_soup_cauldron.json" ("{`n  `"variants`": {`n" + ($variants -join ",`n") + "`n  }`n}")
 
+# ---------------------------------------------------------------------------- assets: salt chain
+
+# Plain sprite items: the salt materials, the tool and the injection.
+$saltSpriteItems = @(
+    'crude_salt',
+    'crude_salt_powder',
+    'salt_powder',
+    'stirring_rod',
+    'dexamethasone_injection',
+    'crude_salt_water',
+    'salt_water',
+    'swamp_water_bottle',
+    'sea_water_bottle',
+    'crude_salt_swamp_water',
+    'salt_swamp_water',
+    'crude_salt_sea_water',
+    'salt_sea_water',
+    'crude_salt_mushroom_stew',
+    'salt_mushroom_stew',
+    'crude_salt_willow_bark_soup',
+    'salt_willow_bark_soup',
+    'crude_salt_raw_willow_bark_soup',
+    'salt_raw_willow_bark_soup'
+)
+foreach ($name in $saltSpriteItems) {
+    Write-Json "assets/$ns/models/item/$name.json" @"
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "$ns`:item/$name"
+  }
+}
+"@
+    Write-Json "assets/$ns/items/$name.json" @"
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "$ns`:item/$name"
+  }
+}
+"@
+}
+
+# Rock salt ore is an ordinary cube, so its item model just parents the block model.
+Write-Json "assets/$ns/models/block/rock_salt_ore.json" @"
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "$ns`:block/rock_salt_ore"
+  }
+}
+"@
+Write-Json "assets/$ns/models/item/rock_salt_ore.json" @"
+{
+  "parent": "$ns`:block/rock_salt_ore"
+}
+"@
+Write-Json "assets/$ns/items/rock_salt_ore.json" @"
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "$ns`:item/rock_salt_ore"
+  }
+}
+"@
+
+# The brine cauldron uses the same vanilla shell as the soup cauldron; three stages, each one
+# level lower and each with a saltier surface.
+$brineTextures = @('brine_crude', 'brine_concentrated', 'brine_dense')
+$brineVariants = @()
+foreach ($stage in 0..2) {
+    $level = 3 - $stage
+    $template = if ($level -eq 3) { 'template_cauldron_full' } else { "template_cauldron_level$level" }
+    Write-Json "assets/$ns/models/block/brine_cauldron_$stage.json" @"
+{
+  "parent": "minecraft:block/$template",
+  "textures": {
+    "content": "$ns`:block/$($brineTextures[$stage])"
+  }
+}
+"@
+    $brineVariants += @"
+    "stage=$stage": {
+      "model": "$ns`:block/brine_cauldron_$stage"
+    }
+"@
+}
+Write-Json "assets/$ns/blockstates/brine_cauldron.json" ("{`n  `"variants`": {`n" + ($brineVariants -join ",`n") + "`n  }`n}")
+
 # ---------------------------------------------------------------------------- assets: language
 
 function HexToSignedInt([string]$hex) {
@@ -263,6 +375,8 @@ $blockEntries = [ordered]@{
     'willow_sign'             = 'Willow Sign'
     'willow_hanging_sign'     = 'Willow Hanging Sign'
     'willow_soup_cauldron'    = 'Willow Bark Soup Cauldron'
+    'rock_salt_ore'           = 'Rock Salt Ore'
+    'brine_cauldron'          = 'Brine Cauldron'
 }
 
 $itemEntries = [ordered]@{
@@ -272,6 +386,25 @@ $itemEntries = [ordered]@{
     'raw_willow_bark_soup_bowl'    = 'Raw Willow Bark Soup'
     'willow_bark_soup_bottle'      = 'Willow Bark Soup'
     'willow_bark_soup_bowl'        = 'Willow Bark Soup'
+    'crude_salt'                   = 'Crude Salt'
+    'crude_salt_powder'            = 'Crude Salt Powder'
+    'salt_powder'                  = 'Salt Powder'
+    'stirring_rod'                 = 'Stirring Rod'
+    'dexamethasone_injection'      = 'Dexamethasone Injection'
+    'crude_salt_water'             = 'Crude Salt Water'
+    'salt_water'                   = 'Salt Water'
+    'swamp_water_bottle'           = 'Swamp Water Bottle'
+    'sea_water_bottle'             = 'Sea Water Bottle'
+    'crude_salt_swamp_water'       = 'Crude Salt Swamp Water'
+    'salt_swamp_water'             = 'Salt Swamp Water'
+    'crude_salt_sea_water'         = 'Crude Salt Sea Water'
+    'salt_sea_water'               = 'Salt Sea Water'
+    'crude_salt_mushroom_stew'     = 'Crude Salt Mushroom Stew'
+    'salt_mushroom_stew'           = 'Salt Mushroom Stew'
+    'crude_salt_willow_bark_soup'  = 'Crude Salt Willow Bark Soup'
+    'salt_willow_bark_soup'        = 'Salt Willow Bark Soup'
+    'crude_salt_raw_willow_bark_soup' = 'Crude Salt Raw Willow Bark Soup'
+    'salt_raw_willow_bark_soup'    = 'Salt Raw Willow Bark Soup'
 }
 
 # the two boats are plain items that also have entity names, like vanilla's
@@ -304,7 +437,7 @@ foreach ($k in $boatEntries.Keys) {
     $zh["entity.$ns.$k"] = $zhNames[$k]
 }
 
-# The mod's own creative tab. Its Chinese name is 爆发.
+# The mod's own creative tab. Its Chinese name is "Bao Fa" (see tools/lang_zh_cn.json).
 $en["itemGroup.$ns.main"] = 'Outbreak'
 $zh["itemGroup.$ns.main"] = $zhNames['itemGroup.outbreak.main']
 
@@ -315,7 +448,7 @@ Write-Json "assets/$ns/lang/zh_cn.json" ($zh | ConvertTo-Json -Depth 4)
 
 $belowTrunkProvider = @'
     "below_trunk_provider": {
-      "type": "minecraft:rule_based_state_provider",
+      "type": "minecraft:rule_based",
       "rules": [
         {
           "if_true": {
@@ -326,10 +459,8 @@ $belowTrunkProvider = @'
             }
           },
           "then": {
-            "type": "minecraft:simple_state_provider",
-            "state": {
-              "Name": "minecraft:dirt"
-            }
+            "type": "minecraft:simple",
+            "state": "minecraft:dirt"
           }
         }
       ]
@@ -340,7 +471,6 @@ function New-WillowFeature([int]$baseHeight, [int]$heightRand, [double]$hangingP
     return @"
 {
   "type": "minecraft:tree",
-  "config": {
 $belowTrunkProvider
     "decorators": [
       {
@@ -356,10 +486,10 @@ $belowTrunkProvider
       "radius": $foliageRadius
     },
     "foliage_provider": {
-      "type": "minecraft:simple_state_provider",
+      "type": "minecraft:simple",
       "state": {
-        "Name": "$ns`:willow_leaves",
-        "Properties": {
+        "id": "$ns`:willow_leaves",
+        "properties": {
           "distance": "7",
           "persistent": "false",
           "waterlogged": "false"
@@ -386,22 +516,21 @@ $belowTrunkProvider
       "search_radius": 7
     },
     "trunk_provider": {
-      "type": "minecraft:simple_state_provider",
+      "type": "minecraft:simple",
       "state": {
-        "Name": "$ns`:willow_log",
-        "Properties": {
+        "id": "$ns`:willow_log",
+        "properties": {
           "axis": "y"
         }
       }
     }
-  }
 }
 "@
 }
 
-# The 垂柳 density was deliberately reduced: fewer strands, each of them shorter.
-Write-Json "data/$ns/worldgen/configured_feature/willow.json" (New-WillowFeature 5 2 0.18 3 3 3)
-Write-Json "data/$ns/worldgen/configured_feature/tall_willow.json" (New-WillowFeature 8 2 0.28 3 3 4)
+# The drooping willow strand density was deliberately reduced: fewer strands, each shorter.
+Write-Json "data/$ns/worldgen/feature/willow.json" (New-WillowFeature 5 2 0.18 3 3 3)
+Write-Json "data/$ns/worldgen/feature/tall_willow.json" (New-WillowFeature 8 2 0.28 3 3 4)
 
 Write-Json "data/$ns/worldgen/placed_feature/willow_river.json" @"
 {
@@ -439,8 +568,8 @@ Write-Json "data/$ns/worldgen/placed_feature/willow_river.json" @"
       "predicate": {
         "type": "minecraft:would_survive",
         "state": {
-          "Name": "$ns`:willow_sapling",
-          "Properties": {
+          "id": "$ns`:willow_sapling",
+          "properties": {
             "stage": "0"
           }
         }
@@ -452,6 +581,68 @@ Write-Json "data/$ns/worldgen/placed_feature/willow_river.json" @"
   ]
 }
 "@
+
+# ---------------------------------------------------------------------------- data: rock salt ore
+
+# A simple underground ore: scattered through the overworld between y=20 and y=90, in small
+# clusters, no deeper than vanilla's iron.
+Write-Json "data/$ns/worldgen/feature/rock_salt_ore.json" @"
+{
+  "type": "minecraft:ore",
+  "discard_chance_on_air_exposure": 0.0,
+  "size": 7,
+  "targets": [
+    {
+      "state": "$ns`:rock_salt_ore",
+      "target": {
+        "predicate_type": "minecraft:tag_match",
+        "tag": "minecraft:stone_ore_replaceables"
+      }
+    },
+    {
+      "state": "$ns`:rock_salt_ore",
+      "target": {
+        "predicate_type": "minecraft:tag_match",
+        "tag": "minecraft:deepslate_ore_replaceables"
+      }
+    }
+  ]
+}
+"@
+
+Write-Json "data/$ns/worldgen/placed_feature/rock_salt_ore.json" @"
+{
+  "feature": "$ns`:rock_salt_ore",
+  "placement": [
+    {
+      "type": "minecraft:count",
+      "count": 6
+    },
+    {
+      "type": "minecraft:in_square"
+    },
+    {
+      "type": "minecraft:height_range",
+      "height": {
+        "type": "minecraft:trapezoid",
+        "max_inclusive": {
+          "absolute": 90
+        },
+        "min_inclusive": {
+          "absolute": 20
+        }
+      }
+    },
+    {
+      "type": "minecraft:biome"
+    }
+  ]
+}
+"@
+
+# NOTE: the ore is injected into the overworld from OutbreakWorldGen.kt, not from a data file -
+# Fabric's biome modification API is code-only, so a worldgen/biome_modification JSON would be
+# silently ignored.
 
 # ---------------------------------------------------------------------------- data: loot tables
 
@@ -487,11 +678,9 @@ Write-Json "data/$ns/loot_table/blocks/willow_soup_cauldron.json" @"
   "type": "minecraft:block",
   "pools": [
     {
-      "conditions": [
-        {
-          "condition": "minecraft:survives_explosion"
-        }
-      ],
+      "condition": {
+        "type": "minecraft:survives_explosion"
+      },
       "entries": [
         {
           "type": "minecraft:item",
@@ -505,9 +694,103 @@ Write-Json "data/$ns/loot_table/blocks/willow_soup_cauldron.json" @"
 }
 "@
 
+# Rock salt ore drops itself, because the grindstone grinds the ore block rather than a drop.
+Write-Json "data/$ns/loot_table/blocks/rock_salt_ore.json" @"
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "condition": {
+        "type": "minecraft:survives_explosion"
+      },
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "$ns`:rock_salt_ore"
+        }
+      ],
+      "rolls": 1.0
+    }
+  ],
+  "random_sequence": "$ns`:blocks/rock_salt_ore"
+}
+"@
+
+Write-Json "data/$ns/loot_table/blocks/brine_cauldron.json" @"
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "condition": {
+        "type": "minecraft:survives_explosion"
+      },
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:cauldron"
+        }
+      ],
+      "rolls": 1.0
+    }
+  ],
+  "random_sequence": "$ns`:blocks/brine_cauldron"
+}
+"@
+
 # ---------------------------------------------------------------------------- data: recipes
 
 function Write-Recipe([string]$name, [string]$body) { Write-Json "data/$ns/recipe/$name.json" $body }
+
+# Salted versions of the drinks and soups. One salt plus one base item, in either hand order.
+function Write-SaltRecipe([string]$name, [string]$salt, [string]$base, [string]$result) {
+    Write-Recipe $name @"
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "$ns`:$salt",
+    "$base"
+  ],
+  "result": {
+    "count": 1,
+    "id": "$ns`:$result"
+  }
+}
+"@
+}
+
+$waterBottle = 'minecraft:potion'
+
+# The stirring rod is two sticks stacked vertically.
+Write-Recipe 'stirring_rod' @"
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "X": "minecraft:stick"
+  },
+  "pattern": [
+    "X",
+    "X"
+  ],
+  "result": {
+    "count": 1,
+    "id": "$ns`:stirring_rod"
+  }
+}
+"@
+Write-SaltRecipe 'crude_salt_water' 'crude_salt' $waterBottle 'crude_salt_water'
+Write-SaltRecipe 'salt_water' 'salt_powder' $waterBottle 'salt_water'
+Write-SaltRecipe 'crude_salt_swamp_water' 'crude_salt' "$ns`:swamp_water_bottle" 'crude_salt_swamp_water'
+Write-SaltRecipe 'salt_swamp_water' 'salt_powder' "$ns`:swamp_water_bottle" 'salt_swamp_water'
+Write-SaltRecipe 'crude_salt_sea_water' 'crude_salt' "$ns`:sea_water_bottle" 'crude_salt_sea_water'
+Write-SaltRecipe 'salt_sea_water' 'salt_powder' "$ns`:sea_water_bottle" 'salt_sea_water'
+Write-SaltRecipe 'crude_salt_mushroom_stew' 'crude_salt' 'minecraft:mushroom_stew' 'crude_salt_mushroom_stew'
+Write-SaltRecipe 'salt_mushroom_stew' 'salt_powder' 'minecraft:mushroom_stew' 'salt_mushroom_stew'
+Write-SaltRecipe 'crude_salt_willow_bark_soup' 'crude_salt' "$ns`:willow_bark_soup_bowl" 'crude_salt_willow_bark_soup'
+Write-SaltRecipe 'salt_willow_bark_soup' 'salt_powder' "$ns`:willow_bark_soup_bowl" 'salt_willow_bark_soup'
+Write-SaltRecipe 'crude_salt_raw_willow_bark_soup' 'crude_salt' "$ns`:raw_willow_bark_soup_bowl" 'crude_salt_raw_willow_bark_soup'
+Write-SaltRecipe 'salt_raw_willow_bark_soup' 'salt_powder' "$ns`:raw_willow_bark_soup_bowl" 'salt_raw_willow_bark_soup'
 
 Write-Recipe 'willow_planks' @"
 {
@@ -850,6 +1133,8 @@ Write-VanillaTag 'block' 'wall_signs.json'                @("$ns`:willow_wall_si
 Write-VanillaTag 'block' 'ceiling_hanging_signs.json'     @("$ns`:willow_hanging_sign")
 Write-VanillaTag 'block' 'wall_hanging_signs.json'        @("$ns`:willow_wall_hanging_sign")
 Write-VanillaTag 'block' 'mineable/axe.json'              @("$ns`:willow_vines", "$ns`:willow_vines_plant")
+Write-VanillaTag 'block' 'mineable/pickaxe.json'          @("$ns`:rock_salt_ore", "$ns`:willow_soup_cauldron", "$ns`:brine_cauldron")
+Write-VanillaTag 'block' 'needs_stone_tool.json'          @("$ns`:rock_salt_ore")
 
 # items
 Write-VanillaTag 'item' 'planks.json'                     @("$ns`:willow_planks")

@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "outbreak:salt_powder",
+    "outbreak:sea_water_bottle"
+  ],
+  "result": {
+    "count": 1,
+    "id": "outbreak:salt_sea_water"
+  }
+}

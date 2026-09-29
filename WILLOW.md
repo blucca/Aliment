@@ -8,7 +8,7 @@
 柳树皮汤同时也是生理系统（炎症 / 电解质 / 病原体 / 水杨苷）的一部分，
 那套系统单独写在 [`PHYSIOLOGY.md`](PHYSIOLOGY.md)。
 
-面向 Minecraft **26.2**（Fabric，Kotlin 2.4 / Java 25）。
+面向 Minecraft **26.3**（Fabric，Kotlin 2.4 / Java 25）。
 
 ---
 
@@ -19,6 +19,9 @@
 模组注册了一个自己的物品栏分类 `outbreak:main`，标题为 `itemGroup.outbreak.main`
 （英文 `Outbreak`，中文 `爆发`），图标是柳树树苗，位置在创造模式物品栏顶行原版分类之后。
 **所有** Outbreak 物品都只放在这个分类里，不再重复塞进原版分类，方便后续继续往里加东西。
+
+> 「爆发」的内容已经不止柳树了：柳树皮汤是[生理系统](PHYSIOLOGY.md)的一部分，
+> 盐业链（岩盐矿 → 粗盐 → 粗盐粉 → 粗盐水炼药锅 → 盐粉）也在同一个物品栏里。
 
 ### 方块 / 物品
 
@@ -50,6 +53,21 @@
 | `outbreak:raw_willow_bark_soup_bowl` | 生柳树皮汤 | 碗装，可食用，返还碗 |
 | `outbreak:willow_bark_soup_bottle` | 柳树皮汤 | 熟的，玻璃瓶装 |
 | `outbreak:willow_bark_soup_bowl` | 柳树皮汤 | 熟的，碗装 |
+| `outbreak:rock_salt_ore` | 岩盐矿 | 掉落自身，砂轮可磨成 9 个粗盐；y=20–90 生成 |
+| `outbreak:crude_salt` | 粗盐 | 砂轮可再磨成粗盐粉 |
+| `outbreak:crude_salt_powder` | 粗盐粉 | 放入水炼药锅变成粗盐水 |
+| `outbreak:salt_powder` | 盐粉 | 粗盐水炼药锅烧干后掉落 |
+| `outbreak:stirring_rod` | 搅拌棒 | 右键粗盐水炼药锅，立刻推进一级蒸发（耐久 16）；合成：上下各一根木棍 |
+| `outbreak:dexamethasone_injection` | 地塞米松注射剂 | 右键注射，强力抑制细胞因子 |
+| `outbreak:crude_salt_water` / `salt_water` | 粗盐水 / 盐水 | 玻璃瓶装，补水 + 补钠（粗盐还补镁钙） |
+| `outbreak:swamp_water_bottle` | 沼泽水瓶 | 沼泽取水得到；30% 细菌感染、35% 反胃、5% 中毒（各 30 秒） |
+| `outbreak:sea_water_bottle` | 海水瓶 | 海里取水得到；**没有任何即时效果**，代价是它带的钠（+20 钠 +20 氯 +6 镁 +2 钙） |
+| `outbreak:crude_salt_swamp_water` / `salt_swamp_water` | 粗盐沼泽水瓶 / 盐沼泽水瓶 | 盐 + 沼泽水瓶；补水补钠，**药水本身的风险照旧** |
+| `outbreak:crude_salt_sea_water` / `salt_sea_water` | 粗盐海水瓶 / 盐海水瓶 | 盐 + 海水瓶；补水补钠，同样没有即时负面效果 |
+| `outbreak:crude_salt_mushroom_stew` / `salt_mushroom_stew` | 粗盐蘑菇煲 / 盐蘑菇煲 | 碗装 |
+| `outbreak:crude_salt_willow_bark_soup` / `salt_willow_bark_soup` | 粗盐柳树皮汤 / 盐柳树皮汤 | 碗装 |
+| `outbreak:crude_salt_raw_willow_bark_soup` / `salt_raw_willow_bark_soup` | 粗盐生柳树皮汤 / 盐生柳树皮汤 | 碗装，保留生汤的负面效果 |
+| `outbreak:brine_cauldron` | 粗盐水炼药锅 | 无物品形式，3 个蒸发阶段 |
 
 ### 柳树皮汤流程
 
@@ -87,7 +105,34 @@
 > `nutrition × saturationModifier × 2`；营养值 1 时，倍率 0.5 → 1 点，1.0 → 2 点。
 
 两种汤都还会给身体**补充水杨苷**（+1.1，起效浓度 1.0），这是生理系统里控制炎症的手段，
-详见 [`PHYSIOLOGY.md`](PHYSIOLOGY.md)。生汤同时是感染源之一（30% 概率感染细菌）。
+详见 [`PHYSIOLOGY.md`](PHYSIOLOGY.md)。生汤同时是感染源之一（30% 概率感染细菌），
+而且每份汤补水 15。
+
+---
+
+## 盐业链
+
+```
+岩盐矿 ──砂轮──> 粗盐 ×9 ──砂轮──> 粗盐粉
+                                      │
+                                      └─ 右键水炼药锅 ──> 粗盐水炼药锅
+                                               │
+                                          下方篝火/灵魂篝火，每 20 秒浓缩一级（共 3 级）
+                                               │
+                                          完全烧干 ──> 掉落 盐粉 ×1
+
+粗盐 / 盐粉 + 水（药水瓶）、蘑菇煲、柳树皮汤、生柳树皮汤
+    ──> 粗盐水/盐水、粗盐蘑菇煲/盐蘑菇煲、粗盐柳树皮汤/盐柳树皮汤、粗盐生柳树皮汤/盐生柳树皮汤
+```
+
+粗盐带着岩盐里的其他矿物（额外补少量镁和钙），精盐几乎是纯氯化钠。
+详细数值见 [`PHYSIOLOGY.md`](PHYSIOLOGY.md)。
+
+### 砂轮
+
+粗盐、岩盐矿、柳树皮都可以**直接放进原版砂轮界面**（输入槽被 mixin 拓宽了），
+每次只收一个；想批量就用**潜行 + 右键**砂轮直接转化。详见
+[`PHYSIOLOGY.md`](PHYSIOLOGY.md#砂轮)。
 
 ### 木种
 
@@ -155,15 +200,17 @@
 
 ## 贴图
 
-31 张 PNG 全部由 `tools/gen_textures.ps1` 用 ImageMagick 生成，可以随时重新生成：
+一共 **57 张 PNG**，全部由 `tools/gen_textures.ps1` 用 ImageMagick 生成，可以随时重新生成：
 
 ```
 tools\gen_textures.cmd
 ```
 
-* 方块贴图 17 张（含 32×32 的告示牌 / 悬挂告示牌 / 架子，以及炼药锅里生 / 熟两种汤面）
-* 物品贴图 11 张（含树皮、树皮碎片、生 / 熟汤的瓶装与碗装各一张）
+* 方块贴图 21 张（含 32×32 的告示牌 / 悬挂告示牌 / 架子，炼药锅里生 / 熟两种汤面，
+  以及盐水炼药锅的三个蒸发阶段）
+* 物品贴图 30 张（含树皮、树皮碎片、生 / 熟汤的瓶装与碗装、盐业链、沼泽 / 海水瓶）
 * 船只实体贴图 2 张（128×64 / 128×128，按原版 `BoatModel` 的立方体展开逐面绘制）
+* 口渴条 HUD 贴图 3 张（`textures/gui/sprites/hud/thirst_{empty,half,full}.png`）
 * 模组图标 1 张（128×128，**水仙花**）
 
 汤类物品贴图以原版素材为造型参考：**碗装照蘑菇煲**（木碗 + 可见汤面），
@@ -185,40 +232,48 @@ src/main/kotlin/com/github/kusa233/outbreak/
 ├─ Outbreak.kt                        模组入口，按依赖顺序初始化各注册表
 ├─ registry/
 │  ├─ Registration.kt                 方块 / 物品注册辅助函数
-│  ├─ OutbreakBlocks.kt               全部柳木方块 + 柳树皮汤炼药锅
-│  ├─ OutbreakItems.kt                告示牌、悬挂告示牌、船、树皮与四种汤
+│  ├─ OutbreakBlocks.kt               全部柳木方块 + 汤炼药锅 + 盐水炼药锅 + 岩盐矿
+│  ├─ OutbreakItems.kt                告示牌、悬挂告示牌、船、树皮与四种汤、整条盐业链
 │  ├─ OutbreakEntities.kt             两个船实体类型
 │  ├─ OutbreakBlockEntities.kt        把新方块挂进原版 SIGN / HANGING_SIGN / SHELF
 │  ├─ OutbreakWoodTypes.kt            BlockSetType + WoodType
 │  ├─ OutbreakTreeGrowers.kt          树苗成长用 TreeGrower
-│  ├─ OutbreakWorldGen.kt             注入河流生物群系
+│  ├─ OutbreakWorldGen.kt             注入河流生物群系 + 岩盐矿
 │  └─ OutbreakCreativeTabs.kt         模组自己的「爆发」物品栏分类
-├─ event/OutbreakInteractions.kt      斧头剥皮、砂轮磨碎、碎片入锅（UseBlockCallback）
-├─ command/OutbreakCommand.kt         /outbreak status | set | cure
-├─ physiology/                        炎症 / 电解质 / 病原体 / 水杨苷 数据系统
-│  ├─ OutbreakData.kt                 数据模型、编解码器、三个 attachment
+├─ event/OutbreakInteractions.kt      剥皮、砂轮、碎片入锅、取水、搅拌、注射（UseBlock/UseItem）
+├─ command/OutbreakCommand.kt         /outbreak status | set | fever | cure
+├─ physiology/                        生理 / 疾病 / 药物 数据系统
+│  ├─ OutbreakData.kt                 数据模型、编解码器、阈值、三个 attachment
 │  ├─ OutbreakPhysiology.kt           纯数据模型演算（不依赖任何 Minecraft 对象）
-│  ├─ OutbreakInfection.kt            感染来源与药量
-│  └─ OutbreakSymptoms.kt             症状与每 tick 驱动
+│  ├─ OutbreakInfection.kt            感染来源与载量
+│  ├─ OutbreakIngestion.kt            吃喝下去之后的全部处理（水、盐、碘、脏水）
+│  └─ OutbreakSymptoms.kt             症状、抖动、体温、画面效果、每 tick 驱动
 ├─ dev/                               仅开发用的自检（默认不启用，见 tools/README.md）
 └─ world/
+   ├─ OutbreakGrinding.kt             砂轮转化表（供两个砂轮 mixin 读取）
    ├─ block/WillowVinesBlock.kt       垂柳末端（可催长）
    ├─ block/WillowVinesPlantBlock.kt  垂柳中段
    ├─ block/WillowSoupCauldronBlock.kt 柳树皮汤炼药锅（水位 + 生/熟 + 篝火计时）
+   ├─ block/BrineCauldronBlock.kt     盐水炼药锅（3 个蒸发阶段）
    └─ tree/                           自定义 TreeDecorator、TrunkPlacer 及其注册表类型
 
 src/main/java/com/github/kusa233/outbreak/mixin/
 ├─ ItemMixin.java                     吃完 / 喝完的那一刻（原版没有这个事件）
-└─ PlayerMixin.java                   缩放所有饱食度消耗
+├─ PlayerMixin.java                   缩放所有饱食度消耗
+├─ GrindstoneInputSlotMixin.java      放宽砂轮输入槽
+└─ GrindstoneMenuMixin.java           让砂轮认得我们的转化表
 
 src/client/
-├─ java/.../mixin/client/CameraMixin.java   镜头抖动（只动镜头）
+├─ java/.../mixin/client/
+│  ├─ CameraMixin.java                镜头抖动（只动镜头）
+│  └─ HudMixin.java                   口渴条挂在生命值渲染之后
 └─ kotlin/.../client/
    ├─ OutbreakClient.kt               树叶染色、船模型层、船渲染器
-   └─ OutbreakClientShake.kt          把服务端的抖动序号变成衰减振荡
+   ├─ OutbreakClientShake.kt          把服务端的抖动序号变成衰减振荡
+   └─ OutbreakThirstHud.kt            10 格口渴条
 
 src/main/resources/
-├─ assets/outbreak/{blockstates,models,items,textures,lang,icon.png}
+├─ assets/outbreak/{blockstates,models,items,textures,lang,post_effect,shaders,icon.png}
 └─ data/outbreak/{worldgen,loot_table,recipe,tags}
    data/minecraft/tags/…              追加到原版标签
 ```

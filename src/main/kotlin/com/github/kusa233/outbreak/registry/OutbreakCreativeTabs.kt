@@ -62,6 +62,27 @@ object OutbreakCreativeTabs {
         OutbreakItems.RAW_WILLOW_BARK_SOUP_BOWL,
         OutbreakItems.WILLOW_BARK_SOUP_BOTTLE,
         OutbreakItems.WILLOW_BARK_SOUP_BOWL,
+        // salt chain
+        OutbreakBlocks.ROCK_SALT_ORE,
+        OutbreakItems.CRUDE_SALT,
+        OutbreakItems.CRUDE_SALT_POWDER,
+        OutbreakItems.SALT_POWDER,
+        OutbreakItems.STIRRING_ROD,
+        OutbreakItems.DEXAMETHASONE_INJECTION,
+        OutbreakItems.CRUDE_SALT_WATER,
+        OutbreakItems.SALT_WATER,
+        OutbreakItems.SWAMP_WATER_BOTTLE,
+        OutbreakItems.SEA_WATER_BOTTLE,
+        OutbreakItems.CRUDE_SALT_SWAMP_WATER,
+        OutbreakItems.SALT_SWAMP_WATER,
+        OutbreakItems.CRUDE_SALT_SEA_WATER,
+        OutbreakItems.SALT_SEA_WATER,
+        OutbreakItems.CRUDE_SALT_MUSHROOM_STEW,
+        OutbreakItems.SALT_MUSHROOM_STEW,
+        OutbreakItems.CRUDE_SALT_WILLOW_BARK_SOUP,
+        OutbreakItems.SALT_WILLOW_BARK_SOUP,
+        OutbreakItems.CRUDE_SALT_RAW_WILLOW_BARK_SOUP,
+        OutbreakItems.SALT_RAW_WILLOW_BARK_SOUP,
     )
 
     /**

@@ -1,40 +1,123 @@
 # 生理系统 Physiology
 
-Outbreak（爆发）的核心系统：每个玩家体内持续演算的一套**炎症 / 电解质 / 病原体 / 药物**模型。
+Outbreak（爆发）的核心系统：每个玩家体内持续演算的一套**炎症介质 / 电解质 / 碘 / 水量 /
+体温 / 病原体 / 药物**模型。
 
 设计目标是让"感染"变成一件有过程的事——吃坏东西不会立刻掉血，而是让你的免疫系统慢慢失控，
-而柳树皮汤（水杨苷）是控制它的手段，但喝太多同样会出事。
+而柳树皮汤（水杨苷）和地塞米松是控制它的手段，但用多了同样会出事。
 
-面向 Minecraft **26.2**（Fabric，Kotlin 2.4 / Java 25）。
+面向 Minecraft **26.3**（Fabric，Kotlin 2.4 / Java 25）。
 
 ---
 
 ## 数据模型
 
-每个玩家身上挂着一份 `OutbreakData`：
+每个玩家身上挂着一份 `OutbreakData`，由这几部分组成：炎症介质、病原体、水量、电解质、
+微量元素（碘）、药物浓度，以及体温。
 
-| 字段 | 范围 | 含义 |
-| --- | --- | --- |
-| `inflammation` | 0 – 100 | **炎症指数**。健康时稳定在 20–30 |
-| `electrolytes` | 0 – 100 | **电解质**。发烧时流失，健康时缓慢恢复 |
-| `bacteria` | 0 – 100 | **细菌**载量 |
-| `virus` | 0 – 100 | **病毒**载量 |
-| `salicin` | 0 – 3.0 | **体内药物**：水杨苷浓度 |
+### 炎症介质 `Mediators`
 
-派生量：`pathogenLoad = bacteria + virus`、`severity`（0–1，用于缩放症状）、
-`isSymptomatic`（载量 ≥ 8）、`isImmuneStorm`（炎症 ≥ 75）、`isImmunosuppressed`（炎症 ≤ 12）。
+炎症指数不再是单一数值，而是由五种介质**加权求和**得来：
+
+| 介质 | 权重 | 现实中的作用 | 主要被谁抑制 |
+| --- | --- | --- | --- |
+| 组胺 histamine | 0.15 | 血管扩张、瘙痒、肿胀（肥大细胞） | 两者都略有效 |
+| 前列腺素 prostaglandin | 0.20 | 疼痛、发热（COX 通路） | **水杨苷**（阿司匹林机制） |
+| 白三烯 leukotriene | 0.15 | 支气管收缩、黏液 | **地塞米松** |
+| 细胞因子 cytokine | 0.35 | 全身发热、风暴的主驱动 | **地塞米松**（最强） |
+| 缓激肽 bradykinin | 0.15 | 疼痛、血管扩张 | 水杨苷 |
+
+安静状态下这五项分别是 25 / 30 / 30 / 20 / 25，加权和**正好 25**（安全区中点）。
+公式详见 `Mediators.inflammation`。
+
+### 电解质 `Electrolytes`（五项）与微量元素 `TraceElements`（碘）
+
+所有矿物质共用同一条 **0–200** 的刻度，正常值 100，并且**四个阈值都双向生效**——缺和多都是病：
+
+```
+   0        DEFICIT   SAFE_LOW   NORMAL   SAFE_HIGH   EXCESS      200
+   |  重度不足 |  轻度不足 |   健康   |  轻度过量 |  重度过量 |
+            70        85        100        115        130
+```
+
+| 结构 | 内容 | 安全带 | 稳态平衡点 |
+| --- | --- | --- | --- |
+| `Electrolytes` | 钠 / 钾 / 镁 / 氯 / 钙 | **85 – 115** | **100**（严格回到正常） |
+| `TraceElements` | 碘 | **85 – 115** | **88**（比正常低 12 点） |
+
+**每一项都被拉回平衡点**，玩家什么都不做也不会一路滑到极端：电解质和碘都用
+`(100 - 当前值) * 0.00005` 回补（时间常数 20000 tick，不到一天），碘额外带一点固定流失
+（详见下面的模型一节）。碘的平衡点因此落在 **88**：还在安全带里，但离下限只剩 3 点，
+所以发烧、猛喝水这种额外流失就能把它压到 85 以下。
+
+碘仍然只能靠食物补——身体不会合成它：
+
+| 食物 | 补碘 |
+| --- | --- |
+| 海带 `minecraft:kelp` | **+25** |
+| 干海带 `minecraft:dried_kelp` | **+35** |
+
+从平衡点 88 吃一份海带正好到 113（还在安全带里），吃干海带就会过量；
+过量的碘会在一天左右被代谢回 88。
+
+### 水量 `water`
+
+| 项 | 值 |
+| --- | --- |
+| 正常范围 | **30 – 100** |
+| 上限 | 200 |
+| 超过 100 | 标记为**过度补水**：虚弱 + 挖掘速度降低 |
+| 低于 30 | 标记为**脱水** |
+| 自然流失 | **1 游戏日从满（100）掉到 1 格（10）** 左右 |
+| **体温每高 1 °C** | 额外流失 **0.0015 / tick**（出汗） |
+| 一份饮品补水 | **+15**（水、药水、蘑菇煲、两种柳树皮汤、以及它们的带盐版本） |
+
+超过 100 后肾脏加速排水（最多两倍），同时**稀释并加速排出电解质**；
+高钠和高钙也会加重口渴。
+
+### 体温 `temperature`
+
+| 项 | 值 |
+| --- | --- |
+| 正常 | **37.0 °C** |
+| 舒适区 | **36.0 – 38.5**（什么都不发生） |
+| 发烧 / 超高热 | ≥ **38.5** / ≥ **40.0** |
+| 轻度 / 重度失温 | ≤ **36.0** / ≤ **35.0** |
+| 上下限 | 30 – 42 |
+| 趋向目标的速率 | 0.0004 / tick（约 2500 tick 走完 63%，两分多钟） |
+
+> 发烧的起点是 **38.5** 而不是 38.0。38 度是**不开药方也能到的温度**：炎热群系、
+> 着火、加上甲状腺偏热就能凑出来，而那时屏幕上已经出现泛红、扭曲和镜头抖动——
+> 玩家看到的"我体征正常，视角却还在晃"。38.5 是发热真正开始的位置。
+
+体温由四项相加决定（见模型一节）：感染带来的**前列腺素**、命令注射的**热原**、
+**甲状腺**（碘）对设定点的偏移，以及**环境**。环境里只有一部分能突破体温调节。
+
+### 药物
+
+| 药物 | 起效浓度 | 上限 | 代谢时间 | 主要作用 |
+| --- | --- | --- | --- | --- |
+| 水杨苷 salicin | 1.0 | 3.0 | **3 游戏日**（线性） | 抑制前列腺素 + 缓激肽/组胺，整体压低反应 |
+| 地塞米松 dexamethasone | 1.0 | 2.0 | **2 游戏日**（线性） | 强力抑制细胞因子和白三烯 |
+
+两者都会**整体压制病原体反应**（满效时压掉 88%），但各自的"专长"不同——
+所以地塞米松对细胞因子的压制明显强于水杨苷（自检里专门验证了这一点）。
+
+**过量**（浓度超过起效浓度）会把**静息介质水平**一起压下去，
+于是炎症跌破安全区 → 免疫抑制 → 感染反而跑得更快。
 
 ### 存在哪里
 
-用 Fabric 的 **Data Attachment API**，不占用 NBT、不需要 mixin：
+用 Fabric 的 **Data Attachment API**：
 
 | Attachment | 持久化 | 同步 | 说明 |
 | --- | --- | --- | --- |
 | `outbreak:physiology` | ✅ 死亡保留 | ❌ | 完整数据，服务端权威 |
-| `outbreak:shake` | ✅ | ✅ 全客户端 | 只有一个计数器 + 幅度，客户端用它放镜头抖动 |
-| `outbreak:runtime` | ❌ | ❌ | 抖动计时、蝙蝠接触冷却，纯运行期状态 |
+| `outbreak:client_state` | ✅ | ✅ 全客户端 | 抖动序号 + 幅度 + 水量整数，客户端用来画镜头抖动和口渴条 |
+| `outbreak:runtime` | ❌ | ❌ | 抖动计时、蝙蝠冷却、上次同步值 |
 
-只有"抖动事件序号"会同步，所以一场抖动只发一个包，而不是每 tick 都发。
+水量只在**整数位变化时**才重发，所以一条正在下降的口渴条大约每 270 tick 一个包，
+而不是每 tick 一个。
 
 ---
 
@@ -42,176 +125,414 @@ Outbreak（爆发）的核心系统：每个玩家体内持续演算的一套**�
 
 | 来源 | 病原体 | 概率 | 单次载量 |
 | --- | --- | --- | --- |
-| 生肉（牛 / 猪 / 鸡 / 羊 / 兔 / 鳕鱼 / 鲑鱼 / 热带鱼） | 细菌 | **30%** | +6 |
-| 腐肉、毒马铃薯 | 细菌 | **30%** | +6 |
-| 生柳树皮汤（瓶 / 碗） | 细菌 | **30%** | +6 |
+| 生肉、腐肉、毒马铃薯 | 细菌 | **30%** | +6 |
+| 生柳树皮汤（含带盐版） | 细菌 | **30%** | +6 |
 | **接触蝙蝠**（2 格内） | 病毒 | **15%** | +5 |
 
-* 食物走 `Item.finishUsingItem`（见下面的 mixin），所以是"真正咽下去的那一刻"判定。
-* 蝙蝠是**接触**判定：进入 2 格范围后掷一次，然后有 10 秒冷却，避免站在蝙蝠旁边被反复判定。
-* 一次 +6 的感染是可以自愈的，但连着吃几次就会跨过临界点——载量大约 **27 以上**时，
-  健康人也压不住了。
+食物走 `Item.finishUsingItem`（见下面的 mixin），所以是"真正咽下去的那一刻"判定。
+蝙蝠是接触判定，进入 2 格后掷一次，然后 10 秒冷却。
 
 ---
 
 ## 模型
 
-每 tick 演算一次，全部是纯数据运算（`OutbreakPhysiology.tick(data)`，不依赖任何 Minecraft 对象）。
+每 tick 演算一次，核心是纯数据运算（`OutbreakPhysiology.tick(data)`，不依赖任何 Minecraft 对象）。
 
-### 1. 病原体
-
-```
-growth    = 0.0004 * load * (1 - load / 100)      对数增长
-clearance = 0.0007 * competence * load            免疫清除
-```
-
-`competence` 是**钟形曲线**，在安全区（25）最高，两侧都会塌掉：
+### 病原体
 
 ```
-competence(x) = exp(-(x - 25)² / 450) * clamp(x / 12, 0, 1)
+growth    = 0.0004 * load * (1 - load / 100)
+clearance = 0.0007 * competence * load
 ```
+
+`competence` 是**钟形曲线**，在安全区（25）最高，两侧都塌：
 
 | 炎症 | 0 | 6 | 12 | 25 | 40 | 50 | 75 | 100 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 免疫力 | 0.00 | 0.22 | 0.69 | **1.00** | 0.61 | 0.25 | 0.004 | ~0 |
 
-也就是：**炎症太低 → 免疫罢工，感染失控；炎症太高 → 免疫风暴，同样压不住病原体，
-而且还会反过来伤害宿主。**
+**炎症太低 → 免疫罢工；炎症太高 → 免疫风暴，同样压不住病原，还反过来伤害宿主。**
 
-### 2. 炎症
+### 介质动力学
 
-```
-response = min(load, 100) / 100 * 80                      病原体引起的反应
-damped   = response * (1 - min(suppression, 1))           水杨苷抑制
-overdose = max(suppression - 1, 0)                        过量部分
-target   = 25 + damped - overdose * 40
-inflammation += (target - inflammation) * 0.002           约 25 秒追平一半
-```
-
-* 没有病原体时 `target = 25`，正好落在 20–30 的安全区。
-* 感染发展到 100 载量时 `target = 105` → 直接顶到 100，**免疫风暴**。
-* `suppression = salicin / 1.0`（上限 1.5）。
-
-### 3. 电解质
+刺激强度 `stimulus = 载量 / 100`，每个介质以 0.002/tick（约 25 秒）逼近自己的目标：
 
 ```
-发烧流失 = inflammation / 100 * 0.0009 * (有症状 ? 1.5 : 1)   每 tick
-健康恢复 = 0.004                                              无症状且炎症 < 40 时
+cytokine      = BASE + 100 * stimulus * damping * (1 - 0.4 * dex)
+histamine     = BASE +  45 * stimulus * damping
+bradykinin    = BASE +  60 * stimulus * damping
+prostaglandin = BASE + (cytokine*0.5 + 25*stimulus) * damping * (1 - 0.5 * salicin)
+leukotriene   = BASE + (cytokine*0.5 + 20*stimulus) * damping * (1 - 0.4 * dex)
+
+damping = 1 - 0.88 * max(salicinFight, dexFight)
 ```
 
-一场没治好的感染会把电解质从 100 拖到 70 左右（实测），低电解质会加重下面所有症状。
+前列腺素和白三烯**由细胞因子诱导**（COX-2 / 脂氧合酶），所以它们是下游产物——
+这也让"地塞米松抑制上游、水杨苷抑制下游"的差别有了实际意义。
 
-### 4. 水杨苷代谢
-
-线性衰减，**3 个游戏日（72000 tick）**从上限 3.0 降到 0：
+### 电解质
 
 ```
-salicin -= 3.0 / 72000   每 tick
+出汗流失  = max(体温 - 37, 0) * 0.0002 * 相对排出系数
+稀释排出  = max(水量 - 100, 0) * 0.00004 * 相对排出系数
+自体稳态  = (100 - 当前值) * 0.00005        约 20000 tick 拉回一半
 ```
 
-一服柳树皮汤给 **+1.1**，刚好越過起效浓度 1.0。
+相对排出系数：钠 1.0、氯 1.0、钾 0.7、镁 0.4、钙 0.4
+——**钠和氯流失最快，镁和钙最慢**，所以猛喝水最先出问题的是低钠血症。
 
----
+出汗流失挂在**体温**上而不是炎症上：一场 3.5 °C 的高烧会持续把钠往外推，
+平衡点大约落在 86，刚好还在安全带里；烧到 5 °C 以上就会推出低钠血症。
 
-## 水杨苷怎么起作用
+### 碘
 
-| 情况 | 水杨苷 | 抑制 | `target` | 结果 |
+```
+自体稳态 = (100 - 当前值) * 0.00005        时间常数 20000 tick
+固定流失 = 0.0006
+平衡点   = 100 - 0.0006 / 0.00005 = 88
+```
+
+碘是唯一"进项靠吃"的矿物质，所以它的调节是从另一端做的：不足时靠**减少排出**把
+现有的留住，而不是凭空造。平衡点 88 在安全带内，但离 85 只有 3 点——一场持续三天的
+高烧（出汗把碘带走）就能把它推到 85 以下，变成亚临床甲减。
+
+### 体温
+
+```
+前列腺素发热 = min(max(前列腺素 - 30, 0) * 0.05, 4.0)     静息前列腺素是 30
+甲状腺偏移   = (碘偏离安全带的部分) * 0.02，上限 ±0.8
+环境偏移     = (环境温度 - 37) * 0.6                      只有 60% 能突破体温调节
+目标         = 37 + 前列腺素发热 + 热原 + 甲状腺偏移 + 环境偏移
+体温        += (目标 - 体温) * 0.0004
+```
+
+* **发热走前列腺素（PGE2）**，这正是下丘脑真正用来升温的介质——所以水杨苷（COX 抑制剂）
+  在这里天然就是退烧药，而细胞因子风暴会烧到 40 °C 以上（自检里实测 40.1）。
+* **热原 `pyrogen`** 是给测试用的外部发热源，像药物一样存储（正负都行，负值就是退烧偏移），
+  **一个游戏日**代谢完。但它有个停顿：**体温没走到设定点之前不代谢**（差 0.2 °C 以内才开始清）。
+  原因是设定点就是热原本身——如果一打进去就开始掉，设定点会在体温还在往上爬的时候
+  先溜走，发烧的峰值永远够不到你要的温度（要 39.5 只能烧到 38.8）。
+  停顿之后峰值就是你要的那个数，整场发烧也会在二十分钟内结束，不会留下一个
+  "一小时前开的命令，现在屏幕还在晃"的 bug。
+* **甲状腺**：碘不足 → 设定点下移（怕冷），碘过量 → 设定点上移（怕热）。幅度不到 1 °C，
+  它改的是"平时的体温"，不是发烧。
+* **环境**：见下表。温带和沙漠都在**中性温度区**里（体温调节完全扛得住），
+  真正能打穿防御的是湿透、细雪、火和岩浆。
+
+| 环境 | 权重（°C） |
+| --- | --- |
+| 生物群系（每 1.0 群系温度） | ×2.0，相对温带的 0.8 |
+| 中性温度区 | **±2.0 以内直接忽略** |
+| 浸水 / 淋雨 | −2.5 |
+| 埋在细雪里 | −4.0（与上面叠加） |
+| 着火 | +4.0 |
+| 岩浆 | +6.0 |
+
+换算下来：雪原（群系温度 −0.5）净 −0.6，只是**把平时的体温压到 36.4**，
+一个人待在雪地里不会有症状；雪地里泡水 −3.1，体温落到 35.1（轻度失温）；
+再加上细雪 −7.1，体温落到 32.8（重度失温）。热的一侧反过来：
+沙漠 +0.4，几乎无感；岩浆 +4.0，足以让健康人烧到 41 °C。
+
+### 盐的摄入
+
+| 来源 | 钠 | 氯 | 镁 | 钙 |
 | --- | --- | --- | --- | --- |
-| 健康，没喝 | 0 | 0 | 25 | 安全区 |
-| **感染了，喝一碗** | 1.1 | 1.1 | **21** | 反应被完全压掉，免疫力满格 → **把感染清掉** |
-| 感染了，不喝 | 0 | 0 | 25 → 105 | 炎症冲进风暴区 → 免疫力塌陷 → 感染失控 |
-| **喝太多**（2–3 碗） | 2.4–3.0 | 1.5 | **5** | 炎症被压到 12 以下 → **免疫抑制** → 感染反而跑得更快 |
+| 粗盐制品（粗盐水、粗盐蘑菇煲…） | +18 | +18 | **+5** | **+3** |
+| 精盐制品（盐水、盐蘑菇煲…） | +26 | +26 | 0 | 0 |
 
-这正是需求里说的："把炎症控制到合适范围，但喝太多会降低炎症，增加感染风险"。
-**关键是浓度，不是次数**——1.1 是药，3.0 是毒。
+粗盐带着岩盐里的其他矿物，精盐几乎是纯氯化钠——所以吃粗盐能同时补一点镁和钙，
+吃精盐则更容易把钠推高。
 
 ---
 
 ## 症状
 
+### 感染
+
 有症状（载量 ≥ 8）时：
 
 | 症状 | 实现 |
 | --- | --- |
-| 挖掘速度略微降低 | `Attributes.BLOCK_BREAK_SPEED` 上挂 `ADD_MULTIPLIED_TOTAL` 修饰符，**最多 -6%**（按 `severity`），电解质 < 30 再 -5% |
-| 饱食度下降略微加快 | mixin 缩放 `Player.causeFoodExhaustion` 的参数：`1 + 0.5×severity`，风暴再 +0.5，低电解质再 +0.25 |
-| 视角震颤 | 每 **15 秒（300 tick）**掷一次，**20% 概率**触发，持续 16 tick |
+| 挖掘速度略微降低 | `BLOCK_BREAK_SPEED` 属性修饰符，按严重度最多 **-6%** |
+| 饱食度下降略微加快 | `Player.causeFoodExhaustion` 参数倍率 `1 + 0.5×严重度` |
+| 视角震颤 | 每 **15 秒**掷一次，**20% 概率**，持续 16 tick |
 
-额外（需求里没写死、按"过高的免疫风暴"这个概念补的）：
+### 水量
 
-* 炎症 ≥ 75（免疫风暴）：每 2 秒刷新 `虚弱`，并额外扣饱食度；抖动概率翻倍、幅度加大。
-* 炎症 ≤ 12（免疫抑制）且电解质 < 30：每 2 秒刷新 `饥饿`。
+| 状态 | 表现 |
+| --- | --- |
+| 水量 > 100 | 虚弱、挖掘 **-8%**、额外掉饱食度 |
+| 水量 > 150 | 再加**反胃**（稀释性低钠的典型表现），**从这一刻起才可能抖镜头** |
+| 水量 < 15 | 饥饿 |
+
+> 口渴条只有 10 格，101 和 149 都画成"满"。所以镜头抖动——唯一一个没有图标、
+> 玩家无从得知来源的效果——要等到 150 以后（那时已经有反胃图标了）才可能出现。
+
+### 矿物质紊乱（按现实，两侧都算）
+
+阈值全员共用（`<70` 重度不足 / `70–85` 轻度不足 / `85–115` 正常 / `115–130` 轻度过量 /
+`>130` 重度过量），只有症状各不相同。这张表就是 `OutbreakSymptoms.MINERALS` 里的那张表：
+
+| 矿物质 | 重度不足 | 轻度不足 | 轻度过量 | 重度过量 |
+| --- | --- | --- | --- | --- |
+| 钠 | 反胃 + 缓慢（低钠：意识模糊） | 虚弱 | 饥饿（剧渴） | 饥饿 + 虚弱 |
+| 钾 | 虚弱 II + 挖掘疲劳 | 虚弱（挖掘 −6%） | 虚弱 | 缓慢 II + 周期性魔法伤害（心律不齐） |
+| 镁 | 虚弱 + 缓慢（抽搐、震颤） | 虚弱（抖动概率 +15%） | 缓慢 | 缓慢 + 虚弱（嗜睡、肌无力） |
+| 氯 | 反胃（代谢性碱中毒） | 虚弱 | 饥饿（代谢性酸中毒） | 饥饿 + 反胃 |
+| 钙 | 缓慢 + 虚弱（手足抽搐） | 虚弱（抖动概率 +20%、幅度加大） | 缓慢 | 缓慢 II + 虚弱（乏力、嗜睡） |
+| 碘 | 缓慢 II + 虚弱 II + 挖掘疲劳（严重甲减、黏液性水肿） | 虚弱 + 缓慢 + 饥饿（甲减：乏力、怕冷、反应迟钝） | 饥饿 + 反胃（甲亢：食欲亢进但不长肉、恶心） | 再加虚弱（肌肉消耗） |
+
+> 现实中的缺碘还会导致**甲状腺肿（大脖子病）**——方块游戏里没法让玩家脖子肿大，
+> 所以用「缓慢 + 虚弱 + 挖掘疲劳」这组甲减表现来代表，物质代谢变慢、反应迟钝。
+
+### 体温
+
+| 状态 | 表现 |
+| --- | --- |
+| **发烧**（38.5 – 40.0） | **虚弱 + 挖掘疲劳**（等级随温度升高），画面边缘出现热的扭曲与泛红（`outbreak:heat_haze`） |
+| **超高热**（≥ 40.0） | 上面全部保留，**再加动态模糊滤镜**（`outbreak:heat_blur`） |
+| **失温**（≤ 36，≤ 35 加强） | **虚弱 + 挖掘疲劳 + 缓慢**，画面边缘出现冷的抖动与泛蓝（`outbreak:cold_shiver`） |
+| 任一档 | 抖动概率每档 +15%，幅度 +0.4；食物消耗额外 +25% |
+
+**镜头抖动只有在玩家能看到别的问题时才可能出现。** 这是修掉那个
+"体征正常、视角还在晃"的 bug 后立下的规则：抖动的每一个来源都必须同时给一个
+**效果图标**（虚弱 / 反胃 / 饥饿……），否则玩家没有线索知道自己在晃什么。
+38 度以下、以及只到"口渴条满"程度的过水，都不再满足这个条件。
+
+画面效果不是 HUD 贴图，而是**原版后处理链**（`assets/outbreak/post_effect/*.json` +
+`assets/outbreak/shaders/post/*.fsh`）：只在画面**边缘**（`smoothstep(0.45, 1.0, ...)`）
+做 UV 位移和偏色，正中央——准星和玩家真正在看的东西——保持完全清晰。
+服务端只通过 `ServerPlayer.addPostEffect` 发一个 id，客户端自己去加载，
+加载失败只会在日志里报一行然后跳过，不会影响玩法。
 
 ---
 
 ## 用到的 mixin
 
-一共 3 个，都写在 **Java** 里（Kotlin 混入需要 refmap，Java 有 Loom 的注解处理器，
-而且能靠 Java 编译器直接校验目标类），全部极短，只做转发：
+一共 4 个，都写在 **Java** 里（Kotlin 混入需要 refmap，Java 有 Loom 的注解处理器，
+而且能靠 Java 编译器直接校验目标），全部极短，只做转发：
 
 | Mixin | 目标 | 为什么必须用 mixin |
 | --- | --- | --- |
-| `ItemMixin` | `Item.finishUsingItem` | 原版**没有**"吃完/喝完"事件，等到 server tick 时物品栏已经变了；Fabric 也没有对应事件 |
-| `PlayerMixin` | `Player.causeFoodExhaustion` | 缩放参数才能覆盖**所有**消耗来源（走路、疾跑、挖掘、跳跃）；从 tick 里补扣会漏掉这些 |
-| `CameraMixin`（客户端） | `Camera.alignWithEntity` | 原版没有镜头抖动，这个版本的 Fabric 也移除了 `ViewportEvent.ComputeCameraAngles`；只动镜头，不动玩家朝向和瞄准 |
+| `ItemMixin` | `Item.finishUsingItem` | 原版**没有**"吃完/喝完"事件，等到 server tick 时物品栏已经变了 |
+| `PlayerMixin` | `Player.causeFoodExhaustion` | 缩放参数才能覆盖**所有**消耗来源（走路、疾跑、挖掘、跳跃） |
+| `GrindstoneInputSlotMixin` | `GrindstoneMenu$2` / `$3` 的 `mayPlace` | 原版砂轮只收"可损坏或带附魔"的物品，我们的物品根本放不进去 |
+| `GrindstoneMenuMixin` | `GrindstoneMenu.computeResult` | 原版不知道我们的转化表，放进去也磨不出东西 |
+| `CameraMixin`（客户端） | `Camera.alignWithEntity` | 原版没有镜头抖动，这个版本的 Fabric 也移除了 `ViewportEvent` |
+| `HudMixin`（客户端） | `Hud.extractPlayerHealth` | 原版没有口渴条，挂在生命值渲染之后就能紧贴血条上方 |
 
-> 挖掘速度、感染判定、抖动计时**都不需要** mixin：前者用原版属性，后两者走事件。
+> 砂轮的两个输入槽是**匿名内部类**（`GrindstoneMenu$2` / `$3`），
+> 只能用字符串 `@Mixin(targets = ...)` 指定，没法用编译期引用。
+>
+> 挖掘速度、感染判定、抖动计时、口渴条取值、体温画面效果**都不需要** mixin：
+> 分别用原版属性、事件、属性同步（`outbreak:client_state`）和原版后处理链实现。
+
+---
+
+## 脏水（沼泽）与海水
+
+在沼泽和海里用水瓶取水会得到**沼泽水瓶**和**海水瓶**（河流及其他仍然是原版水瓶）。
+两者完全不同：
+
+| 水 | 喝下去会怎样 |
+| --- | --- |
+| **沼泽水瓶** + 加盐版（粗盐 / 盐） | 每次**独立掷骰**，全部持续 **30 秒**：细菌感染 30%（+6 载量）、反胃 35%、中毒 5% |
+| **海水瓶** + 加盐版 | **没有任何即时效果** |
+
+**海水不是脏水，是"高渗水"**：喝下它本身不会让你感染或反胃，代价在于它带的钠
+（一瓶 **+20 钠 +20 氯**，外加海水本身的 **+6 镁 +2 钙**）。这个量足以把钠一次推过 115，
+之后的事全部由电解质系统接管——剧渴、加速失水，再往下才是虚弱。
+一口海水不会立刻惩罚你，它只是把账记到后面。
+
+所有带盐饮品（粗盐水/盐水/粗盐蘑菇煲… 和沼泽水/海水系列）喝下都**补水 +15 并补钠**，
+粗盐版额外补镁和钙。
+
+---
+
+## 口渴条
+
+客户端 HUD：**10 格**，画在**生命值正上方、左侧**（血条和护甲都在左边，口渴条排在最上面那一行；
+如果玩家有护甲，就放在护甲上面，绝不会盖住任何一个）。
+
+* 每 10 点水量一格：30 → 3 格，100 → 10 格
+* 超过 100 一律 10 格
+* 最后 10 点里过半时显示**半格**
+
+水滴造型刻意做**细**：最宽处只有 5 像素（9×9 画布里），水滴外全部是**完全透明**
+（alpha 严格 0／255，没有半透明像素），所以 10 格排开也不会糊成一片。
+
+贴图在 `assets/outbreak/textures/gui/sprites/hud/thirst_{empty,half,full}.png`，
+走原版 GUI 图集（`assets/minecraft/atlases/gui.json` 的 `directory` 源会扫描所有命名空间，
+所以模组命名空间不需要额外的图集配置）。
+
+---
+
+## 盐业链
+
+```
+岩盐矿 ──砂轮──> 粗盐 ×9 ──砂轮──> 粗盐粉
+                                      │
+                                      ├─ 右键水炼药锅 ──> 粗盐水炼药锅
+                                      │        │
+                                      │   下方篝火/灵魂篝火
+                                      │        │  30 秒后每 30 秒浓缩一级
+                                      │        ▼
+                                      │   完全烧干 ──> 掉落 盐粉 ×1（炼药锅变空）
+                                      │
+粗盐 + 水/蘑菇煲/柳树皮汤/生柳树皮汤 ──> 粗盐水 / 粗盐蘑菇煲 / 粗盐柳树皮汤 / 粗盐生柳树皮汤
+盐粉 + 水/蘑菇煲/柳树皮汤/生柳树皮汤 ──> 盐水   / 盐蘑菇煲   / 盐柳树皮汤   / 盐生柳树皮汤
+```
+
+* **搅拌棒**：手持右键粗盐水炼药锅，**立刻推进一级蒸发**，消耗 1 点耐久（共 16 点）。
+  合成方式：**上下各一根木棍**。
+* 粗盐水炼药锅有 3 个阶段（`stage` 0/1/2），对应 3 张贴图（越来越咸、越来越干）。
+* 火被移走时蒸发**暂停**，重新点上会继续。
+* 岩盐矿是**掉落自身**的（因为砂轮磨的是矿石方块本身），需要石镐，
+  在 y=20–90 之间以 6 次/区块的频率生成。
+
+### 砂轮
+
+砂轮的**输入槽被 mixin 拓宽**了，所以粗盐、岩盐矿、柳树皮可以直接放进原版砂轮界面：
+
+| 放入 | 产出 |
+| --- | --- |
+| 柳树树皮 ×1 | 柳树皮碎片 ×2 |
+| 岩盐矿 ×1 | 粗盐 ×9 |
+| 粗盐 ×1 | 粗盐粉 ×1 |
+
+每次**只收一个**（结果槽取走时会清空输入槽，放整堆会被吞掉，所以槽位直接拒绝堆叠）。
+
+想批量处理就用**潜行 + 右键**砂轮：不开界面、直接转化一个，可以连点。
+（普通右键仍然打开原版界面——这也是"物品放不进砂轮"那个问题的修复点。）
 
 ---
 
 ## 命令
 
 ```
-/outbreak status                              查看炎症 / 电解质 / 细菌 / 病毒 / 水杨苷
-/outbreak cure                                重置为健康（需要 OP）
-/outbreak set <field> <value>                  调数值（需要 OP）
-       field = inflammation | electrolytes | bacteria | virus | salicin
+/outbreak status                              查看全部数据（介质、炎症、水量、五项电解质+碘、体温、病原、药物）
+/outbreak fever [温度]                        测试用：诱发发烧（或低温），默认 39.5 °C，范围 31–42（需要 OP）
+/outbreak cure                                重置为健康并清掉画面效果（需要 OP）
+/outbreak set <field> <value>                 调数值（需要 OP）
+       field = water | sodium | potassium | magnesium | chloride | calcium | iodine
+             | histamine | prostaglandin | leukotriene | cytokine | bradykinin
+             | bacteria | virus | salicin | dexamethasone
+             | temperature | pyrogen
 ```
 
-调试用；`status` 所有人可用。
+**`/outbreak fever [温度]`** 是我专门为测试发烧加的：它**不直接改体温**，而是算出"要让这次
+发烧**峰值**落在目标温度上需要多少热原"，然后把热原打进去。这样做的好处是
+
+* 已经感染的人也能精确落到目标温度（热原是补差价，不是覆盖）；
+* 体温像真发烧一样**两分多钟慢慢走上去**，所以能顺便看体温上升的过程；
+* 峰值误差在 **0.03 °C** 以内（自检里 39.5 → 实测 39.53，40.5 → 40.53）；
+* 热原在发烧形成后**一个游戏日内清完**，整场发烧十五分钟左右结束——
+  不会留下"一小时前开的命令，现在屏幕还在晃"。
+
+传一个低于 37 的温度就是低温症，比如 `/outbreak fever 34`。
+命令回显会告诉你这次会触发哪一层画面效果，以及怎么立刻停掉。
+
+```mcfunction
+/outbreak fever          # 39.5 °C，发烧：画面边缘泛红 + 扭曲
+/outbreak fever 38.5     # 刚好进入发烧档
+/outbreak fever 41       # 超高热：上面全部 + 动态模糊
+/outbreak fever 34       # 低温症：画面边缘冷抖动 + 缓慢
+/outbreak cure           # 一切归零，画面效果同 tick 消失
+```
 
 ---
 
 ## 验证
 
-`src/main/kotlin/.../dev/OutbreakPhysiologySelfTest.kt`（**默认不启用**）跑出 **28/28 全过**：
+`src/main/kotlin/.../dev/OutbreakPhysiologySelfTest.kt`（**默认不启用**，把它加进
+`fabric.mod.json` 的 `main` 入口点再 `gradle runServer` 就会在开服后 40 tick 自动跑完）
+跑出 **201/201 全过**：
 
 ```
-PHYS homeostasis over 3 days: inflammation 25.0..25.0 electrolytes 100.0
-PHYS mild infection: peak load 5.99 peak inflammation 28.4 final load 0.004
-PHYS untreated infection: final load 99.97 peak inflammation 100.0 electrolytes 71.4
-PHYS treated infection: final load 0.0197 peak inflammation 25.55 salicin 0.0999
-PHYS overdose: final load 69.88 inflammation 5.00 salicin 3.00
-PHYS salicin after 3 days: 0.0 / after 1.5 days: 1.498
-PHYS competence: 0 -> 0.0  baseline -> 1.0  storm -> 0.0039
-PHYS raw meat infections: 137/400 = 34.25%
-PHYS rotten flesh infections: 110/400 = 27.5%
-PHYS poisonous potato infections: 122/400 = 30.5%
-PHYS bread infections (control): 0/400
-PHYS salicin from soup: cooked=1.1 raw=1.1
-PHYS exhaustion multiplier: healthy=1.0 ill=1.458
-PHYS mining speed: ill=0.945 healthy=1.0
-PHYS shakes over 40 rolls: 16
-PHYSIOLOGY SELFTEST DONE passed=28 failed=0
+homeostasis 3 days: inflammation 25.0..25.0  electrolytes 100  temperature 37.0
+mild infection: peak inflammation 28.1 -> cleared
+untreated 40 point infection: load 99.93, peak inflammation 90.7  (storm)
+salicin treated:     load 0.022, peak inflammation 25.0
+dexamethasone:       load 0.026, peak inflammation 25.0
+overdose:            load 58.5,  inflammation 6.2   (immunosuppressed)
+drug metabolism: salicin 3 days -> 0 (linear), dexamethasone 2 days -> 0
+competence: 0 -> 0.0  baseline -> 1.0  storm -> 0.004
+resting mediators are the model's fixed point (25.0 == 25.0)
+thirst after one game day: water 10.47 -> 1 cell
+over-hydration: water loss 0.0060/tick vs 0.0037 normal
+two days of heavy drinking: Na 27.3  K 49.1  Mg 70.9  Cl 27.3  Ca 70.9
+iodine after 4 days with no kelp: 88.0 (equilibrium); one kelp -> 113.0; three -> 158.0
+iodine after three days of a 41 C fever: 83.7  (below the safe band)
+a healthy player holds exactly 37.0 for a whole game day
+ambient: temperate 37.0 | snowy 36.4 | snowy+wet 33.9 | powder snow 30.0 | desert 37.4 | lava 41.0
+  -> 12000 ticks in powder snow: 32.83 (tier -2), and back to 36.97 ten minutes after leaving
+untreated infection fever: peak 40.13 ; with salicin on board: 37.0
+/outbreak fever 39.5 -> peak 39.53, 18439 ticks (15 min) in the fever band
+/outbreak fever 40.5 -> peak 40.53 ; /outbreak fever 34 -> lowest 33.97
+thyroid: iodine 60 -> 36.71 resting, iodine 150 -> 37.23
+shake chance: healthy 0.00 | 38.0 C 0.00 | 38.5 C 0.15 | 40.0 C 0.30 | water 149 0.00 | water 151 0.10
+hottest a healthy body reaches (desert + hot thyroid): 37.52, tier 0, nothing on screen
+screen effects: 38.0 none | 39.0 haze | 40.5 haze + blur | dropping to 39.0 clears only the blur
+translations: [en_us, zh_cn] languages, missing item names [] missing entity names []
+  -> every outbreak item and entity is named, and the standing sign takes block.outbreak.willow_sign
+every mineral checked on both sides of its band (12 cases) + a control with nothing in band
+raw meat 118/400 | rotten flesh 137/400 | poisonous potato ~30% | bread 0/400 (control)
+swamp water over 600 drinks: infection 174 nausea 226 poison 34
+sea water over 600 drinks:   infection 0   nausea 0   poison 0
+  -> one bottle: water 95, sodium 120, magnesium 106
+all 12 drinks add exactly 15 water
+a real GrindstoneMenu slot accepts willow bark and produces willow_bark_pieces x2
+exhaustion multiplier: healthy 1.0 vs ill 1.458
+mining speed: ill 0.945 | over-hydrated < 1.0 | healthy 1.0
+client state: synced water 55
+PHYSIOLOGY SELFTEST DONE passed=201 failed=0
 ```
 
-覆盖了三件事：**纯模型**（上面 7 项，不需要世界）、**mixin 端到端**
-（真的调 `ItemStack.finishUsingItem` 去吃生肉 / 喝汤，统计感染率和药物浓度）、
-以及**症状**（属性修饰符、饱食度倍率、抖动计数）。
+覆盖了**纯模型**、**mixin 端到端**（真的调 `ItemStack.finishUsingItem` 吃生肉 / 喝汤 / 喝海水，
+以及**真的构造一个 `GrindstoneMenu`** 验证两个砂轮 mixin 生效）、**症状表**、**翻译覆盖**
+与**同步**。
 
-启用方式见 [`tools/README.md`](tools/README.md)。
-
-> 开发过程中这套自检抓到过一个真 bug：`AttachmentRegistry.create(id)` 建出来的
-> attachment 没有默认值，`getAttachedOrCreate` 的单参重载会直接抛
-> `IllegalArgumentException` —— 那会在**每个玩家每一 tick**炸一次。已修复为带 supplier 的重载。
+> 自检抓到过的问题：
+> 1. `AttachmentRegistry.create(id)` 建的 attachment 没有默认值，单参 `getAttachedOrCreate`
+>    会抛 `IllegalArgumentException` —— 那会在**每个玩家每一 tick**炸一次。
+> 2. 盐类合成表用了 `"category": "food"`，26.2 的 shapeless 配方不接受这个值，8 个配方
+>    全部加载失败。已改为 `"misc"`。
+> 3. 静息介质水平与模型不动点不一致（28.75 vs 25），新玩家一出生就接近免疫抑制。
+> 4. 过量用药不足以把炎症压进免疫抑制区，感染反而被清掉了；`OVERDOSE_BASELINE_DROP`
+>    从 1.2 调到 1.8。
+> 5. 口渴条三个水滴贴图的**背景被填成了不透明色**（81/81 像素 alpha=255），
+>    所以在 HUD 上显示成三个实心方块。原因是造型表里 `.` 背景字符没有被单独处理，
+>    掉进了"填内部颜色"的分支。现在 `.` 会保留 `New-Grid` 的透明值，
+>    水滴外严格 alpha=0。
+> 6. 碘加入后，`homeostasis` 那条自检拿 `electrolytes.lowest` 判定"所有电解质都正常"，
+>    而碘按设计本来就会掉光，于是误报。已改成只检查真正的五项电解质。
+> 7. 体温这一版：出汗原本挂在**本 tick 刚算出来的**新体温上，而其余步骤读的都是上一 tick
+>    的状态。改成出汗也读旧体温，否则"持续发烧"根本没法在纯模型里复现。
+> 8. 热原原本按 2 个游戏日代谢，而体温要 2500 tick 才走到设定点——结果是
+>    `/outbreak fever 39.5` 只能烧到 38.8。先改成 5 个游戏日（准了，但一场测试发烧要挂一小时），
+>    最后改成"**走到设定点之前不代谢**"：峰值精确到 0.03 °C，二十分钟内结束。
+> 9. 碘的平衡点原本定在 90，一份海带正好推到 115.3，**刚好过量**（吃一根海带就反胃）。
+>    把固定流失从 0.0004 提到 0.0006，平衡点落到 88，一份海带 113。
+> 10. **"体征正常但视角还在晃"**：发烧档原本从 38.0 开始，而 38.0 是不开药方也能到的温度
+>    （炎热群系 + 甲状腺偏热），屏幕上却已经泛红扭曲加抖动了；另外过水到 100–149 之间
+>    口渴条全画成"满"，却能单独触发镜头抖动。现在发烧档从 38.5 起，**抖动的每一个来源
+>    都必须同时给一个效果图标**（自检里逐条断言了 shake chance）。
+> 11. **`item.outbreak.willow_sign` 没有翻译**：立式告示牌注册时漏了
+>    `useBlockDescriptionPrefix()`，而它的悬挂版有，于是物品栏里直接显示原始键名
+>    （名字在 `block.outbreak.willow_sign` 下，原版告示牌也一样）。自检现在会枚举
+>    **所有**注册项、拿两种语言文件核对，缺一个就报出具体是哪个键——先故意把修复撤掉跑了一遍，
+>    它确实红：`missing item names [item.outbreak.willow_sign (en_us), item.outbreak.willow_sign (zh_cn)]`。
 
 ---
 
 ## 调参入口
 
-所有数字都在两处，改完重新构建即可：
-
-* `physiology/OutbreakData.kt` — 阈值、上限、水杨苷代谢
-* `physiology/OutbreakPhysiology.kt` — 增长率、清除率、免疫力曲线、炎症响应
-* `physiology/OutbreakInfection.kt` — 感染概率、单次载量、一服汤的药量
-* `physiology/OutbreakSymptoms.kt` — 症状强度、抖动频率和概率
+| 文件 | 内容 |
+| --- | --- |
+| `physiology/OutbreakData.kt` | 阈值、上限、水量参数（含"看得见的过水线"）、药物代谢、体温阈值与热原代谢 |
+| `physiology/Mediators.kt` / `Electrolytes.kt` / `TraceElements.kt`（在同一个文件里） | 介质权重、静息值、矿物刻度（安全带 / 重度线） |
+| `physiology/OutbreakPhysiology.kt` | 增长率、清除率、免疫力曲线、介质动力学、排水排电解质、碘稳态、体温、热原停顿 |
+| `physiology/OutbreakInfection.kt` | 感染概率、单次载量 |
+| `physiology/OutbreakIngestion.kt` | 每杯补水、盐分摄入（含海水的钠镁钙）、每服汤的药量、每次注射的药量 |
+| `physiology/OutbreakSymptoms.kt` | 症状强度、抖动频率与来源、**六项矿物症状表**、体温症状、环境温度 |
+| `assets/outbreak/post_effect/*.json` + `assets/outbreak/shaders/post/*.fsh` | 边缘扭曲（`heat_haze`）、动态模糊（`heat_blur`）、冷抖动（`cold_shiver`），以及各自的强度、起始半径、频率、反馈系数 |

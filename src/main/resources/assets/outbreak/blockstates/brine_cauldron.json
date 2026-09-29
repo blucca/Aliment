@@ -1,0 +1,13 @@
+{
+  "variants": {
+    "stage=0": {
+      "model": "outbreak:block/brine_cauldron_0"
+    },
+    "stage=1": {
+      "model": "outbreak:block/brine_cauldron_1"
+    },
+    "stage=2": {
+      "model": "outbreak:block/brine_cauldron_2"
+    }
+  }
+}

@@ -1,7 +1,6 @@
-package com.github.kusa233.outbreak.world.block
+﻿package com.github.kusa233.outbreak.world.block
 
 import com.github.kusa233.outbreak.registry.OutbreakBlocks
-import com.mojang.serialization.MapCodec
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.tags.BlockTags
@@ -21,9 +20,6 @@ import net.minecraft.world.phys.shapes.VoxelShape
  */
 class WillowVinesBlock(properties: BlockBehaviour.Properties) :
     GrowingPlantHeadBlock(properties, Direction.DOWN, SHAPE, false, 0.12) {
-
-    override fun codec(): MapCodec<WillowVinesBlock> = CODEC
-
     override fun getBlocksToGrowWhenBonemealed(random: RandomSource): Int = 1 + random.nextInt(2)
 
     override fun getBodyBlock(): Block = OutbreakBlocks.WILLOW_VINES_PLANT
@@ -43,8 +39,6 @@ class WillowVinesBlock(properties: BlockBehaviour.Properties) :
     }
 
     companion object {
-        val CODEC: MapCodec<WillowVinesBlock> = BlockBehaviour.simpleCodec(::WillowVinesBlock)
-
         private val SHAPE: VoxelShape = Block.column(8.0, 9.0, 16.0)
     }
 }

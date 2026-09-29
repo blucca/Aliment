@@ -1,19 +1,25 @@
 package com.github.kusa233.outbreak.registry
 
-import java.util.Optional
 import net.minecraft.core.registries.Registries
 import net.minecraft.resources.ResourceKey
+import net.minecraft.util.random.Weighted
+import net.minecraft.util.random.WeightedList
 import net.minecraft.world.level.block.grower.TreeGrower
-import net.minecraft.world.level.levelgen.feature.ConfiguredFeature
+import net.minecraft.world.level.levelgen.feature.Feature
 
-/** Configured features that willow saplings are allowed to grow into. */
+/**
+ * The features a willow sapling is allowed to grow into.
+ *
+ * 26.3 removed ConfiguredFeature: a feature is now a registry entry of its own, so these keys
+ * point straight at the `worldgen/feature` JSON files.
+ */
 object OutbreakTreeGrowers {
 
-    val WILLOW_TREE: ResourceKey<ConfiguredFeature<*, *>> =
-        ResourceKey.create(Registries.CONFIGURED_FEATURE, Registration.id("willow"))
+    val WILLOW_TREE: ResourceKey<Feature> =
+        ResourceKey.create(Registries.FEATURE, Registration.id("willow"))
 
-    val TALL_WILLOW_TREE: ResourceKey<ConfiguredFeature<*, *>> =
-        ResourceKey.create(Registries.CONFIGURED_FEATURE, Registration.id("tall_willow"))
+    val TALL_WILLOW_TREE: ResourceKey<Feature> =
+        ResourceKey.create(Registries.FEATURE, Registration.id("tall_willow"))
 
     /**
      * 65% of the time a sapling grows into the regular weeping willow, otherwise the taller
@@ -21,12 +27,13 @@ object OutbreakTreeGrowers {
      */
     val WILLOW: TreeGrower = TreeGrower(
         "willow",
-        0.35F,
-        Optional.empty(),
-        Optional.empty(),
-        Optional.of(WILLOW_TREE),
-        Optional.of(TALL_WILLOW_TREE),
-        Optional.empty(),
-        Optional.empty(),
+        WeightedList.of(
+            Weighted(WILLOW_TREE, 65),
+            Weighted(TALL_WILLOW_TREE, 35),
+        ),
+        // No 2x2 mega variant and no flowering variant.
+        WeightedList.of(),
+        WeightedList.of(),
+        WILLOW_TREE,
     )
 }

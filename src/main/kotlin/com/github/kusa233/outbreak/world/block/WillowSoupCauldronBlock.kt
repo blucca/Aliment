@@ -1,7 +1,6 @@
-package com.github.kusa233.outbreak.world.block
+﻿package com.github.kusa233.outbreak.world.block
 
 import com.github.kusa233.outbreak.registry.OutbreakItems
-import com.mojang.serialization.MapCodec
 import net.minecraft.core.BlockPos
 import net.minecraft.core.cauldron.CauldronInteractions
 import net.minecraft.core.registries.BuiltInRegistries
@@ -46,9 +45,6 @@ import net.minecraft.world.phys.BlockHitResult
  */
 class WillowSoupCauldronBlock(properties: BlockBehaviour.Properties) :
     AbstractCauldronBlock(properties, CauldronInteractions.EMPTY) {
-
-    override fun codec(): MapCodec<WillowSoupCauldronBlock> = CODEC
-
     init {
         this.registerDefaultState(
             this.stateDefinition.any().setValue(LEVEL, 3).setValue(COOKED, false),
@@ -148,9 +144,6 @@ class WillowSoupCauldronBlock(properties: BlockBehaviour.Properties) :
         private const val BASE_CONTENT_HEIGHT = 6.0
         private const val HEIGHT_PER_LEVEL = 3.0
         private const val MAX_LEVEL = 3
-
-        val CODEC: MapCodec<WillowSoupCauldronBlock> = BlockBehaviour.simpleCodec(::WillowSoupCauldronBlock)
-
         val LEVEL: IntegerProperty = BlockStateProperties.LEVEL_CAULDRON
         val COOKED: BooleanProperty = BooleanProperty.create("cooked")
 

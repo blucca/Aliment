@@ -9,12 +9,11 @@ import net.minecraft.world.item.Items
 import net.minecraft.world.phys.AABB
 
 /**
- * Where infections come from.
+ * Which pathogens a player can pick up, and from what.
  *
  * * Eating risky food - raw meat, rotten flesh, poisonous potatoes and raw willow bark soup -
  *   has a 30% chance of seeding a bacterial infection.
  * * Coming into contact with a bat has a 15% chance of seeding a viral infection.
- * * Both soup variants also deliver salicin, the drug that controls inflammation.
  */
 object OutbreakInfection {
 
@@ -27,9 +26,6 @@ object OutbreakInfection {
     /** How much pathogen a single successful roll adds. */
     private const val BACTERIA_SEED = 6f
     private const val VIRUS_SEED = 5f
-
-    /** Salicin delivered by one serving of willow bark soup, raw or cooked. */
-    private const val SALICIN_PER_SERVING = 1.1f
 
     /** How close a bat has to be to count as contact, in blocks. */
     private const val BAT_CONTACT_RANGE = 2.0
@@ -52,37 +48,26 @@ object OutbreakInfection {
     )
 
     /**
-     * Called from `ItemMixin` whenever a living entity finishes using an item, which is the
-     * moment the food is actually consumed.
+     * Rolls for a bacterial infection from a meal, and returns the updated data.
+     *
+     * Called for anything the player swallows, so it has to be cheap when the item is not risky.
      */
-    @JvmStatic
-    fun onItemConsumed(player: ServerPlayer, stack: ItemStack) {
-        val data = player.getAttachedOrCreate(OutbreakAttachments.DATA)
-        var updated = data
-
-        if (isRiskyFood(stack.item)) {
-            if (player.level().random.nextFloat() < BACTERIA_CHANCE) {
-                updated = OutbreakPhysiology.seed(updated, bacteria = BACTERIA_SEED)
-            }
+    fun rollRiskyFood(player: ServerPlayer, data: OutbreakData, stack: ItemStack): OutbreakData {
+        if (!isRiskyFood(stack.item)) {
+            return data
         }
-
-        if (isWillowSoup(stack.item)) {
-            updated = OutbreakPhysiology.dose(updated, SALICIN_PER_SERVING)
-        }
-
-        if (updated !== data) {
-            player.setAttached(OutbreakAttachments.DATA, updated)
+        return if (player.level().random.nextFloat() < BACTERIA_CHANCE) {
+            OutbreakPhysiology.seed(data, bacteria = BACTERIA_SEED)
+        } else {
+            data
         }
     }
 
-    private fun isRiskyFood(item: Item): Boolean =
+    fun isRiskyFood(item: Item): Boolean =
         item in RISKY_FOODS || item === OutbreakItems.RAW_WILLOW_BARK_SOUP_BOTTLE ||
-            item === OutbreakItems.RAW_WILLOW_BARK_SOUP_BOWL
-
-    private fun isWillowSoup(item: Item): Boolean = item === OutbreakItems.WILLOW_BARK_SOUP_BOTTLE ||
-        item === OutbreakItems.WILLOW_BARK_SOUP_BOWL ||
-        item === OutbreakItems.RAW_WILLOW_BARK_SOUP_BOTTLE ||
-        item === OutbreakItems.RAW_WILLOW_BARK_SOUP_BOWL
+            item === OutbreakItems.RAW_WILLOW_BARK_SOUP_BOWL ||
+            item === OutbreakItems.CRUDE_SALT_RAW_WILLOW_BARK_SOUP ||
+            item === OutbreakItems.SALT_RAW_WILLOW_BARK_SOUP
 
     /**
      * Checks for a bat standing next to the player and rolls for a viral infection once per
