@@ -52,9 +52,15 @@ object OutbreakIngestion {
     private const val SEA_WATER_MAGNESIUM = 0.05f
     private const val SEA_WATER_CALCIUM = 0.05f
 
-    /** Iodine from kelp, in umol/L. Dried kelp is the concentrated form. */
-    private const val KELP_IODINE = 0.15f
-    private const val DRIED_KELP_IODINE = 0.25f
+    /**
+     * Iodine from kelp, in umol/L. Dried kelp is the concentrated form.
+     *
+     * The body loses 0.15 umol/L a day on its own - the whole store is gone in three days - so a
+     * regular diet of kelp is what keeps a player out of hypothyroidism: one a day is not quite
+     * enough, two a day is comfortable, and dried kelp is worth two wet ones.
+     */
+    private const val KELP_IODINE = 0.10f
+    private const val DRIED_KELP_IODINE = 0.20f
 
     /** How much pathogen a single successful roll adds. */
     private const val BACTERIA_SEED = 6f
@@ -79,9 +85,16 @@ object OutbreakIngestion {
     /**
      * Called from `ItemMixin` whenever a living entity finishes using an item, which is the
      * moment the food or drink is actually consumed.
+     *
+     * A creative player's body is frozen (`OutbreakSymptoms.isFrozen`), so nothing eaten or drunk
+     * reaches it - otherwise the state would keep moving through the kitchen door while the model
+     * stood still. The vanilla side of eating, hunger and saturation, is untouched either way.
      */
     @JvmStatic
     fun onItemConsumed(player: ServerPlayer, stack: ItemStack) {
+        if (OutbreakSymptoms.isFrozen(player)) {
+            return
+        }
         val before = player.getAttachedOrCreate(OutbreakAttachments.DATA)
         var data = before
 
@@ -212,9 +225,12 @@ object OutbreakIngestion {
             item === OutbreakItems.CRUDE_SALT_RAW_WILLOW_BARK_SOUP ||
             item === OutbreakItems.SALT_RAW_WILLOW_BARK_SOUP
 
-    /** Applies a dexamethasone injection. */
+    /** Applies a dexamethasone injection, unless the body is frozen (see [onItemConsumed]). */
     @JvmStatic
     fun injectDexamethasone(player: ServerPlayer) {
+        if (OutbreakSymptoms.isFrozen(player)) {
+            return
+        }
         val data = player.getAttachedOrCreate(OutbreakAttachments.DATA)
         player.setAttached(OutbreakAttachments.DATA, OutbreakPhysiology.inject(data, DEXAMETHASONE_PER_INJECTION))
     }

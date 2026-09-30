@@ -252,6 +252,7 @@ src/main/kotlin/com/github/kusa233/outbreak/
 ├─ dev/                               仅开发用的自检（默认不启用，见 tools/README.md）
 └─ world/
    ├─ OutbreakGrinding.kt             砂轮转化表（供两个砂轮 mixin 读取）
+   ├─ OutbreakLoot.kt                 村庄 / 前哨站箱子里的地塞米松注射液（3%）与柳树皮汤（10%）
    ├─ block/WillowVinesBlock.kt       垂柳末端（可催长）
    ├─ block/WillowVinesPlantBlock.kt  垂柳中段
    ├─ block/WillowSoupCauldronBlock.kt 柳树皮汤炼药锅（水位 + 生/熟 + 篝火计时）

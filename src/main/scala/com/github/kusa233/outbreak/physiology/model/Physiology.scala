@@ -116,17 +116,23 @@ object Physiology {
   // ------------------------------------------------------------------ iodine
 
   /**
-   * Iodine is the one mineral the diet has to supply, so it is regulated from the other end: a
-   * deficit is met by hanging on to what is left rather than by making more.
+   * Iodine is the one mineral the diet has to supply, and the body does not make it: what is not
+   * eaten is lost.
    *
-   * These two terms are a proportional controller plus a constant leak, giving a fixed point of
-   * `normal * (1 - drain / homeostasis)`, i.e. **85% of normal** - 0.425 umol/L, inside the
-   * 0.40..0.80 reference range but only 0.025 above the bottom of it. Nobody who eats kelp now and
-   * then will ever see a symptom, and nobody who never does will spiral: a fever or a drinking binge
-   * is what pushes it under.
+   * The loss is a plain leak with nothing pulling the other way, sized so that a full store runs
+   * down to the hard floor in [IODINE_DEPLETION_TICKS] - 0.50 umol/L to 0.05 in exactly three
+   * in-game days - and then stays there. A proportional controller towards normal is deliberately
+   * *not* modelled: it is exactly what would stop the store from ever running out, and iodine is
+   * meant to be a dietary need rather than a bonus, so a player who lives on bread ends up severely
+   * hypothyroid.
+   *
+   * Sweating carries iodine off on top of the leak, which is what pushes an otherwise adequate diet
+   * under the reference range during a long fever.
    */
-  private final val IODINE_HOMEOSTASIS = 0.00005f
-  private final val IODINE_DRAIN_FRACTION = 0.0000075f
+  private final val IODINE_DEPLETION_TICKS = 3 * 24000
+  private final val IODINE_DRAIN_FRACTION =
+    (MineralRanges.IODINE.normal - MineralRanges.IODINE.min) /
+      IODINE_DEPLETION_TICKS / MineralRanges.IODINE.normal
 
   // ------------------------------------------------------------------ temperature
 
@@ -586,17 +592,17 @@ object Physiology {
   }
 
   /**
-   * Iodine is pulled towards normal like everything else, but with a constant leak on top, so the
-   * equilibrium sits 15% low. Kelp is what lifts it back.
+   * The store drains at a fixed rate with nothing adding to it, so a player who never eats kelp runs
+   * it down in three in-game days and then sits at the floor. A fever, or a drinking binge, takes it
+   * away faster.
    */
   private def stepTraceElements(state: ModelState): ModelTraceElements = {
     val mineral = MineralRanges.IODINE
     val flush = mineralFlush(state) + mineralSweat(state)
 
-    val homeostasis = (mineral.normal - state.traceElements.iodine) * IODINE_HOMEOSTASIS
     val loss = (IODINE_DRAIN_FRACTION + flush * EXCRETION_IODINE) * mineral.normal
 
-    new ModelTraceElements(mineral.clamp(state.traceElements.iodine + homeostasis - loss))
+    new ModelTraceElements(mineral.clamp(state.traceElements.iodine - loss))
   }
 
   // ------------------------------------------------------------------ external inputs

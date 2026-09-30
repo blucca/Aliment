@@ -463,18 +463,23 @@ data class OutbreakClientState(
 /**
  * The attachments every player carries.
  *
- * * `physiology` is the whole body, persisted across death and never synced;
+ * * `physiology` is the whole body, persisted but deliberately **not** carried across death;
  * * `client_state` is the small subset the client needs, synced to everyone;
  * * `runtime` is per-session counters that are deliberately neither saved nor synced.
  */
 object OutbreakAttachments {
 
-    /** The whole body. Persisted so that dying does not cure an infection. */
+    /**
+     * The whole body.
+     *
+     * There is no `copyOnDeath()` on purpose: a respawned player is a new player, with a healthy body
+     * and no infection, so death is the one cure that always works. Without that line Fabric starts
+     * the new player from [OutbreakData.HEALTHY], which is also what a fresh player gets.
+     */
     val DATA: AttachmentType<OutbreakData> = AttachmentRegistry.create(Registration.id("physiology")) { builder ->
         builder
             .initializer { OutbreakData.HEALTHY }
             .persistent(OutbreakData.CODEC)
-            .copyOnDeath()
     }
 
     /** The bits the client needs, pushed to everyone who can see the player. */

@@ -16,6 +16,7 @@ import com.github.kusa233.outbreak.physiology.TraceElements
 import com.github.kusa233.outbreak.registry.OutbreakBlocks
 import com.github.kusa233.outbreak.registry.OutbreakItems
 import com.github.kusa233.outbreak.world.OutbreakGrinding
+import com.github.kusa233.outbreak.world.OutbreakLoot
 import com.google.gson.JsonParser
 import net.fabricmc.api.ModInitializer
 import net.fabricmc.fabric.api.entity.FakePlayer
@@ -23,10 +24,12 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
 import net.minecraft.core.Holder
 import net.minecraft.core.Registry
 import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.resources.Identifier
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.effect.MobEffect
 import net.minecraft.world.effect.MobEffects
+import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.EntitySpawnReason
 import net.minecraft.world.entity.EntityTypes
 import net.minecraft.world.entity.Mob
@@ -35,6 +38,12 @@ import net.minecraft.world.inventory.GrindstoneMenu
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
+import net.minecraft.world.level.GameType
+import net.minecraft.world.level.storage.loot.LootParams
+import net.minecraft.world.level.storage.loot.LootTable
+import net.minecraft.world.level.storage.loot.parameters.LootContextParamSets
+import net.minecraft.world.level.storage.loot.parameters.LootContextParams
+import net.minecraft.world.phys.Vec3
 import org.apache.logging.log4j.LogManager
 import kotlin.math.abs
 
@@ -67,6 +76,10 @@ class OutbreakPhysiologySelfTest : ModInitializer {
                 mixinChecks(server.overworld())
                 symptomChecks(server.overworld())
                 grinding(server.overworld())
+                chestLoot(server.overworld())
+                creativeIsFrozen(server.overworld())
+                // Last, because it makes the server hand out a second player object.
+                deathResetsTheBody(server.overworld())
             } catch (t: Throwable) {
                 logger.error("PHYSIOLOGY SELFTEST exception", t)
                 failed++
@@ -91,7 +104,7 @@ class OutbreakPhysiologySelfTest : ModInitializer {
         overhydration()
         drinkingDilutesElectrolytes()
         dehydrationStopsWhenDrinking()
-        iodineSteadyState()
+        iodineDepletion()
         temperatureHomeostasis()
         environmentThermoregulation()
         feverFollowsProstaglandin()
@@ -103,23 +116,28 @@ class OutbreakPhysiologySelfTest : ModInitializer {
         var data = OutbreakData.HEALTHY
         var min = data.inflammation
         var max = data.inflammation
-        repeat(72_000) {
+        repeat(72_000) { tick ->
             data = OutbreakPhysiology.tick(data)
+            // The one thing a player has to keep doing: iodine has no homeostat, so a day's worth of
+            // kelp goes in every day. Everything else in this test is "do nothing at all".
+            if (tick % 24_000 == 0) {
+                data = OutbreakPhysiology.iodine(data, 0.15f)
+            }
             min = minOf(min, data.inflammation)
             max = maxOf(max, data.inflammation)
         }
         logger.info(
-            "PHYS homeostasis over 3 days: inflammation {}..{} electrolytes {} water {} temperature {}",
+            "PHYS homeostasis over 3 days (one day's kelp a day): inflammation {}..{} electrolytes {} water {} temperature {}",
             min, max, data.electrolytes, data.water, data.temperature,
         )
         check("homeostasis keeps inflammation inside 20..30", min >= 20f && max <= 30f)
-        // Iodine is deliberately excluded: it has its own, lower, steady state (see iodineSteadyState).
         val e = data.electrolytes
         check(
             "homeostasis keeps every electrolyte inside a percent of normal",
             Electrolytes.MINERALS.all { abs(e.of(it) - it.normal) < 0.01f * it.normal },
         )
         check("homeostasis keeps the core temperature at 37", abs(data.temperature - OutbreakData.TEMPERATURE_NORMAL) < 0.01f)
+        check("and the thyroid is happy", !data.hasTraceElementImbalance)
     }
 
     private fun mildInfectionResolves() {
@@ -301,58 +319,100 @@ class OutbreakPhysiologySelfTest : ModInitializer {
     }
 
     /**
-     * Iodine is regulated like everything else now, but around a lower set point, because the body
-     * cannot make it: the equilibrium is 85% of normal, i.e. 0.425 umol/L. That is inside the
-     * 0.40..0.80 reference range, so ignoring kelp is survivable, and only 0.025 above the bottom
-     * of it, so a fever or a drinking binge will push it under.
+     * Iodine is the one mineral the body cannot make and does not conserve: what is not eaten is
+     * lost. A full store - normal 0.50 down to the hard floor 0.05 - is drained in exactly three
+     * in-game days, and then it stays on the floor until kelp puts something back.
      */
-    private fun iodineSteadyState() {
+    private fun iodineDepletion() {
         val iodine = Mineral.IODINE
+        val floor = iodine.min
+        val halfway = (iodine.normal + floor) / 2f
+
         var data = OutbreakData.HEALTHY
-        repeat(4 * 24_000) { data = OutbreakPhysiology.tick(data) }
-        logger.info(
-            "PHYS iodine after 4 days with no kelp: {} (reference range {}..{} umol/L)",
-            data.traceElements.iodine, iodine.safeLow, iodine.safeHigh,
-        )
-        check(
-            "iodine settles at a steady state instead of draining away",
-            abs(data.traceElements.iodine - 0.85f * iodine.normal) < 0.01f,
-        )
-        check("that steady state is inside the reference range", !data.hasTraceElementImbalance)
+        repeat(36_000) { data = OutbreakPhysiology.tick(data) }
+        logger.info("PHYS iodine after a day and a half with no kelp: {}", data.traceElements.iodine)
+        check("half the store is gone after half of the three days", abs(data.traceElements.iodine - halfway) < 0.01f)
+
+        repeat(36_000) { data = OutbreakPhysiology.tick(data) }
+        logger.info("PHYS iodine after three days with no kelp: {} (floor {})", data.traceElements.iodine, floor)
+        check("three game days empty the store", abs(data.traceElements.iodine - floor) < 0.001f)
+        check("an empty store is severe iodine deficiency", data.traceElements.iodine < iodine.severeLow)
+        check("and it is reported as an imbalance", data.hasTraceElementImbalance)
+        check("the thyroid follows it down", OutbreakPhysiology.targetTemperature(data) < 36.5f)
+
+        repeat(24_000) { data = OutbreakPhysiology.tick(data) }
+        check("a fourth day does not drain it any further", abs(data.traceElements.iodine - floor) < 0.001f)
         check("the five electrolytes are unaffected", !data.hasElectrolyteImbalance)
         check("iodine is not part of the electrolyte set", Electrolytes.MINERALS.none { it == Mineral.IODINE })
 
-        val oneKelp = OutbreakPhysiology.iodine(data, 0.15f)
-        logger.info("PHYS iodine after one kelp: {}", oneKelp.traceElements.iodine)
-        check("one kelp is enough and not too much", !oneKelp.hasTraceElementImbalance)
+        // Kelp is the only way back. The leak costs 0.15 umol/L a day, so a wet kelp (0.10) is not a
+        // day's worth and two of them are.
+        val oneKelp = OutbreakPhysiology.iodine(data, 0.10f)
+        logger.info("PHYS iodine after one kelp from an empty store: {}", oneKelp.traceElements.iodine)
+        check("one kelp lifts an empty store off the floor", oneKelp.traceElements.iodine > floor + 0.05f)
+        check("but one kelp is less than a day's loss", oneKelp.traceElements.iodine < floor + 0.15f)
 
-        val tooMuch = OutbreakPhysiology.iodine(data, 0.45f)
+        var oneADay = OutbreakData.HEALTHY
+        var twoADay = OutbreakData.HEALTHY
+        repeat(4 * 24_000) { tick ->
+            oneADay = OutbreakPhysiology.tick(oneADay)
+            twoADay = OutbreakPhysiology.tick(twoADay)
+            if (tick % 24_000 == 0) {
+                oneADay = OutbreakPhysiology.iodine(oneADay, 0.10f)
+                twoADay = OutbreakPhysiology.iodine(twoADay, 0.10f)
+                twoADay = OutbreakPhysiology.iodine(twoADay, 0.10f)
+            }
+        }
+        logger.info(
+            "PHYS iodine after four days: one kelp a day {} two a day {}",
+            oneADay.traceElements.iodine, twoADay.traceElements.iodine,
+        )
+        check("one kelp a day does not hold the reference range", oneADay.hasTraceElementImbalance)
+        check("two kelp a day does", !twoADay.hasTraceElementImbalance)
+
+        val tooMuch = OutbreakPhysiology.iodine(OutbreakData.HEALTHY, 0.45f)
         logger.info("PHYS iodine after three helpings of kelp: {}", tooMuch.traceElements.iodine)
         check("too much kelp pushes iodine into excess", tooMuch.traceElements.direction > 0)
         check("an iodine excess is reported as an imbalance", tooMuch.hasTraceElementImbalance)
 
+        // Nothing stores it: the surplus is drained at the same rate as the rest, all the way down.
         var recovered = tooMuch
-        repeat(4 * 24_000) { recovered = OutbreakPhysiology.tick(recovered) }
-        check("an iodine excess is regulated away again", !recovered.hasTraceElementImbalance)
+        repeat(6 * 24_000) { recovered = OutbreakPhysiology.tick(recovered) }
+        check(
+            "an iodine excess is drained away rather than stored",
+            abs(recovered.traceElements.iodine - floor) < 0.001f,
+        )
 
-        // A sustained fever sweats iodine out, which is what pushes a neglectful player under.
-        // The temperature is pinned every tick because a fever that is not fed by an infection or a
-        // pyrogen would otherwise break on its own within a minute.
+        // A sustained fever sweats iodine out on top of the leak. The temperature is pinned every tick
+        // because a fever that is not fed by an infection or a pyrogen would otherwise break within a
+        // minute.
+        var sober = OutbreakData.HEALTHY
         var feverish = OutbreakData.HEALTHY.copy(temperature = 41f)
-        repeat(3 * 24_000) { feverish = OutbreakPhysiology.tick(feverish.copy(temperature = 41f)) }
-        logger.info("PHYS iodine after three days of fever: {}", feverish.traceElements.iodine)
-        check("a long fever drains iodine below the reference range", feverish.hasTraceElementImbalance)
+        repeat(12_000) {
+            sober = OutbreakPhysiology.tick(sober)
+            feverish = OutbreakPhysiology.tick(feverish.copy(temperature = 41f))
+        }
+        logger.info(
+            "PHYS iodine after half a day: at 37 {} at 41 {}",
+            sober.traceElements.iodine, feverish.traceElements.iodine,
+        )
+        check("a fever drains iodine faster than the leak alone", feverish.traceElements.iodine < sober.traceElements.iodine)
     }
 
     // ================================================================== temperature
 
-    /** Nothing at all should move a healthy body off 37 degrees. */
+    /** Nothing but a missed kelp should move a healthy body off 37 degrees. */
     private fun temperatureHomeostasis() {
         var data = OutbreakData.HEALTHY
         var min = data.temperature
         var max = data.temperature
         repeat(24_000) {
             data = OutbreakPhysiology.tick(data)
+            // Iodine has no homeostat any more, and the thyroid reads it: without a day's kelp the
+            // set point sinks and this stops being a test of thermoregulation. See [iodineDepletion].
+            if (it % 24_000 == 0) {
+                data = OutbreakPhysiology.iodine(data, 0.15f)
+            }
             min = minOf(min, data.temperature)
             max = maxOf(max, data.temperature)
         }
@@ -963,6 +1023,129 @@ class OutbreakPhysiologySelfTest : ModInitializer {
         )
     }
 
+    // ================================================================== chest loot
+
+    /**
+     * The two treatments Outbreak leaves in village and outpost chests.
+     *
+     * The chance cannot be read back out of a built pool - `LootPool` exposes nothing - so the pool
+     * the mod really adds is rolled a few thousand times and the hits are counted. That measures the
+     * number that decides what a player finds, rather than a constant that happens to be next to it.
+     */
+    private fun chestLoot(level: ServerLevel) {
+        val additions = OutbreakLoot.ADDITIONS
+        logger.info("PHYS chest additions: {}", additions.map { "${it.item} at ${it.chance}" })
+        check("two items go into chests", additions.size == 2)
+        check("the first is a dexamethasone injection", additions[0].item == OutbreakItems.DEXAMETHASONE_INJECTION)
+        check("and it is a 3% find", additions[0].chance == 0.03f)
+        check("the second is a bowl of willow bark soup", additions[1].item == OutbreakItems.WILLOW_BARK_SOUP_BOWL)
+        check("and it is a 35% find", additions[1].chance == 0.35f)
+
+        check("a plains village chest is a target", OutbreakLoot.targets(vanilla("chests/village/village_plains_house")))
+        check("so is a snowy one", OutbreakLoot.targets(vanilla("chests/village/village_snowy_house")))
+        check("so is the pillager outpost", OutbreakLoot.targets(vanilla("chests/pillager_outpost")))
+        check("a dungeon chest is not", !OutbreakLoot.targets(vanilla("chests/simple_dungeon")))
+        check("a woodland mansion chest is not", !OutbreakLoot.targets(vanilla("chests/woodland_mansion")))
+        check(
+            "nor is another mod's village table",
+            !OutbreakLoot.targets(Identifier.fromNamespaceAndPath("someothermod", "chests/village/house")),
+        )
+
+        val params = LootParams.Builder(level)
+            .withParameter(LootContextParams.ORIGIN, Vec3.ZERO)
+            .create(LootContextParamSets.CHEST)
+
+        for (addition in additions) {
+            val table = LootTable.Builder()
+                .withPool(OutbreakLoot.poolFor(addition))
+                .setParamSet(LootContextParamSets.CHEST)
+                .build()
+            val trials = 8_000
+            var hits = 0
+            repeat(trials) { table.getRandomItems(params) { hits++ } }
+            val rate = hits.toFloat() / trials
+            logger.info("PHYS chest roll for {}: {} / {} = {}", addition.item, hits, trials, rate)
+            check(
+                "a chest holds it about ${addition.chance * 100}% of the time",
+                abs(rate - addition.chance) < 0.02f,
+            )
+        }
+    }
+
+    /** A vanilla loot table id, spelled the way the vanilla datapack spells it. */
+    private fun vanilla(path: String): Identifier = Identifier.fromNamespaceAndPath("minecraft", path)
+
+    // ================================================================== creative and death
+
+    /**
+     * Creative mode is not playing the game, so the physiology leaves it alone completely: the model
+     * does not advance, nothing is applied, anything already on the screen is taken off, and nothing
+     * eaten reaches the body.
+     *
+     * Freezing rather than resetting is what makes that safe. Going creative is not a cure - the
+     * infection is still there - and going back to survival resumes exactly where the body was.
+     */
+    private fun creativeIsFrozen(level: ServerLevel) {
+        val player = FakePlayer.get(level)
+        check("a fake player is in survival, like a real one on a server", !player.isCreative)
+
+        val ill = OutbreakData.HEALTHY.copy(bacteria = 70f, temperature = 41f)
+        player.setAttached(OutbreakAttachments.DATA, ill)
+        player.addPostEffect(OutbreakSymptoms.HEAT_HAZE)
+        player.setGameMode(GameType.CREATIVE)
+        OutbreakSymptoms.tick(player)
+
+        val frozen = player.getAttachedOrCreate(OutbreakAttachments.DATA)
+        logger.info(
+            "PHYS creative after a tick: bacteria {} temperature {} health {}",
+            frozen.bacteria, frozen.temperature, player.health,
+        )
+        check("a creative body does not advance", frozen.bacteria == 70f && frozen.temperature == 41f)
+        check("a severe infection does no damage to it", player.health == player.maxHealth)
+        check("and applies no symptoms", !player.hasEffect(MobEffects.WEAKNESS) && !player.hasEffect(MobEffects.MINING_FATIGUE))
+        check("the fever shimmer comes off the screen", player.getPostEffects().isEmpty())
+        check("and there is no exhaustion penalty", OutbreakSymptoms.exhaustionMultiplier(player) == 1f)
+
+        ItemStack(Items.KELP, 1).finishUsingItem(level, player)
+        check(
+            "nothing eaten reaches a creative body",
+            player.getAttachedOrCreate(OutbreakAttachments.DATA).traceElements.iodine == ill.traceElements.iodine,
+        )
+
+        player.setGameMode(GameType.SURVIVAL)
+        OutbreakSymptoms.tick(player)
+        val resumed = player.getAttachedOrCreate(OutbreakAttachments.DATA)
+        logger.info("PHYS back in survival after a tick: bacteria {} temperature {}", resumed.bacteria, resumed.temperature)
+        check("going back to survival resumes the model", resumed.bacteria < frozen.bacteria || resumed.temperature != frozen.temperature)
+        check("and the fever shimmer comes back", player.getPostEffects().contains(OutbreakSymptoms.HEAT_HAZE))
+    }
+
+    /**
+     * Dying resets the body.
+     *
+     * The `physiology` attachment is deliberately not marked `copyOnDeath`. Fabric copies attachments
+     * from the old player to the new one on every respawn, but `PlayerList.respawn` passes `alive` to
+     * the event, and Fabric only enforces `copyOnDeath` when it is `false` - a real death, where one
+     * instance is thrown away. So the new player is initialised from `HEALTHY` instead: no infection,
+     * no fever, and death is the one cure that always works.
+     */
+    private fun deathResetsTheBody(level: ServerLevel) {
+        check("the body is not carried across death", !OutbreakAttachments.DATA.copyOnDeath())
+
+        val player = FakePlayer.get(level)
+        player.setAttached(OutbreakAttachments.DATA, OutbreakData.HEALTHY.copy(bacteria = 40f, temperature = 40f))
+        player.kill(level)
+        val respawned = level.server.playerList.respawn(player, false, Entity.RemovalReason.KILLED)
+        val after = respawned.getAttachedOrCreate(OutbreakAttachments.DATA)
+        logger.info(
+            "PHYS after respawn: bacteria {} virus {} temperature {} water {}",
+            after.bacteria, after.virus, after.temperature, after.water,
+        )
+        check("a respawned body has no infection", after.bacteria == 0f && after.virus == 0f)
+        check("a normal temperature", after.temperature == OutbreakData.TEMPERATURE_NORMAL)
+        check("and the rest of a healthy body", after == OutbreakData.HEALTHY)
+    }
+
     // ================================================================== translations
 
     /**
@@ -1119,8 +1302,8 @@ class OutbreakPhysiologySelfTest : ModInitializer {
         ItemStack(Items.DRIED_KELP, 1).finishUsingItem(level, player)
         val afterDried = player.getAttachedOrCreate(OutbreakAttachments.DATA).traceElements.iodine
         logger.info("PHYS iodine from kelp {} / dried kelp {}", afterKelp, afterDried)
-        check("kelp adds 0.15 umol/L of iodine", abs(afterKelp - 0.45f) < 0.001f)
-        check("dried kelp adds 0.25 umol/L", abs(afterDried - 0.55f) < 0.001f)
+        check("kelp adds 0.10 umol/L of iodine", abs(afterKelp - 0.40f) < 0.001f)
+        check("dried kelp adds 0.20 umol/L", abs(afterDried - 0.50f) < 0.001f)
 
         player.setAttached(OutbreakAttachments.DATA, OutbreakData.HEALTHY)
         ItemStack(Items.BREAD, 1).finishUsingItem(level, player)

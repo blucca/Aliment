@@ -53,9 +53,8 @@ Outbreak（爆发）的核心系统：每个玩家体内持续演算的一套**�
 | **碘 iodine** | 0.50 | **0.40 – 0.80** | 0.20 / 1.20 | 0.05 / 2.0 | **µmol/L** |
 
 **每一项都被拉回正常值**，玩家什么都不做也不会一路滑到极端：回补速率是
-`(正常值 - 当前值) * 0.00005`（时间常数 20000 tick，不到一天），碘额外带一点固定流失
-（详见下面的模型一节）。碘的平衡点因此落在 **正常的 85%**，即 **0.425 µmol/L**：
-还在参考范围里，但离下限 0.40 只剩 0.025，所以发烧、猛喝水这种额外流失就能把它压下去。
+`(正常值 - 当前值) * 0.00005`（时间常数 20000 tick，不到一天）。**唯一的例外是碘**，
+它只有流失、没有回补（见下）。
 
 **因为单位是真的，喝盐水的后果也是真的**：一份粗盐 / 海水制品给 **+3.0 mmol/L 钠**，
 精盐给 **+3.5**，而钠的参考上限是 145——所以
@@ -63,15 +62,16 @@ Outbreak（爆发）的核心系统：每个玩家体内持续演算的一套**�
 * **喝一份**：140 → 143 或 143.5，**还在范围内**；
 * **喝两份**：→ 146 或 147，**越过参考范围**，开始口渴。
 
-碘仍然只能靠食物补——身体不会合成它：
+碘仍然只能靠食物补——身体不会合成它，**也不会把它留住**：
 
 | 食物 | 补碘 |
 | --- | --- |
-| 海带 `minecraft:kelp` | **+0.15 µmol/L** |
-| 干海带 `minecraft:dried_kelp` | **+0.25 µmol/L** |
+| 海带 `minecraft:kelp` | **+0.10 µmol/L** |
+| 干海带 `minecraft:dried_kelp` | **+0.20 µmol/L** |
 
-从平衡点 0.425 吃一份海带是 0.575（还在范围内），连着三份就到 0.875，越过上限 0.80；
-过量的碘会在一天左右被代谢回 0.425。
+不吃海带时碘每天掉 0.15，**三天整掉光**（0.50 → 下限 0.05），然后停在下限：
+所以一天一份海带不太够、一天两份刚好（干海带一份顶湿的两份）。
+吃多了会越过上限 0.80，但多出来的部分同样是三天掉完，不会存起来。
 
 ### 水量 `water`
 
@@ -125,12 +125,27 @@ Outbreak（爆发）的核心系统：每个玩家体内持续演算的一套**�
 
 | Attachment | 持久化 | 同步 | 说明 |
 | --- | --- | --- | --- |
-| `outbreak:physiology` | ✅ 死亡保留 | ❌ | 完整数据，服务端权威 |
+| `outbreak:physiology` | ✅ **死亡重置** | ❌ | 完整数据，服务端权威。没有 `copyOnDeath()`：复活的是一个新身体，感染不会跟着走 |
 | `outbreak:client_state` | ✅ | ✅ 全客户端 | 抖动序号 + 幅度 + 水量整数，客户端用来画镜头抖动和口渴条 |
 | `outbreak:runtime` | ❌ | ❌ | 抖动计时、蝙蝠冷却、上次同步值 |
 
 水量只在**整数位变化时**才重发，所以一条正在下降的口渴条大约每 270 tick 一个包，
 而不是每 tick 一个。
+
+### 创造模式：整套系统停摆
+
+`OutbreakSymptoms.isFrozen(player)` 就是 `player.isCreative`，创造模式玩家身上：
+
+* **模型不推进**：`tick` 直接返回，病原体不增长也不清除、体温不走、药物不代谢；
+* **不施加任何症状**：不挂效果、不扣血（重度感染伤害也在 tick 里）、不算挖掘惩罚、
+  不给饱食度倍率（`PlayerMixin` 那条也返回 1.0）；
+* **屏幕清干净**：已经挂上的发热扭曲 / 动态模糊 / 冷抖动当 tick 就撤掉，抖动本身靠
+  "服务端不再推序号"停住；
+* **吃喝注射都进不去**：`OutbreakIngestion` 的两个入口同样先看这个开关，
+  否则状态会从另一扇门继续变动。原版的食物 / 饱和度的部分不受影响。
+
+是**冻结**不是**重置**：带病进创造不会当场痊愈，回到生存就从原处继续。`/outbreak` 指令
+仍然能改数据，但因为 tick 停着，改完也看不到效果。
 
 ---
 
@@ -210,15 +225,15 @@ damping = 1 - 0.88 * max(salicinFight, dexFight)
 ### 碘
 
 ```
-自体稳态 = (正常值 - 当前值) * 0.00005        时间常数 20000 tick
-固定流失 = 正常值 * 0.0000075
-平衡点   = 正常值 * (1 - 0.0000075 / 0.00005) = 正常的 85%
+固定流失 = (正常值 - 下限) / 72000 / 正常值       三个游戏日把整份储备排空
+每日流失 = 0.50 * 固定流失 * 24000 = 0.15 µmol/L
 ```
 
-碘是唯一"进项靠吃"的矿物质，所以它的调节是从另一端做的：不足时靠**减少排出**把
-现有的留住，而不是凭空造。平衡点是 **0.425 µmol/L**，在 0.40–0.80 的参考范围里，
-但离下限只有 0.025——一场持续三天的高烧（出汗把碘带走）就能把它推到 0.40 以下，
-变成亚临床甲减。
+碘是唯一"进项靠吃"的矿物质，**而且这一版没有任何回补**：旧的"不足时少排一点"那套
+比例调节被删掉了——它正是让储备永远掉不完的原因。现在是一根直线的漏水，
+从 0.50 µmol/L 到硬下限 0.05 恰好 **三个游戏日**，之后停在下限直到吃海带。
+所以碘从"可有可无的加成"变成了**真正的饮食需求**：只吃面包的玩家会一路走到重度甲减
+（0.05，远低于重度线 0.20）。出汗在漏水之上再带走一部分，一场高烧会明显加快这个过程。
 
 ### 体温
 
@@ -488,10 +503,10 @@ damping = 1 - 0.88 * max(salicinFight, dexFight)
 
 `src/main/kotlin/.../dev/OutbreakPhysiologySelfTest.kt`（**默认不启用**，把它加进
 `fabric.mod.json` 的 `main` 入口点再 `gradle runServer` 就会在开服后 40 tick 自动跑完）
-跑出 **256/256 全过**：
+跑出 **290/290 全过**：
 
 ```
-homeostasis 3 days: inflammation 25.0..25.0
+homeostasis 3 days (one day's kelp a day): inflammation 25.0..25.0
   electrolytes Na 140.0 K 4.2 Mg 0.85 Cl 101.0 Ca 2.35   temperature 37.0
 mild infection: peak inflammation 28.1 -> cleared
 untreated 40 point infection: load 99.93, peak inflammation 90.7  (storm)
@@ -504,8 +519,10 @@ resting mediators are the model's fixed point (25.0 == 25.0)
 thirst after one game day: water 10.47 -> 1 cell
 over-hydration: water loss 0.0060/tick vs 0.0037 normal
 two days of heavy drinking (mmol/L): Na 117.1  K 3.72  Mg 0.79  Cl 84.5  Ca 2.20
-iodine after 4 days with no kelp: 0.4256 umol/L (range 0.40..0.80); one kelp -> 0.576; three -> 0.876
-iodine after three days of a 41 C fever: 0.3725  (below the reference range)
+iodine: after 1.5 days 0.275, after 3 days 0.05 (the floor); one kelp from empty 0.15
+  four days of a day's kelp: one a day 0.299 (deficient), two a day 0.699 (in range)
+  three helpings from normal: 0.95 (excess), and six days later back to the floor
+  half a day of fever drains it faster: at 37 0.425, at 41 0.391
 thyroid: iodine 0.36 -> 36.79 resting / iodine 0.79 -> 37.17
 a healthy player holds exactly 37.0 for a whole game day
 ambient: temperate 37.0 | snowy 36.4 | snowy+wet 33.9 | powder snow 30.0 | desert 37.4 | lava 41.0
@@ -532,12 +549,21 @@ a real GrindstoneMenu slot accepts willow bark and produces willow_bark_pieces x
 exhaustion multiplier: healthy 1.0 vs ill 1.458
 mining speed: ill 0.945 | over-hydrated < 1.0 | healthy 1.0
 client state: synced water 55
-PHYSIOLOGY SELFTEST DONE passed=256 failed=0
+chest loot: a chest holds outbreak:dexamethasone_injection 254/8000 = 3.2%
+            and outbreak:willow_bark_soup_bowl 2854/8000 = 35.7%
+creative: a severe infection does not advance, damage or symptomise the body, and the shimmer
+          comes off the screen; back in survival the same body carries on from where it stopped
+death:    the respawned body is bacteria 0.0 virus 0.0 temperature 37.0 water 80.0
+PHYSIOLOGY SELFTEST DONE passed=290 failed=0
 ```
 
 覆盖了**纯模型**、**mixin 端到端**（真的调 `ItemStack.finishUsingItem` 吃生肉 / 喝汤 / 喝海水，
 以及**真的构造一个 `GrindstoneMenu`** 验证两个砂轮 mixin 生效）、**症状表**、**三条感染路径**、
-**翻译覆盖**与**同步**。
+**箱子战利品**、**创造模式冻结与死亡重置**、**翻译覆盖**与**同步**。
+
+> 箱子战利品那两条概率是**掷出来的**，不是把常数读回来断言：`LootPool` 建好之后什么也读不到
+> （只有一个 `addRandomItems` 和一个 `CODEC`），所以自检用 `LootParams` 把模组真正加进去的
+> 那个池子掷 4000 次、数命中次数。这样验的是"玩家实际摸到的东西"，而不是写在旁边的常数。
 
 > 矿物那一组自检是**照着规格反推探针值**的：每一项都在它两个阈值的两侧各探一次、在参考范围
 > 的两端内侧各探一次，所以它断言的是规则（"范围内安静、范围外出症状"），换成别的单位或别的
@@ -585,6 +611,20 @@ PHYSIOLOGY SELFTEST DONE passed=256 failed=0
 > 14. **无头服务器没有实体 tick 区块**：想放一头牛在玩家旁边测"接触传染"，结果
 >    `getEntitiesOfClass` 永远返回空。于是把两颗骰子拆成 `contactRoll(random)` /
 >    `opportunisticRoll(random)` 单独测概率，"旁边有没有东西"那一关由反例和冷却断言覆盖。
+> 15. **碘又改回"会掉光"了**（第 6、9 条的旧设计是掉光，中间一段改成平衡点 85%）：
+>    这次是**指定时间**——三个游戏日从正常值排到硬下限，所以比例调节整个删掉，
+>    只留一根直线的漏水。"完全消耗时间"这种东西和"拉回正常值"在数学上不能共存，
+>    这是这次唯一必须在两者里选一个的地方。顺带把海带的补碘量各降 0.05
+>    （0.15→0.10、0.25→0.20），一天一份不够、两份刚好，干海带顶两份湿的。
+>    自检里那 9 条围着"平衡点 0.425"写的断言全部重写成围着"三天排空"写，
+>    并且新加了"从空储备吃一份海带能顶多少"的算术断言——这条比旧的"稳态在范围内"
+>    更能说明设计，因为现在根本没有稳态。
+> 16. **"去掉 `copyOnDeath()` 就够了吗"**：不够，如果自检是按字面去调
+>    `PlayerList.respawn(player, /*alive=*/ true, …)` 的话。Fabric 只在 `alive == false`
+>    （真的死了一次，旧实例被丢弃）时才按 `copyOnDeath` 过滤，`alive == true` 是
+>    "换维度/从末地回来"，附件会**整份照抄**。所以自检必须先 `kill(level)` 再
+>    `respawn(player, false, KILLED)`，断言的才是真正的死亡路径；这个参数名在 26.3 里就叫
+>    `alive`，不是 `keepInventory`，一开始正是按旧名字理解才测出"删了也没用"的假象。
 
 ---
 
@@ -616,7 +656,8 @@ Kotlin **从不提到 Scala 的类型**：两者之间隔着 `OutbreakModelBridg
 | `physiology/Mineral.kt` | Kotlin 侧的矿物枚举，每个 case 的参考范围都从模型取（这样 `when` 又是穷尽的） |
 | `physiology/OutbreakSymptoms.kt` | 症状的应用：挂效果、扣血、画面效果、抖动掷骰 |
 | `physiology/OutbreakInfection.kt` | 三条感染路径的概率、单次载量、接触范围、掷骰间隔 |
-| `physiology/OutbreakIngestion.kt` | 每杯补水、盐分摄入（mmol/L，含海水的钠镁钙）、碘摄入（µmol/L）、每服汤的药量 |
+| `physiology/OutbreakIngestion.kt` | 每杯补水、盐分摄入（mmol/L，含海水的钠镁钙）、碘摄入（µmol/L，海带 0.10 / 干海带 0.20）、每服汤的药量 |
+| `world/OutbreakLoot.kt` | 村庄（`chests/village/*`）与掠夺者前哨站箱子里的两件治疗品，以及各自的概率（注射液 3% / 汤 35%） |
 | `assets/outbreak/post_effect/*.json` + `assets/outbreak/shaders/post/*.fsh` | 边缘扭曲（`heat_haze`）、动态模糊（`heat_blur`）、冷抖动（`cold_shiver`），以及各自的强度、起始半径、频率、反馈系数 |
 
 > **以后新的数值 / 稳态代码写在 Scala 里**，见 `AGENTS.md` 的「Languages: where code goes」。

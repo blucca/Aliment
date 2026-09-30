@@ -10,6 +10,7 @@ import com.github.kusa233.outbreak.registry.OutbreakCreativeTabs
 import com.github.kusa233.outbreak.registry.OutbreakEntities
 import com.github.kusa233.outbreak.registry.OutbreakItems
 import com.github.kusa233.outbreak.registry.OutbreakWorldGen
+import com.github.kusa233.outbreak.world.OutbreakLoot
 import com.github.kusa233.outbreak.world.tree.OutbreakTreeDecorators
 import com.github.kusa233.outbreak.world.tree.OutbreakTrunkPlacers
 import net.fabricmc.api.ModInitializer
@@ -37,6 +38,10 @@ class Outbreak : ModInitializer {
         OutbreakCreativeTabs.initialize()
         OutbreakWorldGen.initialize()
         OutbreakInteractions.initialize()
+
+        // Loot goes last of the world-facing hooks: it edits tables the vanilla datapack provides, so
+        // the items it hands out have to exist by the time a chest is first opened.
+        OutbreakLoot.initialize()
 
         // The physiology system: attachments first, then the tick handler and the debug command.
         OutbreakAttachments.initialize()

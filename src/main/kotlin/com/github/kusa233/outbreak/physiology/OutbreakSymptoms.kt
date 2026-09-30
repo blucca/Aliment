@@ -55,6 +55,18 @@ object OutbreakSymptoms {
     private const val EFFECT_INTERVAL_TICKS = 40
 
     /**
+     * True while the physiology leaves this player completely alone.
+     *
+     * Creative mode is not playing the game, so nothing is simulated, nothing is applied and the body
+     * is left exactly as it was: a player who goes creative while ill stops being ill *visibly* on the
+     * same tick, and the infection is still there if they go back to survival. Freezing rather than
+     * resetting is deliberate - `creative` should not be a cure the player can use mid-fight, and it
+     * is the only reading of "the state stops updating" that does not silently throw data away.
+     */
+    @JvmStatic
+    fun isFrozen(player: Player): Boolean = player.isCreative
+
+    /**
      * Runs the whole system for every online player, once per server tick.
      *
      * The physiology only advances while the player is online, which keeps the model predictable.
@@ -68,9 +80,17 @@ object OutbreakSymptoms {
     }
 
     /**
-     * Runs one tick of the whole system for [player].
+     * Runs one tick of the whole system for [player], or nothing at all while [isFrozen].
      */
     fun tick(player: ServerPlayer) {
+        if (isFrozen(player)) {
+            // Anything already on the screen has to come off: a frozen body must not keep a fever
+            // shimmer, a motion blur or a shiver running. The shake stops by itself, because the
+            // client only ever shakes when the counter below moves.
+            clearPostEffects(player)
+            return
+        }
+
         // RUNTIME has no default initializer, so the supplier form is required here.
         val runtime = player.getAttachedOrCreate(OutbreakAttachments.RUNTIME) { OutbreakRuntime() }
         val before = player.getAttachedOrCreate(OutbreakAttachments.DATA)
@@ -137,6 +157,9 @@ object OutbreakSymptoms {
      */
     @JvmStatic
     fun exhaustionMultiplier(player: Player): Float {
+        if (isFrozen(player)) {
+            return 1f
+        }
         val data = player.getAttachedOrElse(OutbreakAttachments.DATA, OutbreakData.HEALTHY)
         return OutbreakModelBridge.exhaustionMultiplier(data)
     }
