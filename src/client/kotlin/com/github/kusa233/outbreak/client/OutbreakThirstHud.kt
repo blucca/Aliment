@@ -27,7 +27,9 @@ object OutbreakThirstHud {
 
     private const val CELL = 9
     private const val SPACING = 8
-    private const val CELLS = OutbreakData.THIRST_CELLS
+
+    /** From the model, which owns the number. */
+    private val CELLS = OutbreakData.THIRST_CELLS
 
     /**
      * Draws the bar for the local player, stacked above vanilla's left-hand bars.

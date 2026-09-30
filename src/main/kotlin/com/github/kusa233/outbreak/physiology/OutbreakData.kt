@@ -12,9 +12,12 @@ import net.minecraft.network.codec.StreamCodec
 /**
  * The inflammatory mediators the immune response is broken down into.
  *
- * The single "inflammation" number the system used to carry is now derived from these, and drugs
- * act on individual mediators rather than on inflammation as a whole - which is what makes
- * salicin and dexamethasone behave differently.
+ * The single "inflammation" number the system used to carry is now derived from these, and drugs act
+ * on individual mediators rather than on inflammation as a whole - which is what makes salicin and
+ * dexamethasone behave differently.
+ *
+ * The weights and the index itself are the model's, in Scala; this is only the shape Kotlin stores
+ * and serialises.
  */
 data class Mediators(
     val histamine: Float,
@@ -23,107 +26,63 @@ data class Mediators(
     val cytokine: Float,
     val bradykinin: Float,
 ) {
+
     /** Inflammation index, 0..100, as a weighted sum of the mediators. */
     val inflammation: Float
-        get() = (
-            HISTAMINE_WEIGHT * this.histamine +
-                PROSTAGLANDIN_WEIGHT * this.prostaglandin +
-                LEUKOTRIENE_WEIGHT * this.leukotriene +
-                CYTOKINE_WEIGHT * this.cytokine +
-                BRADYKININ_WEIGHT * this.bradykinin
-            ).coerceIn(0f, 100f)
+        get() = OutbreakModelBridge.inflammation(
+            this.histamine, this.prostaglandin, this.leukotriene, this.cytokine, this.bradykinin,
+        )
+
+    fun withHistamine(value: Float): Mediators = this.copy(histamine = value)
+
+    fun withProstaglandin(value: Float): Mediators = this.copy(prostaglandin = value)
+
+    fun withLeukotriene(value: Float): Mediators = this.copy(leukotriene = value)
+
+    fun withCytokine(value: Float): Mediators = this.copy(cytokine = value)
+
+    fun withBradykinin(value: Float): Mediators = this.copy(bradykinin = value)
 
     companion object {
-        const val MAX = 100f
 
-        const val HISTAMINE_WEIGHT = 0.15f
-        const val PROSTAGLANDIN_WEIGHT = 0.20f
-        const val LEUKOTRIENE_WEIGHT = 0.15f
+        @JvmField val MAX: Float = OutbreakModelBridge.MEDIATORS_MAX
+
+        @JvmField val HISTAMINE_WEIGHT: Float = OutbreakModelBridge.MEDIATORS_HISTAMINE_WEIGHT
+        @JvmField val PROSTAGLANDIN_WEIGHT: Float = OutbreakModelBridge.MEDIATORS_PROSTAGLANDIN_WEIGHT
+        @JvmField val LEUKOTRIENE_WEIGHT: Float = OutbreakModelBridge.MEDIATORS_LEUKOTRIENE_WEIGHT
 
         /** Cytokines are the systemic driver, so they dominate the index. */
-        const val CYTOKINE_WEIGHT = 0.35f
-        const val BRADYKININ_WEIGHT = 0.15f
+        @JvmField val CYTOKINE_WEIGHT: Float = OutbreakModelBridge.MEDIATORS_CYTOKINE_WEIGHT
+        @JvmField val BRADYKININ_WEIGHT: Float = OutbreakModelBridge.MEDIATORS_BRADYKININ_WEIGHT
 
-        val CALM = Mediators(0f, 0f, 0f, 0f, 0f)
+        /** No response at all: the fixed point a completely immunosuppressed body sits at. */
+        @JvmField val CALM: Mediators = OutbreakModelBridge.calmMediators()
 
         /**
-         * The mediator levels a healthy player sits at. These are the fixed points of
-         * `OutbreakPhysiology` with no pathogen present, and they give an inflammation of exactly
+         * The mediator levels a healthy player sits at. These are the fixed points of the model with
+         * no pathogen present, and they give an inflammation of exactly
          * [OutbreakData.BASELINE_INFLAMMATION]; the physiology self test asserts that.
          */
-        val RESTING = Mediators(
-            histamine = 25f,
-            prostaglandin = 30f,
-            leukotriene = 30f,
-            cytokine = 20f,
-            bradykinin = 25f,
-        )
+        @JvmField val RESTING: Mediators = OutbreakModelBridge.restingMediators()
 
         val CODEC: Codec<Mediators> = RecordCodecBuilder.create { instance ->
             instance.group(
-                Codec.FLOAT.fieldOf("histamine").forGetter(Mediators::histamine),
-                Codec.FLOAT.fieldOf("prostaglandin").forGetter(Mediators::prostaglandin),
-                Codec.FLOAT.fieldOf("leukotriene").forGetter(Mediators::leukotriene),
-                Codec.FLOAT.fieldOf("cytokine").forGetter(Mediators::cytokine),
-                Codec.FLOAT.fieldOf("bradykinin").forGetter(Mediators::bradykinin),
+                Codec.FLOAT.fieldOf("histamine").forGetter { it.histamine },
+                Codec.FLOAT.fieldOf("prostaglandin").forGetter { it.prostaglandin },
+                Codec.FLOAT.fieldOf("leukotriene").forGetter { it.leukotriene },
+                Codec.FLOAT.fieldOf("cytokine").forGetter { it.cytokine },
+                Codec.FLOAT.fieldOf("bradykinin").forGetter { it.bradykinin },
             ).apply(instance, ::Mediators)
         }
     }
 }
 
 /**
- * The concentration scale shared by [Electrolytes] and [TraceElements].
+ * The five electrolytes that are tracked separately, in mmol/L.
  *
- * Both are tracked on the same 0..200 index with 100 as the healthy value, so they share the band
- * and the deviation helper even though they are different kinds of thing.
- *
- * The scale has four thresholds and every one of them works in both directions, because both a
- * deficit and an excess are illnesses:
- *
- * ```
- *   0        DEFICIT   SAFE_LOW   NORMAL   SAFE_HIGH   EXCESS      200
- *   |  severe  |  mild   |  healthy  |   mild   |  severe  |
- * ```
- *
- * `OutbreakPhysiology` pulls every value towards [NORMAL], so a player who does nothing at all
- * settles somewhere inside this picture rather than drifting to an extreme.
- */
-object MineralScale {
-    const val MIN = 0f
-    const val MAX = 200f
-
-    /** Healthy concentration; the set point every value is regulated towards. */
-    const val NORMAL = 100f
-
-    /** Outside this band the player starts showing symptoms. */
-    const val SAFE_LOW = 85f
-    const val SAFE_HIGH = 115f
-
-    /** A marked deficit or excess, where the symptoms become serious. */
-    const val DEFICIT = 70f
-    const val EXCESS = 130f
-
-    /** Distance outside the safe band; 0 while inside it. */
-    fun deviation(value: Float): Float = when {
-        value < SAFE_LOW -> SAFE_LOW - value
-        value > SAFE_HIGH -> value - SAFE_HIGH
-        else -> 0f
-    }
-
-    /** Which side of the safe band [value] is on, as the sign of [deviation]. */
-    fun direction(value: Float): Int = when {
-        value < SAFE_LOW -> -1
-        value > SAFE_HIGH -> 1
-        else -> 0
-    }
-}
-
-/**
- * The five electrolytes that are tracked separately.
- *
- * [MineralScale.NORMAL] is the healthy concentration and the safe band is
- * [MineralScale.SAFE_LOW]..[MineralScale.SAFE_HIGH]; both a deficit and an excess are modelled,
- * because eating salt and drinking too much water push the values in opposite directions.
+ * [Mineral.normal] is the healthy concentration and the safe band is [Mineral.safeLow]..
+ * [Mineral.safeHigh]; both a deficit and an excess are modelled, because eating salt and drinking too
+ * much water push the values in opposite directions.
  */
 data class Electrolytes(
     val sodium: Float,
@@ -132,53 +91,56 @@ data class Electrolytes(
     val chloride: Float,
     val calcium: Float,
 ) {
-    /** Every value, for the aggregate helpers below. */
-    private fun all(): List<Float> =
-        listOf(this.sodium, this.potassium, this.magnesium, this.chloride, this.calcium)
 
-    /** Lowest value in the set, 0..200; handy for "is anything badly off" checks. */
-    val lowest: Float
-        get() = this.all().min()
+    /** The value of [mineral], for the table-driven parts. */
+    fun of(mineral: Mineral): Float = when (mineral) {
+        Mineral.SODIUM -> this.sodium
+        Mineral.POTASSIUM -> this.potassium
+        Mineral.MAGNESIUM -> this.magnesium
+        Mineral.CHLORIDE -> this.chloride
+        Mineral.CALCIUM -> this.calcium
+        Mineral.IODINE -> throw IllegalArgumentException("iodine is a trace element, not an electrolyte")
+    }
 
-    /** How far the worst offender is outside the safe band, in points. 0 when everything is fine. */
+    /** How far the worst offender is outside its reference range, as a fraction of normal. */
     val worstImbalance: Float
-        get() = this.all().maxOf { MineralScale.deviation(it) }
+        get() = OutbreakModelBridge.worstImbalance(
+            this.sodium, this.potassium, this.magnesium, this.chloride, this.calcium,
+        )
 
-    fun scaled(factor: Float): Electrolytes = Electrolytes(
-        sodium = (this.sodium * factor).coerceIn(MineralScale.MIN, MineralScale.MAX),
-        potassium = (this.potassium * factor).coerceIn(MineralScale.MIN, MineralScale.MAX),
-        magnesium = (this.magnesium * factor).coerceIn(MineralScale.MIN, MineralScale.MAX),
-        chloride = (this.chloride * factor).coerceIn(MineralScale.MIN, MineralScale.MAX),
-        calcium = (this.calcium * factor).coerceIn(MineralScale.MIN, MineralScale.MAX),
-    )
+    fun withSodium(value: Float): Electrolytes = this.copy(sodium = value)
+
+    fun withPotassium(value: Float): Electrolytes = this.copy(potassium = value)
+
+    fun withMagnesium(value: Float): Electrolytes = this.copy(magnesium = value)
+
+    fun withChloride(value: Float): Electrolytes = this.copy(chloride = value)
+
+    fun withCalcium(value: Float): Electrolytes = this.copy(calcium = value)
 
     companion object {
-        const val MIN = MineralScale.MIN
-        const val MAX = MineralScale.MAX
-        const val NORMAL = MineralScale.NORMAL
-        const val SAFE_LOW = MineralScale.SAFE_LOW
-        const val SAFE_HIGH = MineralScale.SAFE_HIGH
-        const val DEFICIT = MineralScale.DEFICIT
-        const val EXCESS = MineralScale.EXCESS
 
-        val HEALTHY = Electrolytes(NORMAL, NORMAL, NORMAL, NORMAL, NORMAL)
+        /** The five electrolytes, in the order `/outbreak status` prints them. */
+        @JvmField val MINERALS: List<Mineral> =
+            listOf(Mineral.SODIUM, Mineral.POTASSIUM, Mineral.MAGNESIUM, Mineral.CHLORIDE, Mineral.CALCIUM)
 
-        fun deviation(value: Float): Float = MineralScale.deviation(value)
+        /** Every electrolyte at its normal concentration. */
+        @JvmField val HEALTHY: Electrolytes = OutbreakModelBridge.healthyElectrolytes()
 
         val CODEC: Codec<Electrolytes> = RecordCodecBuilder.create { instance ->
             instance.group(
-                Codec.FLOAT.fieldOf("sodium").forGetter(Electrolytes::sodium),
-                Codec.FLOAT.fieldOf("potassium").forGetter(Electrolytes::potassium),
-                Codec.FLOAT.fieldOf("magnesium").forGetter(Electrolytes::magnesium),
-                Codec.FLOAT.fieldOf("chloride").forGetter(Electrolytes::chloride),
-                Codec.FLOAT.fieldOf("calcium").forGetter(Electrolytes::calcium),
+                Codec.FLOAT.fieldOf("sodium").forGetter { it.sodium },
+                Codec.FLOAT.fieldOf("potassium").forGetter { it.potassium },
+                Codec.FLOAT.fieldOf("magnesium").forGetter { it.magnesium },
+                Codec.FLOAT.fieldOf("chloride").forGetter { it.chloride },
+                Codec.FLOAT.fieldOf("calcium").forGetter { it.calcium },
             ).apply(instance, ::Electrolytes)
         }
     }
 }
 
 /**
- * The trace elements, which is iodine for now.
+ * The trace elements, which is iodine for now, in umol/L.
  *
  * Kept apart from the electrolytes because they behave differently: the body cannot make iodine at
  * all, so the only way in is food - kelp, in this mod. It is still regulated, but the regulation is
@@ -188,29 +150,38 @@ data class Electrolytes(
 data class TraceElements(
     val iodine: Float,
 ) {
-    val worstImbalance: Float
-        get() = MineralScale.deviation(this.iodine)
 
-    /** -1 for a deficit, 1 for an excess, 0 while iodine is inside the safe band. */
-    val direction: Int
-        get() = MineralScale.direction(this.iodine)
+    /** How far outside its reference range iodine is, as a fraction of normal. */
+    val worstImbalance: Float get() = Mineral.IODINE.relativeDeviation(this.iodine)
+
+    /** -1 for a deficit, 1 for an excess, 0 while iodine is inside the reference range. */
+    val direction: Int get() = Mineral.IODINE.direction(this.iodine)
+
+    fun withIodine(value: Float): TraceElements = this.copy(iodine = value)
 
     companion object {
-        val HEALTHY = TraceElements(MineralScale.NORMAL)
+
+        @JvmField val HEALTHY: TraceElements = OutbreakModelBridge.healthyTraceElements()
 
         val CODEC: Codec<TraceElements> = RecordCodecBuilder.create { instance ->
             instance.group(
-                Codec.FLOAT.fieldOf("iodine").forGetter(TraceElements::iodine),
+                Codec.FLOAT.fieldOf("iodine").forGetter { it.iodine },
             ).apply(instance, ::TraceElements)
         }
     }
 }
 
 /**
- * Everything Outbreak tracks about a player's body.
+ * A player's body, as far as this mod is concerned.
  *
- * The class is immutable on purpose: every tick produces a new instance, which is trivial to
- * serialise and to compare.
+ * This class is the **storage and serialisation** layer: it is what the Fabric attachment holds, what
+ * the codecs read, and what the rest of the mod reads its thresholds from. Every number and every
+ * steady state lives in Scala, in `src/main/scala/.../physiology/model`, and reaches this file
+ * through [OutbreakModelBridge] - the one place that knows both representations.
+ *
+ * The derived values below ([inflammation], [thermalTier], [isSevereInfection] and friends) are
+ * delegations to that model rather than a second copy of its rules, so a threshold is defined in
+ * exactly one place.
  */
 data class OutbreakData(
     val mediators: Mediators,
@@ -224,56 +195,58 @@ data class OutbreakData(
     val salicin: Float,
     /** Dexamethasone, the injected corticosteroid. */
     val dexamethasone: Float,
-    /**
-     * Core temperature in degrees Celsius, [TEMPERATURE_MIN]..[TEMPERATURE_MAX], normally
-     * [TEMPERATURE_NORMAL].
-     */
+    /** Core temperature in degrees Celsius, normally [TEMPERATURE_NORMAL]. */
     val temperature: Float = TEMPERATURE_NORMAL,
-    /**
-     * Circulating pyrogen, the exogenous fever driver. It behaves like a drug - the command that
-     * induces a fever for testing sets it, and it is metabolised away over
-     * [PYROGEN_METABOLISM_TICKS] - while the fever of a real infection comes from prostaglandin.
-     */
+    /** Circulating pyrogen, the exogenous fever driver, cleared over a game day. */
     val pyrogen: Float = 0f,
 ) {
+
     val inflammation: Float
         get() = this.mediators.inflammation
 
     /** Combined pathogen load, 0..200 in theory, 0..100 in practice. */
     val pathogenLoad: Float
-        get() = this.bacteria + this.virus
+        get() = OutbreakModelBridge.pathogenLoad(this.bacteria, this.virus)
 
     /** True once the load is high enough to actually make the player feel ill. */
     val isSymptomatic: Boolean
-        get() = this.pathogenLoad >= SYMPTOM_THRESHOLD
+        get() = OutbreakModelBridge.isSymptomatic(this.pathogenLoad)
 
     val isImmuneStorm: Boolean
-        get() = this.inflammation >= IMMUNE_STORM_THRESHOLD
+        get() = OutbreakModelBridge.isImmuneStorm(this.inflammation)
 
     val isImmunosuppressed: Boolean
-        get() = this.inflammation <= IMMUNOSUPPRESSION_THRESHOLD
+        get() = OutbreakModelBridge.isImmunosuppressed(this.inflammation)
 
     /** 0..1 severity used to scale symptoms; saturates at [SEVERE_LOAD]. */
     val severity: Float
-        get() = (this.pathogenLoad / SEVERE_LOAD).coerceIn(0f, 1f)
+        get() = OutbreakModelBridge.severity(this.pathogenLoad)
+
+    /**
+     * True once the infection is severe enough to hurt the host directly - sepsis, in the sense the
+     * model uses. Reached through the infection and never through the immune system on its own: a low
+     * inflammation does no damage itself, it only lets an infection climb until *this* is true.
+     */
+    val isSevereInfection: Boolean
+        get() = OutbreakModelBridge.isSevereInfection(this.pathogenLoad)
 
     /** True above [WATER_NORMAL]; causes weakness and slower mining. */
     val isOverhydrated: Boolean
-        get() = this.water > WATER_NORMAL
+        get() = OutbreakModelBridge.isOverhydrated(this.water)
 
     /** True below [WATER_LOW]; the thirst bar is nearly empty. */
     val isDehydrated: Boolean
-        get() = this.water < WATER_LOW
+        get() = OutbreakModelBridge.isDehydrated(this.water)
 
     /** The thirst bar, 0..10 cells. Each 10 points is one cell, and anything above 100 is full. */
     val thirstCells: Int
-        get() = (this.water / 10f).toInt().coerceIn(0, THIRST_CELLS)
+        get() = OutbreakModelBridge.thirstCells(this.water)
 
-    /** True when any electrolyte is outside the safe band. */
+    /** True when any electrolyte is outside its reference range. */
     val hasElectrolyteImbalance: Boolean
         get() = this.electrolytes.worstImbalance > 0f
 
-    /** True when any trace element is outside the safe band. */
+    /** True when any trace element is outside its reference range. */
     val hasTraceElementImbalance: Boolean
         get() = this.traceElements.worstImbalance > 0f
 
@@ -281,15 +254,15 @@ data class OutbreakData(
 
     /** True at or above [FEVER_MILD]; the player is running a fever. */
     val isFebrile: Boolean
-        get() = this.temperature >= FEVER_MILD
+        get() = OutbreakModelBridge.isFebrile(this.temperature)
 
     /** True at or below [COLD_MILD]; the player is hypothermic. */
     val isHypothermic: Boolean
-        get() = this.temperature <= COLD_MILD
+        get() = OutbreakModelBridge.isHypothermic(this.temperature)
 
     /** True while the core temperature is outside the comfortable band. */
     val hasThermalStress: Boolean
-        get() = this.thermalTier != 0
+        get() = OutbreakModelBridge.hasThermalStress(this.temperature)
 
     /**
      * How far outside the comfortable band the core temperature is, as a signed tier:
@@ -303,13 +276,7 @@ data class OutbreakData(
      * | -2 | ≤ 35.0 | severe hypothermia |
      */
     val thermalTier: Int
-        get() = when {
-            this.temperature >= FEVER_SEVERE -> 2
-            this.temperature >= FEVER_MILD -> 1
-            this.temperature <= COLD_SEVERE -> -2
-            this.temperature <= COLD_MILD -> -1
-            else -> 0
-        }
+        get() = OutbreakModelBridge.thermalTier(this.temperature)
 
     fun withMediators(value: Mediators): OutbreakData = this.copy(mediators = value)
 
@@ -317,171 +284,159 @@ data class OutbreakData(
 
     fun withTraceElements(value: TraceElements): OutbreakData = this.copy(traceElements = value)
 
+    fun withWater(value: Float): OutbreakData = this.copy(water = value)
+
+    fun withBacteria(value: Float): OutbreakData = this.copy(bacteria = value)
+
+    fun withVirus(value: Float): OutbreakData = this.copy(virus = value)
+
+    fun withSalicin(value: Float): OutbreakData = this.copy(salicin = value)
+
+    fun withDexamethasone(value: Float): OutbreakData = this.copy(dexamethasone = value)
+
+    fun withTemperature(value: Float): OutbreakData = this.copy(temperature = value)
+
+    fun withPyrogen(value: Float): OutbreakData = this.copy(pyrogen = value)
+
     companion object {
-        const val MIN_INFLAMMATION = 0f
-        const val MAX_INFLAMMATION = 100f
+
+        // ---------------------------------------------------------------- the numbers
+        //
+        // Re-exported from the Scala model through the bridge, which owns every one of them. They keep
+        // their old names and their old home so that nothing else in the mod, or in the docs, had to
+        // move with them.
+
+        @JvmField val MIN_INFLAMMATION: Float = OutbreakModelBridge.MIN_INFLAMMATION
+        @JvmField val MAX_INFLAMMATION: Float = OutbreakModelBridge.MAX_INFLAMMATION
 
         /** The band a healthy player sits in. */
-        const val SAFE_INFLAMMATION_LOW = 20f
-        const val SAFE_INFLAMMATION_HIGH = 30f
-        const val BASELINE_INFLAMMATION = 25f
+        @JvmField val SAFE_INFLAMMATION_LOW: Float = OutbreakModelBridge.SAFE_INFLAMMATION_LOW
+        @JvmField val SAFE_INFLAMMATION_HIGH: Float = OutbreakModelBridge.SAFE_INFLAMMATION_HIGH
 
-        /** Below this the immune system stops keeping up with the pathogens. */
-        const val IMMUNOSUPPRESSION_THRESHOLD = 12f
+        /** The model's fixed point with no pathogen present, and the middle of the safe band. */
+        @JvmField val BASELINE_INFLAMMATION: Float = OutbreakModelBridge.BASELINE_INFLAMMATION
 
-        /** Above this the immune response itself becomes the problem. */
-        const val IMMUNE_STORM_THRESHOLD = 75f
+        /** Below this the immune system is suppressed and the infection runs away. */
+        @JvmField val IMMUNOSUPPRESSION_THRESHOLD: Float = OutbreakModelBridge.IMMUNOSUPPRESSION_THRESHOLD
 
-        const val MAX_PATHOGEN = 100f
+        /** Above this the response itself is the disease. */
+        @JvmField val IMMUNE_STORM_THRESHOLD: Float = OutbreakModelBridge.IMMUNE_STORM_THRESHOLD
 
-        /** Load at which symptoms start showing. */
-        const val SYMPTOM_THRESHOLD = 8f
+        @JvmField val MAX_PATHOGEN: Float = OutbreakModelBridge.MAX_PATHOGEN
 
-        /** Load at which symptoms are at full strength. */
-        const val SEVERE_LOAD = 60f
+        /** Load at which the player starts showing symptoms. */
+        @JvmField val SYMPTOM_THRESHOLD: Float = OutbreakModelBridge.SYMPTOM_THRESHOLD
+
+        /** Load at which the symptoms are at full strength and the infection starts doing damage. */
+        @JvmField val SEVERE_LOAD: Float = OutbreakModelBridge.SEVERE_LOAD
 
         // ---------------------------------------------------------------- water
 
-        const val WATER_MIN = 0f
+        @JvmField val WATER_MIN: Float = OutbreakModelBridge.WATER_MIN
 
-        /** Lower edge of the normal band. */
-        const val WATER_LOW = 30f
+        /** Below this the player is dehydrated. */
+        @JvmField val WATER_LOW: Float = OutbreakModelBridge.WATER_LOW
 
-        /** Upper edge of the normal band; above this the player is over-hydrated. */
-        const val WATER_NORMAL = 100f
+        /** The top of the normal band. Above it the player is over-hydrated. */
+        @JvmField val WATER_NORMAL: Float = OutbreakModelBridge.WATER_NORMAL
 
         /** Hard ceiling so drinking cannot run away. */
-        const val WATER_MAX = 200f
+        @JvmField val WATER_MAX: Float = OutbreakModelBridge.WATER_MAX
+
+        /** What a player starts with, and what `/outbreak cure` restores. */
+        @JvmField val WATER_START: Float = OutbreakModelBridge.WATER_START
 
         /**
-         * Where over-hydration becomes something the player can see for themselves.
-         *
-         * The thirst bar is [THIRST_CELLS] cells and anything from [WATER_NORMAL] upwards draws as
-         * a full bar, so the bar alone cannot tell 101 from 200. From this point on the player also
-         * gets nausea (`OutbreakSymptoms`), which is the visible marker; effects that are only
-         * confusing when they come out of nowhere - the camera tremor - wait for it.
+         * Where over-hydration becomes something the player can see for themselves: the thirst bar is
+         * [THIRST_CELLS] cells and anything from [WATER_NORMAL] upwards draws as a full bar, so the
+         * bar alone cannot tell 101 from 200. From here on the player also gets nausea, which is the
+         * visible marker; effects that are only confusing when they come out of nowhere - the camera
+         * tremor - wait for it.
          */
-        const val WATER_VISIBLY_OVERHYDRATED = 150f
+        @JvmField val WATER_VISIBLY_OVERHYDRATED: Float = OutbreakModelBridge.WATER_VISIBLY_OVERHYDRATED
 
-        /** The thirst bar has ten cells. */
-        const val THIRST_CELLS = 10
+        /** Below this the player is not just thirsty: hunger sets in. */
+        @JvmField val WATER_SEVERELY_DEHYDRATED: Float = OutbreakModelBridge.WATER_SEVERELY_DEHYDRATED
 
-        /** One drink adds this much water. */
-        const val WATER_PER_DRINK = 15f
+        @JvmField val THIRST_CELLS: Int = OutbreakModelBridge.THIRST_CELLS
 
-        /**
-         * A full bladder drains to a single cell over one in-game day, so 90 points per 24000
-         * ticks. The rate is a hair under that so that after exactly one day the bar still reads
-         * one cell rather than falling off the bottom of it through float drift.
-         */
-        const val WATER_DECAY_PER_TICK = 89.5f / 24_000f
+        /** Water added by any drinkable. */
+        @JvmField val WATER_PER_DRINK: Float = OutbreakModelBridge.WATER_PER_DRINK
+
+        /** A full bladder drains to one cell over roughly one in-game day. */
+        @JvmField val WATER_DECAY_PER_TICK: Float = OutbreakModelBridge.WATER_DECAY_PER_TICK
 
         // ---------------------------------------------------------------- drugs
 
-        /** Drug concentration needed before salicin starts damping prostaglandins. */
-        const val SALICIN_EFFECTIVE = 1f
+        @JvmField val SALICIN_EFFECTIVE: Float = OutbreakModelBridge.SALICIN_EFFECTIVE
+        @JvmField val SALICIN_CAP: Float = OutbreakModelBridge.SALICIN_CAP
+        @JvmField val SALICIN_METABOLISM_TICKS: Int = OutbreakModelBridge.SALICIN_METABOLISM_TICKS
+        @JvmField val SALICIN_DECAY_PER_TICK: Float = OutbreakModelBridge.SALICIN_DECAY_PER_TICK
 
-        /** Highest concentration a player can build up. */
-        const val SALICIN_CAP = 3f
-
-        /** Salicin is fully metabolised after three in-game days. */
-        const val SALICIN_METABOLISM_TICKS = 72_000
-        const val SALICIN_DECAY_PER_TICK = SALICIN_CAP / SALICIN_METABOLISM_TICKS
-
-        /** Dexamethasone is far more potent and lasts two in-game days. */
-        const val DEXAMETHASONE_EFFECTIVE = 1f
-        const val DEXAMETHASONE_CAP = 2f
-        const val DEXAMETHASONE_METABOLISM_TICKS = 48_000
-        const val DEXAMETHASONE_DECAY_PER_TICK = DEXAMETHASONE_CAP / DEXAMETHASONE_METABOLISM_TICKS
+        @JvmField val DEXAMETHASONE_EFFECTIVE: Float = OutbreakModelBridge.DEXAMETHASONE_EFFECTIVE
+        @JvmField val DEXAMETHASONE_CAP: Float = OutbreakModelBridge.DEXAMETHASONE_CAP
+        @JvmField val DEXAMETHASONE_METABOLISM_TICKS: Int = OutbreakModelBridge.DEXAMETHASONE_METABOLISM_TICKS
+        @JvmField val DEXAMETHASONE_DECAY_PER_TICK: Float = OutbreakModelBridge.DEXAMETHASONE_DECAY_PER_TICK
 
         // ---------------------------------------------------------------- temperature
 
         /** Core temperature of a healthy player, and the set point thermoregulation defends. */
-        const val TEMPERATURE_NORMAL = 37.0f
+        @JvmField val TEMPERATURE_NORMAL: Float = OutbreakModelBridge.TEMPERATURE_NORMAL
 
         /**
-         * The comfortable band, just above 36.0 up to just below 38.5.
-         *
-         * The fever side deliberately starts at **38.5**, not 38.0. A temperature of 38 is what a
-         * hot biome, a fire, or a thyroid that runs hot produces on their own, and the screen
-         * effects and the shiver it switched on were indistinguishable from a bug: every visible
-         * vital sign read normal and the player's view was still swimming.
+         * The comfortable band, just above 36.0 up to just below 38.5. The fever side deliberately
+         * starts at 38.5 rather than 38.0: 38 is what a hot biome, a fire or a thyroid that runs hot
+         * produces on its own, and the screen effects it switched on looked exactly like a bug.
          */
-        const val COLD_MILD = 36.0f
-        const val FEVER_MILD = 38.5f
+        @JvmField val COLD_MILD: Float = OutbreakModelBridge.COLD_MILD
+        @JvmField val FEVER_MILD: Float = OutbreakModelBridge.FEVER_MILD
 
         /** Past these the thermal symptoms get worse; 40 is where a fever turns dangerous. */
-        const val COLD_SEVERE = 35.0f
-        const val FEVER_SEVERE = 40.0f
+        @JvmField val COLD_SEVERE: Float = OutbreakModelBridge.COLD_SEVERE
+        @JvmField val FEVER_SEVERE: Float = OutbreakModelBridge.FEVER_SEVERE
 
         /** Hard clamp for the model; 42 is where proteins start to denature. */
-        const val TEMPERATURE_MIN = 30.0f
-        const val TEMPERATURE_MAX = 42.0f
+        @JvmField val TEMPERATURE_MIN: Float = OutbreakModelBridge.TEMPERATURE_MIN
+        @JvmField val TEMPERATURE_MAX: Float = OutbreakModelBridge.TEMPERATURE_MAX
 
-        /**
-         * The most pyrogen a body can carry. Pyrogen is what the fever test command injects, so
-         * the cap is also the largest fever the command can produce above the current one.
-         */
-        const val PYROGEN_CAP = 6f
-
-        /**
-         * An injected pyrogen is cleared over one in-game day.
-         *
-         * Long enough that the body can walk to the set point (that takes a couple of in-game
-         * minutes) and the player can look at what it does to the screen, short enough that a test
-         * fever is gone before it can be mistaken for a bug: the previous five day metabolism left
-         * a `/outbreak fever` shimmering on the screen for over an hour after the command.
-         *
-         * `OutbreakPhysiology.induceFever` adds back the distance the body loses to this decay, so
-         * the *peak* is still exactly the temperature that was asked for.
-         */
-        const val PYROGEN_METABOLISM_TICKS = 24_000
-        const val PYROGEN_DECAY_PER_TICK = PYROGEN_CAP / PYROGEN_METABOLISM_TICKS
+        /** The most pyrogen a body can carry, i.e. the largest fever the test command can induce. */
+        @JvmField val PYROGEN_CAP: Float = OutbreakModelBridge.PYROGEN_CAP
+        @JvmField val PYROGEN_METABOLISM_TICKS: Int = OutbreakModelBridge.PYROGEN_METABOLISM_TICKS
+        @JvmField val PYROGEN_DECAY_PER_TICK: Float = OutbreakModelBridge.PYROGEN_DECAY_PER_TICK
 
         /** What a healthy player looks like. */
-        val HEALTHY = OutbreakData(
-            mediators = Mediators.RESTING,
-            bacteria = 0f,
-            virus = 0f,
-            water = 80f,
-            electrolytes = Electrolytes.HEALTHY,
-            traceElements = TraceElements.HEALTHY,
-            salicin = 0f,
-            dexamethasone = 0f,
-            temperature = TEMPERATURE_NORMAL,
-            pyrogen = 0f,
-        )
+        @JvmField val HEALTHY: OutbreakData = OutbreakModelBridge.healthy()
 
         val CODEC: Codec<OutbreakData> = RecordCodecBuilder.create { instance ->
             instance.group(
-                Mediators.CODEC.fieldOf("mediators").forGetter(OutbreakData::mediators),
-                Codec.FLOAT.fieldOf("bacteria").forGetter(OutbreakData::bacteria),
-                Codec.FLOAT.fieldOf("virus").forGetter(OutbreakData::virus),
-                Codec.FLOAT.fieldOf("water").forGetter(OutbreakData::water),
-                Electrolytes.CODEC.fieldOf("electrolytes").forGetter(OutbreakData::electrolytes),
-                TraceElements.CODEC.fieldOf("trace_elements").forGetter(OutbreakData::traceElements),
-                Codec.FLOAT.fieldOf("salicin").forGetter(OutbreakData::salicin),
-                Codec.FLOAT.fieldOf("dexamethasone").forGetter(OutbreakData::dexamethasone),
-                // Optional with a default so that a world saved before temperature existed loads
-                // as a healthy player instead of being thrown away.
-                Codec.FLOAT.optionalFieldOf("temperature", TEMPERATURE_NORMAL)
-                    .forGetter(OutbreakData::temperature),
-                Codec.FLOAT.optionalFieldOf("pyrogen", 0f).forGetter(OutbreakData::pyrogen),
+                Mediators.CODEC.fieldOf("mediators").forGetter { it.mediators },
+                Codec.FLOAT.fieldOf("bacteria").forGetter { it.bacteria },
+                Codec.FLOAT.fieldOf("virus").forGetter { it.virus },
+                Codec.FLOAT.fieldOf("water").forGetter { it.water },
+                Electrolytes.CODEC.fieldOf("electrolytes").forGetter { it.electrolytes },
+                TraceElements.CODEC.fieldOf("trace_elements").forGetter { it.traceElements },
+                Codec.FLOAT.fieldOf("salicin").forGetter { it.salicin },
+                Codec.FLOAT.fieldOf("dexamethasone").forGetter { it.dexamethasone },
+                // Optional with a default so that a world saved before temperature existed loads as a
+                // healthy player instead of being thrown away.
+                Codec.FLOAT.optionalFieldOf("temperature", TEMPERATURE_NORMAL).forGetter { it.temperature },
+                Codec.FLOAT.optionalFieldOf("pyrogen", 0f).forGetter { it.pyrogen },
             ).apply(instance, ::OutbreakData)
         }
     }
 }
 
 /**
- * The part of the physiology the client needs: a counter that ticks up whenever the server decides
- * the player should shake, how hard, and the current water level so the thirst bar can be drawn.
+ * The bits of the physiology the client needs.
  *
- * Sending a counter instead of a countdown keeps the traffic to one packet per shake event, and the
- * water level is only resent when its whole number changes.
+ * Synced rather than simulated: the client only draws the thirst bar and the camera shake, so it is
+ * told the water level and the shake counter instead of running the model.
  */
 data class OutbreakClientState(
+    /** Bumped every time the server wants the camera to shake. */
     val shakeSequence: Int,
     val shakeAmplitude: Float,
+    /** Whole water points, for the thirst bar. */
     val water: Int,
 ) {
     companion object {
@@ -489,45 +444,47 @@ data class OutbreakClientState(
 
         val CODEC: Codec<OutbreakClientState> = RecordCodecBuilder.create { instance ->
             instance.group(
-                Codec.INT.fieldOf("shake_sequence").forGetter(OutbreakClientState::shakeSequence),
-                Codec.FLOAT.fieldOf("shake_amplitude").forGetter(OutbreakClientState::shakeAmplitude),
-                Codec.INT.fieldOf("water").forGetter(OutbreakClientState::water),
+                Codec.INT.fieldOf("shake_sequence").forGetter { it.shakeSequence },
+                Codec.FLOAT.fieldOf("shake_amplitude").forGetter { it.shakeAmplitude },
+                Codec.INT.fieldOf("water").forGetter { it.water },
             ).apply(instance, ::OutbreakClientState)
         }
 
         val STREAM_CODEC: StreamCodec<net.minecraft.network.RegistryFriendlyByteBuf, OutbreakClientState> =
             StreamCodec.composite(
-                ByteBufCodecs.VAR_INT,
-                OutbreakClientState::shakeSequence,
-                ByteBufCodecs.FLOAT,
-                OutbreakClientState::shakeAmplitude,
-                ByteBufCodecs.VAR_INT,
-                OutbreakClientState::water,
+                ByteBufCodecs.VAR_INT, OutbreakClientState::shakeSequence,
+                ByteBufCodecs.FLOAT, OutbreakClientState::shakeAmplitude,
+                ByteBufCodecs.VAR_INT, OutbreakClientState::water,
                 ::OutbreakClientState,
             )
     }
 }
 
+/**
+ * The attachments every player carries.
+ *
+ * * `physiology` is the whole body, persisted across death and never synced;
+ * * `client_state` is the small subset the client needs, synced to everyone;
+ * * `runtime` is per-session counters that are deliberately neither saved nor synced.
+ */
 object OutbreakAttachments {
 
-    /**
-     * The full physiology. Persistent and server-authoritative, so it is never synced: the client
-     * only ever needs [CLIENT].
-     */
+    /** The whole body. Persisted so that dying does not cure an infection. */
     val DATA: AttachmentType<OutbreakData> = AttachmentRegistry.create(Registration.id("physiology")) { builder ->
         builder
+            .initializer { OutbreakData.HEALTHY }
             .persistent(OutbreakData.CODEC)
             .copyOnDeath()
-            .initializer { OutbreakData.HEALTHY }
     }
 
-    /** Synced to every client that can see the player: drives the camera shake and the thirst bar. */
-    val CLIENT: AttachmentType<OutbreakClientState> = AttachmentRegistry.create(Registration.id("client_state")) { builder ->
-        builder
-            .persistent(OutbreakClientState.CODEC)
-            .initializer { OutbreakClientState.INACTIVE }
-            .syncWith(OutbreakClientState.STREAM_CODEC, AttachmentSyncPredicate.all())
-    }
+    /** The bits the client needs, pushed to everyone who can see the player. */
+    val CLIENT: AttachmentType<OutbreakClientState> =
+        AttachmentRegistry.create(Registration.id("client_state")) { builder ->
+            builder
+                .initializer { OutbreakClientState.INACTIVE }
+                .persistent(OutbreakClientState.CODEC)
+                .syncWith(OutbreakClientState.STREAM_CODEC, AttachmentSyncPredicate.all())
+        }
 
     /**
      * Per-player timers that only matter while the player is online, so they are neither saved nor
@@ -545,8 +502,11 @@ class OutbreakRuntime {
     /** Ticks until the next "will the view shake?" roll. */
     var shakeCooldown: Int = 0
 
-    /** Ticks during which touching a bat cannot roll an infection again. */
-    var batCooldown: Int = 0
+    /** Ticks until the next "did something next to me pass on a virus?" roll. */
+    var contactCooldown: Int = 0
+
+    /** Ticks until the next "am I suppressed enough to catch something random?" roll. */
+    var immunosuppressionCooldown: Int = 0
 
     /** Last water value that was pushed to the client, so the bar is only resent when it moves. */
     var syncedWater: Int = Int.MIN_VALUE

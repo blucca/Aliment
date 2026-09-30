@@ -22,30 +22,39 @@ import net.minecraft.world.item.Items
 object OutbreakIngestion {
 
     /** Water added by any drinkable: a water bottle, a potion, stew, or soup. */
-    const val WATER_PER_DRINK = OutbreakData.WATER_PER_DRINK
+    val WATER_PER_DRINK = OutbreakData.WATER_PER_DRINK
 
-    /** Salt delivered by one serving made with crude rock salt; the impurities come along. */
-    private const val CRUDE_SODIUM = 18f
-    private const val CRUDE_CHLORIDE = 18f
-    private const val CRUDE_MAGNESIUM = 5f
-    private const val CRUDE_CALCIUM = 3f
+    /**
+     * Salt from one serving made with crude rock salt, in mmol/L of serum. The impurities that rock
+     * salt carries come along.
+     *
+     * These numbers are chosen against the reference range: sodium runs 135..145 mmol/L, so one
+     * serving of 3.0 moves a healthy player from 140 to 143 - still inside - and it takes **two**
+     * servings to go past 145. That is the whole point of the scale: "drink two cups of salt water
+     * and you are hypernatraemic" is a sentence that means something.
+     */
+    private const val CRUDE_SODIUM = 3.0f
+    private const val CRUDE_CHLORIDE = 3.0f
+    private const val CRUDE_MAGNESIUM = 0.04f
+    private const val CRUDE_CALCIUM = 0.07f
 
-    /** Refined salt is almost pure sodium chloride. */
-    private const val REFINED_SODIUM = 26f
-    private const val REFINED_CHLORIDE = 26f
+    /** Refined salt is almost pure sodium chloride. 140 -> 143.5, two of them -> 147. */
+    private const val REFINED_SODIUM = 3.5f
+    private const val REFINED_CHLORIDE = 3.5f
 
     /**
      * A bottle of sea water is about 3.5% salt, so it is a sodium load in its own right, and it
-     * arrives with the magnesium and calcium sea water actually contains.
+     * arrives with the magnesium and calcium sea water actually contains. Two of them also tip
+     * sodium over the reference range; one does not.
      */
-    private const val SEA_WATER_SODIUM = 20f
-    private const val SEA_WATER_CHLORIDE = 20f
-    private const val SEA_WATER_MAGNESIUM = 6f
-    private const val SEA_WATER_CALCIUM = 2f
+    private const val SEA_WATER_SODIUM = 3.0f
+    private const val SEA_WATER_CHLORIDE = 3.0f
+    private const val SEA_WATER_MAGNESIUM = 0.05f
+    private const val SEA_WATER_CALCIUM = 0.05f
 
-    /** Iodine from kelp. Dried kelp is the concentrated form. */
-    private const val KELP_IODINE = 25f
-    private const val DRIED_KELP_IODINE = 35f
+    /** Iodine from kelp, in umol/L. Dried kelp is the concentrated form. */
+    private const val KELP_IODINE = 0.15f
+    private const val DRIED_KELP_IODINE = 0.25f
 
     /** How much pathogen a single successful roll adds. */
     private const val BACTERIA_SEED = 6f

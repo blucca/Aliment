@@ -2,6 +2,7 @@ package com.github.kusa233.outbreak.command
 
 import com.github.kusa233.outbreak.physiology.Electrolytes
 import com.github.kusa233.outbreak.physiology.Mediators
+import com.github.kusa233.outbreak.physiology.Mineral
 import com.github.kusa233.outbreak.physiology.OutbreakAttachments
 import com.github.kusa233.outbreak.physiology.OutbreakData
 import com.github.kusa233.outbreak.physiology.OutbreakPhysiology
@@ -97,6 +98,9 @@ object OutbreakCommand {
             else -> "healthy"
         }
 
+        val electrolytes = Electrolytes.MINERALS.joinToString("  ") { mineral ->
+            "%s %s".format(shortName(mineral), mineral.display(e.of(mineral)))
+        }
         val lines = listOf(
             "Outbreak: %s".format(condition),
             "  inflammation %.1f  (histamine %.0f, prostaglandin %.0f, leukotriene %.0f, cytokine %.0f, bradykinin %.0f)"
@@ -105,24 +109,37 @@ object OutbreakCommand {
                 data.water, data.thirstCells, OutbreakData.THIRST_CELLS,
                 if (data.isOverhydrated) "  [over-hydrated]" else if (data.isDehydrated) "  [dehydrated]" else "",
             ),
-            "  electrolytes  Na %.0f  K %.0f  Mg %.0f  Cl %.0f  Ca %.0f%s".format(
-                e.sodium, e.potassium, e.magnesium, e.chloride, e.calcium,
-                if (data.hasElectrolyteImbalance) "  [out of band]" else "",
+            "  electrolytes (mmol/L)  %s%s".format(
+                electrolytes,
+                if (data.hasElectrolyteImbalance) "  [out of range]" else "",
             ),
-            "  trace elements  I %.0f%s".format(
-                data.traceElements.iodine,
-                if (data.hasTraceElementImbalance) "  [out of band]" else "",
+            "  trace elements (umol/L)  I %s%s".format(
+                Mineral.IODINE.display(data.traceElements.iodine),
+                if (data.hasTraceElementImbalance) "  [out of range]" else "",
             ),
             "  temperature %.2f C  [%s]  pyrogen %+.2f".format(
                 data.temperature, thermalName(data.thermalTier), data.pyrogen,
             ),
-            "  pathogens  bacteria %.1f  virus %.1f".format(data.bacteria, data.virus),
+            "  pathogens  bacteria %.1f  virus %.1f%s".format(
+                data.bacteria, data.virus,
+                if (data.isSevereInfection) "  [severe: taking damage]" else "",
+            ),
             "  drugs  salicin %.2f  dexamethasone %.2f".format(data.salicin, data.dexamethasone),
         )
         for (line in lines) {
             context.source.sendSuccess({ Component.literal(line) }, false)
         }
         return 1
+    }
+
+    /** The symbol `/outbreak status` prints for [mineral]. */
+    private fun shortName(mineral: Mineral): String = when (mineral) {
+        Mineral.SODIUM -> "Na"
+        Mineral.POTASSIUM -> "K"
+        Mineral.MAGNESIUM -> "Mg"
+        Mineral.CHLORIDE -> "Cl"
+        Mineral.CALCIUM -> "Ca"
+        Mineral.IODINE -> "I"
     }
 
     private fun thermalName(tier: Int): String = when {
@@ -143,17 +160,17 @@ object OutbreakCommand {
 
         val updated = when (field) {
             "water" -> data.copy(water = value.coerceIn(OutbreakData.WATER_MIN, OutbreakData.WATER_MAX))
-            "sodium" -> data.withElectrolytes(e.copy(sodium = clamp(value)))
-            "potassium" -> data.withElectrolytes(e.copy(potassium = clamp(value)))
-            "magnesium" -> data.withElectrolytes(e.copy(magnesium = clamp(value)))
-            "chloride" -> data.withElectrolytes(e.copy(chloride = clamp(value)))
-            "calcium" -> data.withElectrolytes(e.copy(calcium = clamp(value)))
-            "iodine" -> data.withTraceElements(data.traceElements.copy(iodine = clamp(value)))
-            "histamine" -> data.withMediators(m.copy(histamine = clamp(value, Mediators.MAX)))
-            "prostaglandin" -> data.withMediators(m.copy(prostaglandin = clamp(value, Mediators.MAX)))
-            "leukotriene" -> data.withMediators(m.copy(leukotriene = clamp(value, Mediators.MAX)))
-            "cytokine" -> data.withMediators(m.copy(cytokine = clamp(value, Mediators.MAX)))
-            "bradykinin" -> data.withMediators(m.copy(bradykinin = clamp(value, Mediators.MAX)))
+            "sodium" -> data.withElectrolytes(e.withSodium(Mineral.SODIUM.clamp(value)))
+            "potassium" -> data.withElectrolytes(e.withPotassium(Mineral.POTASSIUM.clamp(value)))
+            "magnesium" -> data.withElectrolytes(e.withMagnesium(Mineral.MAGNESIUM.clamp(value)))
+            "chloride" -> data.withElectrolytes(e.withChloride(Mineral.CHLORIDE.clamp(value)))
+            "calcium" -> data.withElectrolytes(e.withCalcium(Mineral.CALCIUM.clamp(value)))
+            "iodine" -> data.withTraceElements(data.traceElements.withIodine(Mineral.IODINE.clamp(value)))
+            "histamine" -> data.withMediators(m.withHistamine(clamp(value, Mediators.MAX)))
+            "prostaglandin" -> data.withMediators(m.withProstaglandin(clamp(value, Mediators.MAX)))
+            "leukotriene" -> data.withMediators(m.withLeukotriene(clamp(value, Mediators.MAX)))
+            "cytokine" -> data.withMediators(m.withCytokine(clamp(value, Mediators.MAX)))
+            "bradykinin" -> data.withMediators(m.withBradykinin(clamp(value, Mediators.MAX)))
             "bacteria" -> data.copy(bacteria = clamp(value, OutbreakData.MAX_PATHOGEN))
             "virus" -> data.copy(virus = clamp(value, OutbreakData.MAX_PATHOGEN))
             "salicin" -> data.copy(salicin = clamp(value, OutbreakData.SALICIN_CAP))
@@ -171,7 +188,18 @@ object OutbreakCommand {
         }
 
         player.setAttached(OutbreakAttachments.DATA, updated)
-        context.source.sendSuccess({ Component.literal("$field = $value") }, false)
+        // The electrolytes are in mmol/L and iodine in umol/L, and each has its own clamp, so the
+        // value the player typed is not always the value that landed: report what the field holds.
+        val landed = when (field) {
+            "sodium" -> Mineral.SODIUM.display(updated.electrolytes.sodium)
+            "potassium" -> Mineral.POTASSIUM.display(updated.electrolytes.potassium)
+            "magnesium" -> Mineral.MAGNESIUM.display(updated.electrolytes.magnesium)
+            "chloride" -> Mineral.CHLORIDE.display(updated.electrolytes.chloride)
+            "calcium" -> Mineral.CALCIUM.display(updated.electrolytes.calcium)
+            "iodine" -> Mineral.IODINE.display(updated.traceElements.iodine)
+            else -> "$value"
+        }
+        context.source.sendSuccess({ Component.literal("$field = $landed") }, false)
         return 1
     }
 
@@ -220,5 +248,6 @@ object OutbreakCommand {
         return 1
     }
 
-    private fun clamp(value: Float, max: Float = Electrolytes.MAX): Float = value.coerceIn(0f, max)
+    /** Clamp for the fields that are not minerals: mediators, pathogens and drugs. */
+    private fun clamp(value: Float, max: Float): Float = value.coerceIn(0f, max)
 }

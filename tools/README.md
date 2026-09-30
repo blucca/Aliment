@@ -84,13 +84,13 @@ dilution from heavy drinking, the iodine steady state, the temperature model (fe
 the environment, the thyroid) and the fever command. Then it exercises the mixins and the symptom
 layer end to end: it really eats raw meat through `ItemStack.finishUsingItem` and counts the
 infection rate, drinks all twelve of the drinks to check the 15 water each, drinks salt water and
-sea water to check the minerals, checks that swamp water is foul and sea water is not, walks every
-mineral across both sides of its safe band, asserts the camera-shake chance is zero for every
-state the player cannot see, checks which screen effects each fever tier asks for, drives a real
-`GrindstoneMenu` to prove the two grindstone mixins applied, and checks the exhaustion multiplier,
-the mining penalty and the synced client state. It also enumerates every item and entity type the
-mod registers and fails, naming the key, if any of them has no name in `en_us.json` or `zh_cn.json`.
-201 checks.
+sea water to check the minerals, checks that swamp water is foul and sea water is not, probes every
+mineral on both sides of both of its thresholds, asserts the camera-shake chance is zero for every
+state the player cannot see, counts the two per-second contagion dice, checks which screen effects
+each fever tier asks for, drives a real `GrindstoneMenu` to prove the two grindstone mixins
+applied, and checks the exhaustion multiplier, the mining penalty and the synced client state. It
+also enumerates every item and entity type the mod registers and fails, naming the key, if any of
+them has no name in `en_us.json` or `zh_cn.json`. 253 checks.
 
 ### Running either one
 

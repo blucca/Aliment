@@ -3,10 +3,11 @@ package com.github.kusa233.outbreak.dev
 import com.github.kusa233.outbreak.Outbreak
 import com.github.kusa233.outbreak.physiology.Electrolytes
 import com.github.kusa233.outbreak.physiology.Mediators
-import com.github.kusa233.outbreak.physiology.MineralScale
+import com.github.kusa233.outbreak.physiology.Mineral
 import com.github.kusa233.outbreak.physiology.OutbreakAttachments
 import com.github.kusa233.outbreak.physiology.OutbreakClientState
 import com.github.kusa233.outbreak.physiology.OutbreakData
+import com.github.kusa233.outbreak.physiology.OutbreakInfection
 import com.github.kusa233.outbreak.physiology.OutbreakIngestion
 import com.github.kusa233.outbreak.physiology.OutbreakPhysiology
 import com.github.kusa233.outbreak.physiology.OutbreakRuntime
@@ -26,6 +27,9 @@ import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.effect.MobEffect
 import net.minecraft.world.effect.MobEffects
+import net.minecraft.world.entity.EntitySpawnReason
+import net.minecraft.world.entity.EntityTypes
+import net.minecraft.world.entity.Mob
 import net.minecraft.world.entity.ai.attributes.Attributes
 import net.minecraft.world.inventory.GrindstoneMenu
 import net.minecraft.world.item.Item
@@ -105,14 +109,16 @@ class OutbreakPhysiologySelfTest : ModInitializer {
             max = maxOf(max, data.inflammation)
         }
         logger.info(
-            "PHYS homeostasis over 3 days: inflammation {}..{} lowest electrolyte {} water {} temperature {}",
-            min, max, data.electrolytes.lowest, data.water, data.temperature,
+            "PHYS homeostasis over 3 days: inflammation {}..{} electrolytes {} water {} temperature {}",
+            min, max, data.electrolytes, data.water, data.temperature,
         )
         check("homeostasis keeps inflammation inside 20..30", min >= 20f && max <= 30f)
         // Iodine is deliberately excluded: it has its own, lower, steady state (see iodineSteadyState).
         val e = data.electrolytes
-        val steady = listOf(e.sodium, e.potassium, e.magnesium, e.chloride, e.calcium)
-        check("homeostasis keeps the five electrolytes near normal", steady.all { abs(it - 100f) < 5f })
+        check(
+            "homeostasis keeps every electrolyte inside a percent of normal",
+            Electrolytes.MINERALS.all { abs(e.of(it) - it.normal) < 0.01f * it.normal },
+        )
         check("homeostasis keeps the core temperature at 37", abs(data.temperature - OutbreakData.TEMPERATURE_NORMAL) < 0.01f)
     }
 
@@ -274,9 +280,17 @@ class OutbreakPhysiologySelfTest : ModInitializer {
             data.electrolytes.sodium, data.electrolytes.potassium, data.electrolytes.magnesium,
             data.electrolytes.chloride, data.electrolytes.calcium, data.water,
         )
-        check("heavy drinking dilutes sodium", data.electrolytes.sodium < Electrolytes.SAFE_LOW)
-        check("heavy drinking dilutes chloride", data.electrolytes.chloride < Electrolytes.SAFE_LOW)
-        check("magnesium is flushed more slowly than sodium", data.electrolytes.magnesium > data.electrolytes.sodium)
+        check("heavy drinking dilutes sodium", data.electrolytes.sodium < Mineral.SODIUM.safeLow)
+        check("heavy drinking dilutes chloride", data.electrolytes.chloride < Mineral.CHLORIDE.safeLow)
+        check(
+            "the dilution is severe but it is a number a person could have",
+            data.electrolytes.sodium > 110f,
+        )
+        check(
+            "magnesium is flushed more slowly than sodium",
+            Mineral.MAGNESIUM.relativeDeviation(data.electrolytes.magnesium) <
+                Mineral.SODIUM.relativeDeviation(data.electrolytes.sodium),
+        )
     }
 
     private fun dehydrationStopsWhenDrinking() {
@@ -288,27 +302,31 @@ class OutbreakPhysiologySelfTest : ModInitializer {
 
     /**
      * Iodine is regulated like everything else now, but around a lower set point, because the body
-     * cannot make it: the equilibrium is `NORMAL - drain / homeostasis` = 88. That is inside the
-     * safe band, so ignoring kelp is survivable, and three points from the bottom of it, so a fever
-     * or a drinking binge will push it under.
+     * cannot make it: the equilibrium is 85% of normal, i.e. 0.425 umol/L. That is inside the
+     * 0.40..0.80 reference range, so ignoring kelp is survivable, and only 0.025 above the bottom
+     * of it, so a fever or a drinking binge will push it under.
      */
     private fun iodineSteadyState() {
+        val iodine = Mineral.IODINE
         var data = OutbreakData.HEALTHY
         repeat(4 * 24_000) { data = OutbreakPhysiology.tick(data) }
         logger.info(
-            "PHYS iodine after 4 days with no kelp: {} (safe band {}..{})",
-            data.traceElements.iodine, MineralScale.SAFE_LOW, MineralScale.SAFE_HIGH,
+            "PHYS iodine after 4 days with no kelp: {} (reference range {}..{} umol/L)",
+            data.traceElements.iodine, iodine.safeLow, iodine.safeHigh,
         )
-        check("iodine settles at a steady state instead of draining away", abs(data.traceElements.iodine - 88f) < 1.5f)
-        check("that steady state is inside the safe band", !data.hasTraceElementImbalance)
-        check("the five electrolytes are unaffected", abs(data.electrolytes.sodium - 100f) < 5f)
-        check("iodine is not part of the electrolyte set", !data.hasElectrolyteImbalance)
+        check(
+            "iodine settles at a steady state instead of draining away",
+            abs(data.traceElements.iodine - 0.85f * iodine.normal) < 0.01f,
+        )
+        check("that steady state is inside the reference range", !data.hasTraceElementImbalance)
+        check("the five electrolytes are unaffected", !data.hasElectrolyteImbalance)
+        check("iodine is not part of the electrolyte set", Electrolytes.MINERALS.none { it == Mineral.IODINE })
 
-        val oneKelp = OutbreakPhysiology.iodine(data, 25f)
+        val oneKelp = OutbreakPhysiology.iodine(data, 0.15f)
         logger.info("PHYS iodine after one kelp: {}", oneKelp.traceElements.iodine)
         check("one kelp is enough and not too much", !oneKelp.hasTraceElementImbalance)
 
-        val tooMuch = OutbreakPhysiology.iodine(data, 70f)
+        val tooMuch = OutbreakPhysiology.iodine(data, 0.45f)
         logger.info("PHYS iodine after three helpings of kelp: {}", tooMuch.traceElements.iodine)
         check("too much kelp pushes iodine into excess", tooMuch.traceElements.direction > 0)
         check("an iodine excess is reported as an imbalance", tooMuch.hasTraceElementImbalance)
@@ -323,7 +341,7 @@ class OutbreakPhysiologySelfTest : ModInitializer {
         var feverish = OutbreakData.HEALTHY.copy(temperature = 41f)
         repeat(3 * 24_000) { feverish = OutbreakPhysiology.tick(feverish.copy(temperature = 41f)) }
         logger.info("PHYS iodine after three days of fever: {}", feverish.traceElements.iodine)
-        check("a long fever drains iodine below the safe band", feverish.hasTraceElementImbalance)
+        check("a long fever drains iodine below the reference range", feverish.hasTraceElementImbalance)
     }
 
     // ================================================================== temperature
@@ -493,15 +511,18 @@ class OutbreakPhysiologySelfTest : ModInitializer {
      * degree - because it is a set point change, not a fever.
      */
     private fun thyroidMovesTheSetPoint() {
-        var hypothyroid = OutbreakData.HEALTHY.copy(traceElements = TraceElements(60f))
-        var hyperthyroid = OutbreakData.HEALTHY.copy(traceElements = TraceElements(150f))
+        val iodine = Mineral.IODINE
+        // A deficit below the reference range, and an excess above it, both realistic values.
+        var hypothyroid = OutbreakData.HEALTHY.copy(traceElements = TraceElements(0.30f))
+        var hyperthyroid = OutbreakData.HEALTHY.copy(traceElements = TraceElements(1.10f))
         repeat(12_000) {
             hypothyroid = OutbreakPhysiology.tick(hypothyroid)
             hyperthyroid = OutbreakPhysiology.tick(hyperthyroid)
         }
         logger.info(
-            "PHYS resting temperature with iodine 60: {} / with iodine 150: {}",
-            hypothyroid.temperature, hyperthyroid.temperature,
+            "PHYS resting temperature with iodine {} (range {}..{}): {} / with {}: {}",
+            hypothyroid.traceElements.iodine, iodine.safeLow, iodine.safeHigh, hypothyroid.temperature,
+            hyperthyroid.traceElements.iodine, hyperthyroid.temperature,
         )
         check("hypothyroidism lowers the resting temperature", hypothyroid.temperature < 37f)
         check("thyrotoxicosis raises it", hyperthyroid.temperature > 37f)
@@ -522,46 +543,182 @@ class OutbreakPhysiologySelfTest : ModInitializer {
         shakeOnlyWhenSomethingIsVisible(player)
         postEffects(player)
         seaWaterIsNotFoul(level, player)
+        infectionRolls(player)
+        severeInfectionDamages()
     }
 
+    /**
+     * The two per-second contagion rolls.
+     *
+     * A headless dev server has no entity-ticking chunks, so nothing can be put next to the player
+     * to be caught: the dice themselves are tested directly, and the "is anything there at all"
+     * gate is tested by the negative case plus the cooldown, which is what makes the roll per
+     * second rather than per tick.
+     */
+    private fun infectionRolls(player: ServerPlayer) {
+        val random = player.level().random
+        val trials = 400
+
+        // Nothing nearby: nothing to catch, however many times this runs.
+        var clear = OutbreakData.HEALTHY
+        val runtime = OutbreakRuntime()
+        repeat(100) { clear = OutbreakInfection.rollContact(player, clear, runtime) }
+        check("with no creature nearby there is nothing to catch", clear.virus == 0f)
+
+        // The cadence: exactly one contact roll per second, whatever the outcome.
+        val paced = OutbreakRuntime()
+        OutbreakInfection.rollContact(player, OutbreakData.HEALTHY, paced)
+        check("a contact roll arms a one second cooldown", paced.contactCooldown == OutbreakInfection.ROLL_TICKS)
+        repeat(OutbreakInfection.ROLL_TICKS - 1) {
+            OutbreakInfection.rollContact(player, OutbreakData.HEALTHY, paced)
+        }
+        check("and does not roll again inside that second", paced.contactCooldown == 1)
+        OutbreakInfection.rollContact(player, OutbreakData.HEALTHY, paced)
+        check("then rolls again on the following tick", paced.contactCooldown == OutbreakInfection.ROLL_TICKS)
+
+        var contacts = 0
+        repeat(trials) { if (OutbreakInfection.contactRoll(random)) contacts++ }
+        logger.info("PHYS contact dice: {}/{} rolls came up", contacts, trials)
+        check("contact is a 20% roll", contacts in 60..112)
+
+        var opportunistic = 0
+        val seeds = mutableSetOf<Float>()
+        repeat(trials) {
+            if (OutbreakInfection.opportunisticRoll(random)) {
+                opportunistic++
+                seeds += OutbreakInfection.opportunisticLoad(random)
+            }
+        }
+        logger.info("PHYS immunosuppression dice: {} distinct loads over {} hits", seeds.size, opportunistic)
+        check("immunosuppression is a 15% roll", opportunistic in 40..85)
+        check("the load it seeds is random rather than fixed", seeds.size > 3)
+        check("and it stays inside the configured band", seeds.all { it in 4f..12f })
+
+        // And the whole path, driven through the real entry point rather than the dice.
+        val suppressed = OutbreakData.HEALTHY.copy(mediators = Mediators.CALM)
+        check("a calm mediator set really is immunosuppressed", suppressed.isImmunosuppressed)
+        var caught = 0
+        repeat(trials) {
+            if (OutbreakInfection.rollImmunosuppression(player, suppressed, OutbreakRuntime()).bacteria > 0f) {
+                caught++
+            }
+        }
+        logger.info("PHYS immunosuppression: {}/{} rolls seeded bacteria", caught, trials)
+        check("an immunosuppressed body catches bacteria about 15% of the time", caught in 40..85)
+
+        // A healthy immune system never does this, however long it stands there.
+        var healthy = OutbreakData.HEALTHY
+        repeat(trials) { healthy = OutbreakInfection.rollImmunosuppression(player, healthy, OutbreakRuntime()) }
+        check("a healthy immune system never catches anything on its own", healthy.bacteria == 0f)
+    }
+
+    /**
+     * Past the severe threshold the pathogen load costs health directly, and it costs more the
+     * further past the threshold it is. It is the one symptom in this mod that can kill without a
+     * monster being involved.
+     *
+     * Fabric's `FakePlayer` overrides `isInvulnerableTo` to always return true, so the health of one
+     * can never move. What is asserted here is the damage the tick asks for, which is the whole of
+     * the policy; applying it is a single `hurtServer` call that the mineral table already uses.
+     */
+    private fun severeInfectionDamages() {
+        val symptomatic = OutbreakData.HEALTHY.copy(bacteria = 20f)
+        check("20 points of load is symptomatic", symptomatic.isSymptomatic)
+        check("but not severe enough to do damage", !symptomatic.isSevereInfection)
+
+        check("59 points of load does no damage", OutbreakSymptoms.sepsisDamage(symptomatic.copy(bacteria = 59f)) == 0f)
+        val atThreshold = OutbreakSymptoms.sepsisDamage(OutbreakData.HEALTHY.copy(bacteria = 60f))
+        val critical = OutbreakSymptoms.sepsisDamage(OutbreakData.HEALTHY.copy(bacteria = 100f))
+        logger.info("PHYS sepsis damage per two-second pass: 60 -> {} 100 -> {}", atThreshold, critical)
+        check("60 points of load is the sepsis threshold", atThreshold > 0f)
+        check("a worse infection does more damage", critical > atThreshold)
+
+        // A low immune value is not itself harmful. It only lets an infection climb, and it is the
+        // infection that does the damage - so a body with no immune response and no pathogen takes
+        // nothing at all.
+        val suppressed = OutbreakData.HEALTHY.copy(mediators = Mediators.CALM)
+        check("a calm mediator set really is immunosuppressed", suppressed.isImmunosuppressed)
+        check("an immunosuppressed body with no infection takes no damage", OutbreakSymptoms.sepsisDamage(suppressed) == 0f)
+        check(
+            "but the same body with an infection on top does",
+            OutbreakSymptoms.sepsisDamage(suppressed.withBacteria(70f)) > 0f,
+        )
+    }
+
+    /**
+     * The mineral table, probed from the specs rather than from hard-coded numbers.
+     *
+     * Every mineral is checked on both sides of both of its thresholds, and just inside each end of
+     * its reference range, so the test states the *rule* - inside is silent, outside is a symptom -
+     * and cannot drift away from the model when a range is retuned. The handful of rows worth naming
+     * are then asserted by effect.
+     */
     private fun mineralSymptoms(player: ServerPlayer) {
         applyWith(player, minerals())
-        check("a body with everything in band produces no symptoms at all", player.activeEffects.isEmpty())
+        check("a body with everything inside its ranges produces no symptoms", player.activeEffects.isEmpty())
 
-        // --- sodium: hyponatraemia is confusion, hypernatraemia is thirst
-        expect(player, "low sodium causes nausea", minerals(sodium = 60f), MobEffects.NAUSEA)
-        expect(player, "low sodium slows the player down", minerals(sodium = 60f), MobEffects.SLOWNESS)
-        expect(player, "slightly low sodium is only weakness", minerals(sodium = 80f), MobEffects.WEAKNESS)
-        expect(player, "high sodium causes thirst", minerals(sodium = 140f), MobEffects.HUNGER)
+        for (mineral in Electrolytes.MINERALS + Mineral.IODINE) {
+            val name = mineral.name.lowercase()
+            val margin = 0.02f * mineral.normal
 
-        // --- potassium: both ends upset the heart
-        expect(player, "low potassium causes weakness", minerals(potassium = 60f), MobEffects.WEAKNESS)
-        expect(player, "low potassium causes mining fatigue", minerals(potassium = 60f), MobEffects.MINING_FATIGUE)
-        expect(player, "high potassium causes cardiac slowing", minerals(potassium = 150f), MobEffects.SLOWNESS)
+            applyWith(player, at(mineral, mineral.safeLow + margin))
+            check("$name just inside the bottom of its range is silent", player.activeEffects.isEmpty())
+            applyWith(player, at(mineral, mineral.safeHigh - margin))
+            check("$name just inside the top of its range is silent", player.activeEffects.isEmpty())
 
-        // --- magnesium: tremor and cramps, then lethargy
-        expect(player, "low magnesium causes tremor", minerals(magnesium = 60f), MobEffects.SLOWNESS)
-        expect(player, "high magnesium causes lethargy", minerals(magnesium = 140f), MobEffects.SLOWNESS)
+            applyWith(player, at(mineral, mineral.safeLow - margin))
+            check("$name just below its range shows a symptom", player.activeEffects.isNotEmpty())
+            applyWith(player, at(mineral, mineral.safeHigh + margin))
+            check("$name just above its range shows a symptom", player.activeEffects.isNotEmpty())
 
-        // --- chloride: the acid-base side
-        expect(player, "low chloride causes nausea", minerals(chloride = 60f), MobEffects.NAUSEA)
-        expect(player, "high chloride causes nausea", minerals(chloride = 150f), MobEffects.NAUSEA)
+            applyWith(player, at(mineral, mineral.severeLow - margin))
+            check("$name in severe deficit shows a symptom", player.activeEffects.isNotEmpty())
+            applyWith(player, at(mineral, mineral.severeHigh + margin))
+            check("$name in severe excess shows a symptom", player.activeEffects.isNotEmpty())
+        }
 
-        // --- calcium: tetany against lethargy
-        expect(player, "low calcium causes tetany", minerals(calcium = 60f), MobEffects.SLOWNESS)
-        expect(player, "high calcium causes lethargy", minerals(calcium = 150f), MobEffects.SLOWNESS)
+        // --- the rows worth naming, each probed just past the threshold it is about
+        val sodium = Mineral.SODIUM
+        expect(player, "severe hyponatraemia causes nausea", at(sodium, sodium.severeLow - 1f), MobEffects.NAUSEA)
+        expect(player, "hypernatraemia causes thirst", at(sodium, sodium.safeHigh + 1f), MobEffects.HUNGER)
 
-        // --- iodine: the thyroid
-        expect(player, "low iodine is subclinical hypothyroidism", minerals(iodine = 80f), MobEffects.WEAKNESS)
-        expect(player, "very low iodine causes mining fatigue", minerals(iodine = 60f), MobEffects.MINING_FATIGUE)
-        expect(player, "high iodine causes thyrotoxicosis", minerals(iodine = 150f), MobEffects.NAUSEA)
-        expect(player, "and an appetite without weight gain", minerals(iodine = 150f), MobEffects.HUNGER)
+        val potassium = Mineral.POTASSIUM
+        expect(player, "severe hypokalaemia causes mining fatigue", at(potassium, potassium.severeLow - 0.1f), MobEffects.MINING_FATIGUE)
+        expect(player, "hyperkalaemia slows the heart", at(potassium, potassium.severeHigh + 0.1f), MobEffects.SLOWNESS)
+
+        val magnesium = Mineral.MAGNESIUM
+        expect(player, "hypomagnesaemia causes tremor", at(magnesium, magnesium.severeLow - 0.02f), MobEffects.SLOWNESS)
+        expect(player, "hypermagnesaemia causes lethargy", at(magnesium, magnesium.safeHigh + 0.02f), MobEffects.SLOWNESS)
+
+        val chloride = Mineral.CHLORIDE
+        expect(player, "hypochloraemia causes nausea", at(chloride, chloride.severeLow - 1f), MobEffects.NAUSEA)
+        expect(player, "hyperchloraemia causes nausea", at(chloride, chloride.severeHigh + 1f), MobEffects.NAUSEA)
+
+        val calcium = Mineral.CALCIUM
+        expect(player, "hypocalcaemia causes tetany", at(calcium, calcium.severeLow - 0.05f), MobEffects.SLOWNESS)
+        expect(player, "hypercalcaemia causes lethargy", at(calcium, calcium.safeHigh + 0.05f), MobEffects.SLOWNESS)
+
+        val iodine = Mineral.IODINE
+        expect(player, "subclinical hypothyroidism is just weakness", at(iodine, iodine.safeLow - 0.01f), MobEffects.WEAKNESS)
+        expect(player, "severe iodine deficiency causes mining fatigue", at(iodine, iodine.severeLow - 0.01f), MobEffects.MINING_FATIGUE)
+        expect(player, "thyrotoxicosis causes nausea", at(iodine, iodine.safeHigh + 0.01f), MobEffects.NAUSEA)
+        expect(player, "and an appetite without weight gain", at(iodine, iodine.safeHigh + 0.01f), MobEffects.HUNGER)
 
         // The exhaustion multiplier picks up the minerals that genuinely raise metabolic cost.
-        player.setAttached(OutbreakAttachments.DATA, minerals(magnesium = 80f))
+        player.setAttached(OutbreakAttachments.DATA, at(magnesium, magnesium.safeLow - 0.02f))
         check("low magnesium raises the metabolic cost", OutbreakSymptoms.exhaustionMultiplier(player) > 1f)
         player.setAttached(OutbreakAttachments.DATA, minerals())
-        check("a body with everything in band pays nothing extra", OutbreakSymptoms.exhaustionMultiplier(player) == 1f)
+        check("a body with everything in range pays nothing extra", OutbreakSymptoms.exhaustionMultiplier(player) == 1f)
+    }
+
+    /** The same healthy body with one mineral moved to [value]. */
+    private fun at(mineral: Mineral, value: Float): OutbreakData = when (mineral) {
+        Mineral.SODIUM -> minerals(sodium = value)
+        Mineral.POTASSIUM -> minerals(potassium = value)
+        Mineral.MAGNESIUM -> minerals(magnesium = value)
+        Mineral.CHLORIDE -> minerals(chloride = value)
+        Mineral.CALCIUM -> minerals(calcium = value)
+        Mineral.IODINE -> minerals(iodine = value)
     }
 
     private fun thermalSymptoms(player: ServerPlayer) {
@@ -639,7 +796,8 @@ class OutbreakPhysiologySelfTest : ModInitializer {
         )
 
         // A hot biome and a thyroid that runs hot, together, still land short of the fever band.
-        var warm = OutbreakData.HEALTHY.copy(traceElements = TraceElements(155f))
+        // 1.10 umol/L is over the reference range but nowhere near thyrotoxicosis.
+        var warm = OutbreakData.HEALTHY.copy(traceElements = TraceElements(1.10f))
         val desert = OutbreakSymptoms.environmentTemperature(2.0f)
         repeat(12_000) { warm = OutbreakPhysiology.tick(warm, desert) }
         logger.info("PHYS hottest a healthy body gets: {} (tier {})", warm.temperature, warm.thermalTier)
@@ -731,8 +889,11 @@ class OutbreakPhysiologySelfTest : ModInitializer {
             after.water, after.electrolytes.sodium, after.electrolytes.magnesium,
         )
         check("sea water still hydrates", abs(after.water - 95f) < 0.01f)
-        check("sea water is a sodium load in its own right", after.electrolytes.sodium >= 118f)
-        check("and it carries the magnesium the sea has", after.electrolytes.magnesium > 100f)
+        check(
+            "one bottle of sea water stays inside the sodium reference range",
+            after.electrolytes.sodium < Mineral.SODIUM.safeHigh,
+        )
+        check("and it carries the magnesium the sea has", after.electrolytes.magnesium > Mineral.MAGNESIUM.normal)
     }
 
     /** Runs one real server tick for [player] against [data], from a clean slate. */
@@ -741,6 +902,9 @@ class OutbreakPhysiologySelfTest : ModInitializer {
         player.setAttached(OutbreakAttachments.DATA, data)
         // The effect pass runs on a cadence; a fresh runtime sits on it.
         player.setAttached(OutbreakAttachments.RUNTIME, OutbreakRuntime())
+        // Damage has twenty ticks of invulnerability after it lands, which would silently swallow
+        // the second and third assertion in a row; every tick here is meant to be independent.
+        player.setInvulnerableTime(0)
         OutbreakSymptoms.tick(player)
     }
 
@@ -752,12 +916,12 @@ class OutbreakPhysiologySelfTest : ModInitializer {
 
     /** Builds healthy data with specific mineral values, everything else at normal. */
     private fun minerals(
-        sodium: Float = Electrolytes.NORMAL,
-        potassium: Float = Electrolytes.NORMAL,
-        magnesium: Float = Electrolytes.NORMAL,
-        chloride: Float = Electrolytes.NORMAL,
-        calcium: Float = Electrolytes.NORMAL,
-        iodine: Float = MineralScale.NORMAL,
+        sodium: Float = Mineral.SODIUM.normal,
+        potassium: Float = Mineral.POTASSIUM.normal,
+        magnesium: Float = Mineral.MAGNESIUM.normal,
+        chloride: Float = Mineral.CHLORIDE.normal,
+        calcium: Float = Mineral.CALCIUM.normal,
+        iodine: Float = Mineral.IODINE.normal,
     ): OutbreakData = OutbreakData.HEALTHY.copy(
         electrolytes = Electrolytes(sodium, potassium, magnesium, chloride, calcium),
         traceElements = TraceElements(iodine),
@@ -919,7 +1083,7 @@ class OutbreakPhysiologySelfTest : ModInitializer {
             saltedSea.electrolytes.sodium, crudeSea.electrolytes.sodium,
             saltedSea.electrolytes.magnesium, crudeSea.electrolytes.magnesium,
         )
-        check("salted sea water raises sodium", saltedSea.electrolytes.sodium > Electrolytes.NORMAL)
+        check("salted sea water raises sodium", saltedSea.electrolytes.sodium > Mineral.SODIUM.normal)
         check("crude salted sea water carries the extra minerals", crudeSea.electrolytes.magnesium > saltedSea.electrolytes.magnesium)
 
         // Foul water must be able to inflict all four effects. Run enough trials that a 5% roll
@@ -944,20 +1108,19 @@ class OutbreakPhysiologySelfTest : ModInitializer {
         check("swamp water causes nausea about 35% of the time", nausea in 170..250)
         check("swamp water poisons about 5% of the time", poison in 10..60)
 
-        // Kelp is the only iodine source.
-        player.setAttached(OutbreakAttachments.DATA, OutbreakData.HEALTHY.copy(
-            traceElements = TraceElements.HEALTHY.copy(iodine = 40f),
-        ))
+        // Kelp is the only iodine source. Start from a real deficiency rather than a normal body.
+        val deficient = OutbreakData.HEALTHY.copy(
+            traceElements = TraceElements.HEALTHY.withIodine(0.30f),
+        )
+        player.setAttached(OutbreakAttachments.DATA, deficient)
         ItemStack(Items.KELP, 1).finishUsingItem(level, player)
         val afterKelp = player.getAttachedOrCreate(OutbreakAttachments.DATA).traceElements.iodine
-        player.setAttached(OutbreakAttachments.DATA, OutbreakData.HEALTHY.copy(
-            traceElements = TraceElements.HEALTHY.copy(iodine = 40f),
-        ))
+        player.setAttached(OutbreakAttachments.DATA, deficient)
         ItemStack(Items.DRIED_KELP, 1).finishUsingItem(level, player)
         val afterDried = player.getAttachedOrCreate(OutbreakAttachments.DATA).traceElements.iodine
         logger.info("PHYS iodine from kelp {} / dried kelp {}", afterKelp, afterDried)
-        check("kelp adds 25 iodine", kotlin.math.abs(afterKelp - 65f) < 0.01f)
-        check("dried kelp adds 35 iodine", kotlin.math.abs(afterDried - 75f) < 0.01f)
+        check("kelp adds 0.15 umol/L of iodine", abs(afterKelp - 0.45f) < 0.001f)
+        check("dried kelp adds 0.25 umol/L", abs(afterDried - 0.55f) < 0.001f)
 
         player.setAttached(OutbreakAttachments.DATA, OutbreakData.HEALTHY)
         ItemStack(Items.BREAD, 1).finishUsingItem(level, player)
@@ -979,8 +1142,19 @@ class OutbreakPhysiologySelfTest : ModInitializer {
             refined.electrolytes.sodium, crude.electrolytes.sodium,
             refined.electrolytes.magnesium, crude.electrolytes.magnesium,
         )
-        check("refined salt water raises sodium", refined.electrolytes.sodium > Electrolytes.NORMAL)
+        check("refined salt water raises sodium", refined.electrolytes.sodium > Mineral.SODIUM.normal)
         check("crude salt water carries the extra minerals", crude.electrolytes.magnesium > refined.electrolytes.magnesium)
+
+        // The whole point of the reference ranges: one serving is fine, two tip sodium over.
+        check(
+            "one serving of salt water stays inside the sodium range",
+            refined.electrolytes.sodium < Mineral.SODIUM.safeHigh,
+        )
+        player.setAttached(OutbreakAttachments.DATA, refined)
+        ItemStack(OutbreakItems.SALT_WATER, 1).finishUsingItem(level, player)
+        val twoCups = player.getAttachedOrCreate(OutbreakAttachments.DATA).electrolytes.sodium
+        logger.info("PHYS sodium after two servings of salt water: {}", twoCups)
+        check("two servings of salt water go past it", twoCups > Mineral.SODIUM.safeHigh)
 
         player.setAttached(OutbreakAttachments.DATA, OutbreakData.HEALTHY)
         OutbreakIngestion.injectDexamethasone(player)
@@ -1039,7 +1213,7 @@ class OutbreakPhysiologySelfTest : ModInitializer {
         val base = OutbreakData.HEALTHY
         val extra = (inflammation - base.inflammation) / Mediators.CYTOKINE_WEIGHT
         return base.copy(
-            mediators = base.mediators.copy(cytokine = (base.mediators.cytokine + extra).coerceIn(0f, Mediators.MAX)),
+            mediators = base.mediators.withCytokine((base.mediators.cytokine + extra).coerceIn(0f, Mediators.MAX)),
         )
     }
 

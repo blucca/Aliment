@@ -1,0 +1,667 @@
+package com.github.kusa233.outbreak.physiology.model
+
+/**
+ * The per-tick model, and every number it is built from.
+ *
+ * Every rate below is expressed per tick. The design goals, in the words of the feature spec:
+ *
+ *  - a healthy player drifts back to an inflammation of roughly 20..30;
+ *  - too little inflammation means the infection runs away, too much means an immune storm that
+ *    hurts the host without clearing the pathogen;
+ *  - salicin and dexamethasone control the infection by damping the mediator response, while an
+ *    overdose pushes inflammation below the safe band and therefore makes the infection worse;
+ *  - a full bladder drains to one cell over one in-game day;
+ *  - drinking far too much water dilutes and flushes the electrolytes;
+ *  - every mineral is regulated towards its own normal value, so a player who ignores kelp and salt
+ *    settles at a steady state rather than drifting off to an extreme;
+ *  - core temperature is driven by prostaglandin (PGE2 is the fever mediator), by the environment
+ *    the player is standing in, and by the thyroid.
+ *
+ * There is no Minecraft and no Kotlin in this file, and there never should be: it is a pure function
+ * of [[ModelState]] and floats.
+ */
+object Physiology {
+
+  // ------------------------------------------------------------------ mediators
+
+  private final val HISTAMINE_BASE = 25f
+  private final val PROSTAGLANDIN_BASE = 20f
+  private final val LEUKOTRIENE_BASE = 20f
+  private final val CYTOKINE_BASE = 20f
+  private final val BRADYKININ_BASE = 25f
+
+  /** Pathogen-driven response, at a full load, before any drug damping. */
+  private final val CYTOKINE_RESPONSE = 100f
+  private final val HISTAMINE_RESPONSE = 45f
+  private final val BRADYKININ_RESPONSE = 60f
+  private final val PROSTAGLANDIN_RESPONSE = 25f
+  private final val LEUKOTRIENE_RESPONSE = 20f
+
+  /** How much of the prostaglandin drive comes from induced COX-2 rather than the pathogen. */
+  private final val PROSTAGLANDIN_FROM_CYTOKINE = 0.5f
+  private final val LEUKOTRIENE_FROM_CYTOKINE = 0.5f
+
+  /** How quickly a mediator moves towards its target. 1/0.002 = 500 ticks, about 25 seconds. */
+  private final val MEDIATOR_APPROACH = 0.002f
+
+  /** Drugs cut the whole pathogen-driven response by this fraction at full effect. */
+  private final val DRUG_RESPONSE_DAMPING = 0.88f
+
+  /** Extra, mediator-specific effects on top of the general damping. */
+  private final val DEX_CYTOKINE_EXTRA = 0.4f
+  private final val SALICIN_PROSTAGLANDIN_EXTRA = 0.5f
+  private final val DEX_LEUKOTRIENE_EXTRA = 0.4f
+
+  /**
+   * A dose above the effective concentration scales the *resting* mediator levels down, which is
+   * what turns an overdose into immunosuppression: at the drug cap this drives the resting
+   * inflammation from 25 into single digits, low enough for the competence curve to collapse.
+   */
+  private final val OVERDOSE_BASELINE_DROP = 1.8f
+
+  /** Drugs can overshoot their effective concentration by this factor. */
+  private final val DRUG_MAX_SUPPRESSION = 1.5f
+
+  // ------------------------------------------------------------------ pathogens
+
+  /**
+   * Logistic growth rate once a pathogen is present. Tuned so that an untreated infection plays out
+   * over in-game minutes, not seconds.
+   */
+  private final val GROWTH_RATE = 0.0004f
+
+  /**
+   * Clearance rate at full immune competence. At competence 1 this beats `GROWTH_RATE` at every load,
+   * so a healthy player always wins; the infection only takes hold once inflammation has been pushed
+   * out of the safe band.
+   */
+  private final val CLEARANCE_RATE = 0.0007f
+
+  private final val COMPETENCE_SIGMA = 15f
+
+  // ------------------------------------------------------------------ water
+
+  /** Extra water loss per point above the normal band, on top of the base loss. */
+  private final val OVERHYDRATION_DIURESIS = 0.01f
+
+  /**
+   * How hard a full bladder flushes the electrolytes out, as a fraction of each mineral's normal
+   * concentration per tick at the very top of the water scale.
+   *
+   * The worst case - drinking non-stop with the bladder pinned at the ceiling - settles sodium about
+   * 18% below normal, 140 -> 115 mmol/L. That is a real, uncomfortable dilutional hyponatraemia; the
+   * absolute flush this replaced would have driven sodium to about 28, which no person survives.
+   */
+  private final val OVERHYDRATION_FLUSH_FRACTION = 0.000009f
+
+  /** Sweat: water lost per tick per degree of core temperature above normal. */
+  private final val SWEAT_WATER_PER_DEGREE = 0.0015f
+
+  /** Sweat carries salt away too, as a fraction of normal per degree per tick. */
+  private final val SWEAT_MINERAL_FRACTION_PER_DEGREE = 0.000002f
+
+  /** The body slowly restores electrolytes on its own. 1/0.00005 = 20000 ticks, under a day. */
+  private final val ELECTROLYTE_HOMEOSTASIS = 0.00005f
+
+  /** Relative urinary loss per electrolyte; sodium and chloride go first. */
+  private final val EXCRETION_SODIUM = 1.0f
+  private final val EXCRETION_CHLORIDE = 1.0f
+  private final val EXCRETION_POTASSIUM = 0.7f
+  private final val EXCRETION_MAGNESIUM = 0.4f
+  private final val EXCRETION_CALCIUM = 0.4f
+
+  /** Iodine is lost the same way, and sweating is a real cause of iodine deficiency. */
+  private final val EXCRETION_IODINE = 0.7f
+
+  // ------------------------------------------------------------------ iodine
+
+  /**
+   * Iodine is the one mineral the diet has to supply, so it is regulated from the other end: a
+   * deficit is met by hanging on to what is left rather than by making more.
+   *
+   * These two terms are a proportional controller plus a constant leak, giving a fixed point of
+   * `normal * (1 - drain / homeostasis)`, i.e. **85% of normal** - 0.425 umol/L, inside the
+   * 0.40..0.80 reference range but only 0.025 above the bottom of it. Nobody who eats kelp now and
+   * then will ever see a symptom, and nobody who never does will spiral: a fever or a drinking binge
+   * is what pushes it under.
+   */
+  private final val IODINE_HOMEOSTASIS = 0.00005f
+  private final val IODINE_DRAIN_FRACTION = 0.0000075f
+
+  // ------------------------------------------------------------------ temperature
+
+  /**
+   * Fever per point of prostaglandin above the resting level. PGE2 in the hypothalamus is what
+   * actually raises the set point, which is why salicin - a COX inhibitor - is an antipyretic here
+   * and why a cytokine storm produces a high fever.
+   */
+  private final val FEVER_PER_PROSTAGLANDIN = 0.05f
+
+  /** No infection can push the set point further than this on its own. */
+  private final val FEVER_MAX = 4.0f
+
+  /** 1/0.0004 = 2500 ticks, a little over two in-game minutes, to close most of the gap. */
+  private final val TEMPERATURE_APPROACH = 0.0004f
+
+  /**
+   * How close to its set point the body has to get before an injected pyrogen starts to clear.
+   *
+   * An injected pyrogen *is* the set point, so if it cleared from the moment it was injected the set
+   * point would fall away underneath a body that was still climbing towards it and the fever would
+   * peak far short of the temperature asked for - asking for 39.5 used to peak at 38.8.
+   */
+  private final val PYROGEN_SETTLED = 0.2f
+
+  /**
+   * How much of the environment's pull the body cannot compensate for. Thermoregulation is good but
+   * not perfect: a player in freezing water eventually loses the fight.
+   */
+  private final val AMBIENT_COUPLING = 0.6f
+
+  /** The thyroid sets the metabolic rate, so iodine moves the set point in either direction. */
+  private final val THYROID_SHIFT_PER_RELATIVE = 2f
+  private final val THYROID_SHIFT_MAX = 0.8f
+
+  // ------------------------------------------------------------------ derived thresholds
+
+  /**
+   * How well the current inflammation level actually fights pathogens, in `0..1`.
+   *
+   * A bell curve: the immune system works best inside the safe band. Below the immunosuppression
+   * threshold it gives up entirely, and during a storm it is too dysregulated to be useful, so both
+   * extremes let the infection grow.
+   */
+  def immuneCompetence(inflammation: Float): Float = {
+    val delta = inflammation - ModelConstants.BASELINE_INFLAMMATION
+    val bell = Math.exp(-(delta * delta) / (2f * COMPETENCE_SIGMA * COMPETENCE_SIGMA)).toFloat
+    val lowEnd = clamp(inflammation / ModelConstants.IMMUNOSUPPRESSION_THRESHOLD, 0f, 1f)
+    bell * lowEnd
+  }
+
+  /** Drug concentration as a multiple of its effective concentration, capped. */
+  def suppression(concentration: Float, effective: Float): Float =
+    clamp(concentration / effective, 0f, DRUG_MAX_SUPPRESSION)
+
+  def pathogenLoad(bacteria: Float, virus: Float): Float = bacteria + virus
+
+  /** True once the load is high enough to actually make the player feel ill. */
+  def isSymptomatic(load: Float): Boolean = load >= ModelConstants.SYMPTOM_THRESHOLD
+
+  def isImmuneStorm(inflammation: Float): Boolean = inflammation >= ModelConstants.IMMUNE_STORM_THRESHOLD
+
+  def isImmunosuppressed(inflammation: Float): Boolean =
+    inflammation <= ModelConstants.IMMUNOSUPPRESSION_THRESHOLD
+
+  /**
+   * True once the infection is severe enough to hurt the host directly - sepsis, in the sense the
+   * model uses. This is the only symptom in the mod that can kill without a monster being involved,
+   * and it is reached through the infection, never through the immune system on its own.
+   */
+  def isSevereInfection(load: Float): Boolean = load >= ModelConstants.SEVERE_LOAD
+
+  /** 0..1 severity used to scale symptoms; saturates at the severe load. */
+  def severity(load: Float): Float = clamp(load / ModelConstants.SEVERE_LOAD, 0f, 1f)
+
+  def isOverhydrated(water: Float): Boolean = water > ModelConstants.WATER_NORMAL
+
+  def isDehydrated(water: Float): Boolean = water < ModelConstants.WATER_LOW
+
+  /** How many of the ten thirst cells are full. */
+  def thirstCells(water: Float): Int = clamp(water / 10f, 0f, ModelConstants.THIRST_CELLS.toFloat).toInt
+
+  /**
+   * How far outside the comfortable band the core temperature is, as a signed tier:
+   *
+   *  - `2` at or above 40.0 - super-high fever, which also blurs the screen;
+   *  - `1` from 38.5 - fever, with the flushing and distortion at the edges;
+   *  - `0` between 36.0 and 38.5 - comfortable;
+   *  - `-1` at or below 36.0, `-2` at or below 35.0 - hypothermia.
+   *
+   * The fever side deliberately starts at 38.5 and not 38.0: 38 is what a hot biome, a fire or a
+   * thyroid that runs hot produces on its own, and the screen effects it switched on were
+   * indistinguishable from a bug.
+   */
+  def thermalTier(temperature: Float): Int =
+    if (temperature >= ModelConstants.FEVER_SEVERE) 2
+    else if (temperature >= ModelConstants.FEVER_MILD) 1
+    else if (temperature <= ModelConstants.COLD_SEVERE) -2
+    else if (temperature <= ModelConstants.COLD_MILD) -1
+    else 0
+
+  def isFebrile(temperature: Float): Boolean = temperature >= ModelConstants.FEVER_MILD
+
+  def isHypothermic(temperature: Float): Boolean = temperature <= ModelConstants.COLD_MILD
+
+  def hasThermalStress(temperature: Float): Boolean = thermalTier(temperature) != 0
+
+  // ------------------------------------------------------------------ the environment
+
+  /** Vanilla's idea of a temperate biome; the neutral point of the ambient scale. */
+  private final val TEMPERATE_BIOME = 0.8f
+
+  /** Degrees of pull per unit of vanilla biome temperature, before thermoregulation. */
+  private final val BIOME_PULL = 2.0f
+
+  /**
+   * The thermoneutral zone: this much pull costs the body nothing at all, which is what keeps an
+   * ordinary walk through a taiga from being a medical event.
+   */
+  private final val THERMONEUTRAL_BAND = 2.0f
+
+  private final val WET_PULL = 2.5f
+  private final val POWDER_SNOW_PULL = 4.0f
+  private final val FIRE_PULL = 4.0f
+  private final val LAVA_PULL = 6.0f
+
+  /**
+   * The temperature the surroundings are dragging the player towards, on the body's own Celsius
+   * scale, before thermoregulation.
+   *
+   * The world is almost never hot enough to overwhelm a healthy body - a desert is 2.4 degrees above
+   * temperate, well inside the thermoneutral band - so the heat side of the model is mostly driven by
+   * fever. The cold side is where the environment bites.
+   */
+  def environmentTemperature(
+      biomeTemperature: Float,
+      wet: Boolean,
+      powderSnow: Boolean,
+      lava: Boolean,
+      fire: Boolean,
+  ): Float = {
+    var pull = (biomeTemperature - TEMPERATE_BIOME) * BIOME_PULL
+    if (wet) pull -= WET_PULL
+    if (powderSnow) pull -= POWDER_SNOW_PULL
+    if (lava) pull += LAVA_PULL
+    else if (fire) pull += FIRE_PULL
+
+    // Shrug off the thermoneutral zone, and only then let the body's defences matter.
+    val effective =
+      if (pull > THERMONEUTRAL_BAND) pull - THERMONEUTRAL_BAND
+      else if (pull < -THERMONEUTRAL_BAND) pull + THERMONEUTRAL_BAND
+      else 0f
+
+    clamp(ModelConstants.TEMPERATURE_NORMAL + effective, ModelConstants.TEMPERATURE_MIN, ModelConstants.TEMPERATURE_MAX)
+  }
+
+  // ------------------------------------------------------------------ symptom magnitudes
+
+  /**
+   * Magic damage a severe infection does in one two-second pass, and 0 while it is not severe.
+   *
+   * One point at the severe-load threshold and half a point more for every 20 points past it: a load
+   * of 60 costs half a heart per ten seconds, a load of 100 a whole heart. Magic, so armour is no
+   * help - this is the pathogen, not a blow.
+   */
+  def sepsisDamage(load: Float): Float =
+    if (!isSevereInfection(load)) 0f
+    else 1f + (load - ModelConstants.SEVERE_LOAD) / 40f
+
+  /** No state, however bad, shakes the camera more often than this. */
+  private final val MAX_SHAKE_CHANCE = 0.85f
+  private final val SHAKE_CHANCE = 0.2f
+  private final val STORM_SHAKE_CHANCE_MULTIPLIER = 2f
+  private final val THERMAL_SHAKE_CHANCE = 0.15f
+
+  /**
+   * Chance that one shake roll actually shakes the camera, `0..MAX_SHAKE_CHANCE`.
+   *
+   * Every term has to come from something the player can notice, and every source that can produce a
+   * tremor also puts an effect icon on the screen - otherwise the player has no way of telling why
+   * their view is moving. That is why over-hydration only counts once it is past the point where the
+   * nausea icon appears, and why 38 degrees does not count at all.
+   */
+  def shakeChance(state: ModelState): Float = {
+    val load = pathogenLoad(state.bacteria, state.virus)
+    val tier = thermalTier(state.temperature)
+    var chance = if (isSymptomatic(load)) SHAKE_CHANCE else 0f
+    if (isImmuneStorm(state.mediators.getInflammation)) chance *= STORM_SHAKE_CHANCE_MULTIPLIER
+    if (state.water > ModelConstants.WATER_VISIBLY_OVERHYDRATED) chance += 0.1f
+    if (state.electrolytes.magnesium < MineralRanges.MAGNESIUM.safeLow) chance += 0.15f
+    if (state.electrolytes.calcium < MineralRanges.CALCIUM.severeLow) chance += 0.2f
+    // Palpitations are a classic thyrotoxic symptom.
+    if (state.traceElements.iodine > MineralRanges.IODINE.severeHigh) chance += 0.1f
+    // Teeth chattering, or the rigors of a high fever.
+    chance += THERMAL_SHAKE_CHANCE * Math.abs(tier)
+    if (chance > MAX_SHAKE_CHANCE) MAX_SHAKE_CHANCE else chance
+  }
+
+  /** Extra food exhaustion while the body is unwell; a multiplier, so 1 is "nothing wrong". */
+  def exhaustionMultiplier(state: ModelState): Float = {
+    val load = pathogenLoad(state.bacteria, state.virus)
+    var multiplier = 1f
+    if (isSymptomatic(load)) multiplier += 0.5f * severity(load)
+    if (isImmuneStorm(state.mediators.getInflammation)) multiplier += 0.5f
+    if (isOverhydrated(state.water)) multiplier += 0.2f
+    // Hyperchloraemia causes a mild metabolic acidosis with nausea and poor appetite.
+    if (state.electrolytes.chloride > MineralRanges.CHLORIDE.safeHigh) multiplier += 0.2f
+    if (state.electrolytes.magnesium < MineralRanges.MAGNESIUM.safeLow) multiplier += 0.15f
+    // Shivering and a raised metabolic rate both cost calories.
+    if (hasThermalStress(state.temperature)) multiplier += 0.25f
+    multiplier
+  }
+
+  /** Extra food exhaustion from a shiver or a fever, per tier of thermal stress. */
+  def thermalExhaustion(tier: Int): Float = 0.03f * Math.abs(tier)
+
+  /** Extra food exhaustion from an immune storm, which burns energy fighting itself. */
+  def stormExhaustion: Float = 0.05f
+
+  private final val MINING_PENALTY_PER_SEVERITY = 0.06f
+  private final val MINING_PENALTY_OVERHYDRATED = 0.08f
+
+  /** How much slower this body mines, as a positive fraction; 0 when nothing is wrong. */
+  def miningPenalty(state: ModelState): Float = {
+    val load = pathogenLoad(state.bacteria, state.virus)
+    var penalty = 0f
+    if (isSymptomatic(load)) penalty += MINING_PENALTY_PER_SEVERITY * severity(load)
+    if (isOverhydrated(state.water)) penalty += MINING_PENALTY_OVERHYDRATED
+    // Hypokalaemia and hypocalcaemia both cause muscular weakness.
+    if (state.electrolytes.potassium < MineralRanges.POTASSIUM.safeLow) penalty += 0.06f
+    if (state.electrolytes.calcium < MineralRanges.CALCIUM.safeLow) penalty += 0.04f
+    penalty
+  }
+
+  // ------------------------------------------------------------------ the tick
+
+  /**
+   * Advances a player's physiology by a single tick.
+   *
+   * `ambient` is the temperature the environment is trying to drag the body towards, on the same
+   * Celsius scale as the body itself; the normal temperature means "indoors, no wind, nothing to
+   * fight". It defaults to neutral so the model can be driven from a test without a world.
+   */
+  def tick(state: ModelState): ModelState = tick(state, ModelConstants.TEMPERATURE_NORMAL)
+
+  def tick(state: ModelState, ambient: Float): ModelState = {
+    // 1. Drugs and injected pyrogen are metabolised first so the rest of the tick sees the current
+    //    concentrations. A negative pyrogen is an antipyretic offset and clears the same way.
+    val salicin = Math.max(state.salicin - ModelConstants.SALICIN_DECAY_PER_TICK, 0f)
+    val dexamethasone = Math.max(state.dexamethasone - ModelConstants.DEXAMETHASONE_DECAY_PER_TICK, 0f)
+    val pyrogen = stepPyrogen(state, ambient)
+
+    // 2. Pathogens grow logistically and are cleared in proportion to immune competence.
+    val competence = immuneCompetence(state.mediators.getInflammation)
+    val bacteria = stepPathogen(state.bacteria, competence)
+    val virus = stepPathogen(state.virus, competence)
+
+    val next = state
+      .withSalicin(salicin)
+      .withDexamethasone(dexamethasone)
+      .withPyrogen(pyrogen)
+      .withBacteria(bacteria)
+      .withVirus(virus)
+
+    // 3. The immune response, mediator by mediator.
+    val inflamed = next.withMediators(stepMediators(next))
+
+    // 4. Temperature follows the mediators and the environment. Everything the body *does* about a
+    //    temperature - sweating water and salt away - is driven by the temperature it started the
+    //    tick at, so each step reads the previous state and the new temperature is written once.
+    val temperature = stepTemperature(inflamed, ambient)
+
+    val hydrated = inflamed.withWater(stepWater(inflamed))
+
+    hydrated
+      .withTemperature(temperature)
+      .withElectrolytes(stepElectrolytes(hydrated))
+      .withTraceElements(stepTraceElements(hydrated))
+  }
+
+  // ------------------------------------------------------------------ mediators
+
+  private def stepMediators(state: ModelState): ModelMediators = {
+    val stimulus = clamp(pathogenLoad(state.bacteria, state.virus) / ModelConstants.MAX_PATHOGEN, 0f, 1f)
+
+    val salicin = suppression(state.salicin, ModelConstants.SALICIN_EFFECTIVE)
+    val dex = suppression(state.dexamethasone, ModelConstants.DEXAMETHASONE_EFFECTIVE)
+    val salFight = Math.min(salicin, 1f)
+    val dexFight = Math.min(dex, 1f)
+
+    // A combination of drugs damps the response more than either alone.
+    val fight = Math.max(salFight, dexFight)
+    val damping = Math.max(1f - DRUG_RESPONSE_DAMPING * fight, 0.05f)
+
+    // Anything above the effective concentration also suppresses the resting level.
+    val overdose = Math.max(salicin - 1f, 0f) + Math.max(dex - 1f, 0f)
+    val baselineScale = Math.max(1f - overdose * OVERDOSE_BASELINE_DROP, 0f)
+
+    val mediators = state.mediators
+    val cytokine = approach(
+      mediators.cytokine,
+      CYTOKINE_BASE * baselineScale + CYTOKINE_RESPONSE * stimulus * damping * (1f - DEX_CYTOKINE_EXTRA * dexFight),
+    )
+    val histamine = approach(
+      mediators.histamine,
+      HISTAMINE_BASE * baselineScale + HISTAMINE_RESPONSE * stimulus * damping,
+    )
+    val bradykinin = approach(
+      mediators.bradykinin,
+      BRADYKININ_BASE * baselineScale + BRADYKININ_RESPONSE * stimulus * damping,
+    )
+    val prostaglandin = approach(
+      mediators.prostaglandin,
+      PROSTAGLANDIN_BASE * baselineScale +
+        (cytokine * PROSTAGLANDIN_FROM_CYTOKINE + PROSTAGLANDIN_RESPONSE * stimulus) *
+        damping * (1f - SALICIN_PROSTAGLANDIN_EXTRA * salFight),
+    )
+    val leukotriene = approach(
+      mediators.leukotriene,
+      LEUKOTRIENE_BASE * baselineScale +
+        (cytokine * LEUKOTRIENE_FROM_CYTOKINE + LEUKOTRIENE_RESPONSE * stimulus) *
+        damping * (1f - DEX_LEUKOTRIENE_EXTRA * dexFight),
+    )
+
+    new ModelMediators(histamine, prostaglandin, leukotriene, cytokine, bradykinin)
+  }
+
+  private def approach(current: Float, target: Float): Float =
+    clamp(current + (target - current) * MEDIATOR_APPROACH, 0f, MediatorLevels.MAX)
+
+  // ------------------------------------------------------------------ pathogens
+
+  private def stepPathogen(load: Float, competence: Float): Float = {
+    if (load <= 0f) {
+      0f
+    } else {
+      val growth = GROWTH_RATE * load * (1f - load / ModelConstants.MAX_PATHOGEN)
+      val clearance = CLEARANCE_RATE * competence * load
+      clamp(load + growth - clearance, 0f, ModelConstants.MAX_PATHOGEN)
+    }
+  }
+
+  // ------------------------------------------------------------------ temperature
+
+  /**
+   * The core temperature the body is currently aiming for.
+   *
+   * Four things move it, and they are all separate on purpose: prostaglandin (the fever of an
+   * infection, and the term salicin takes away), the injected pyrogen, the thyroid, and the
+   * environment - of which only `AMBIENT_COUPLING` gets past thermoregulation.
+   */
+  def targetTemperature(state: ModelState): Float = targetTemperature(state, ModelConstants.TEMPERATURE_NORMAL)
+
+  def targetTemperature(state: ModelState, ambient: Float): Float = {
+    val prostaglandin = Math.max(state.mediators.prostaglandin - MediatorLevels.RESTING.prostaglandin, 0f)
+    val fever = Math.min(FEVER_PER_PROSTAGLANDIN * prostaglandin, FEVER_MAX)
+    val environmental = (ambient - ModelConstants.TEMPERATURE_NORMAL) * AMBIENT_COUPLING
+    val target = ModelConstants.TEMPERATURE_NORMAL +
+      fever + state.pyrogen + thyroidShift(state.traceElements.iodine) + environmental
+    clamp(target, ModelConstants.TEMPERATURE_MIN, ModelConstants.TEMPERATURE_MAX)
+  }
+
+  private def stepTemperature(state: ModelState, ambient: Float): Float = {
+    val target = targetTemperature(state, ambient)
+    clamp(
+      state.temperature + (target - state.temperature) * TEMPERATURE_APPROACH,
+      ModelConstants.TEMPERATURE_MIN,
+      ModelConstants.TEMPERATURE_MAX,
+    )
+  }
+
+  /**
+   * How much the thyroid moves the set point, in degrees. 0 while iodine is inside its reference
+   * range. Measured relative to normal rather than in umol/L, because the same shift has to come out
+   * of a number like 0.5.
+   */
+  private def thyroidShift(iodine: Float): Float = {
+    val mineral = MineralRanges.IODINE
+    val delta =
+      if (iodine < mineral.safeLow) (iodine - mineral.safeLow) / mineral.normal
+      else if (iodine > mineral.safeHigh) (iodine - mineral.safeHigh) / mineral.normal
+      else 0f
+    clamp(delta * THYROID_SHIFT_PER_RELATIVE, -THYROID_SHIFT_MAX, THYROID_SHIFT_MAX)
+  }
+
+  /** Degrees of core temperature above normal; the drive behind sweating. 0 when not hot. */
+  private def heatStress(state: ModelState): Float =
+    Math.max(state.temperature - ModelConstants.TEMPERATURE_NORMAL, 0f)
+
+  /**
+   * Clears an injected pyrogen, one step per tick - but only once the fever it drives has actually
+   * developed. See `PYROGEN_SETTLED` for why it waits. An infection never goes through here: its
+   * fever comes from prostaglandin, so pyrogen is zero and this returns immediately.
+   */
+  private def stepPyrogen(state: ModelState, ambient: Float): Float = {
+    val pyrogen = state.pyrogen
+    if (pyrogen == 0f) {
+      0f
+    } else if (Math.abs(state.temperature - targetTemperature(state, ambient)) >= PYROGEN_SETTLED) {
+      pyrogen
+    } else if (pyrogen > 0f) {
+      Math.max(pyrogen - ModelConstants.PYROGEN_DECAY_PER_TICK, 0f)
+    } else {
+      Math.min(pyrogen + ModelConstants.PYROGEN_DECAY_PER_TICK, 0f)
+    }
+  }
+
+  // ------------------------------------------------------------------ water and minerals
+
+  private def stepWater(state: ModelState): Float = {
+    val excess = Math.max(state.water - ModelConstants.WATER_NORMAL, 0f)
+
+    // The kidneys dump a water load: up to twice the base rate at the ceiling.
+    var loss = ModelConstants.WATER_DECAY_PER_TICK * (1f + excess * OVERHYDRATION_DIURESIS)
+
+    // Hypernatraemia and hypercalcaemia both cause thirst and increased urine output.
+    if (state.electrolytes.sodium > MineralRanges.SODIUM.safeHigh) loss *= 1.3f
+    if (state.electrolytes.calcium > MineralRanges.CALCIUM.safeHigh) loss *= 1.2f
+
+    // A fever is a furnace: every degree above normal is paid for in sweat.
+    loss += heatStress(state) * SWEAT_WATER_PER_DEGREE
+
+    clamp(state.water - loss, ModelConstants.WATER_MIN, ModelConstants.WATER_MAX)
+  }
+
+  /**
+   * The water a full bladder is dumping, as a fraction of a mineral's normal concentration per tick.
+   *
+   * Everything here is unit-free on purpose: the same physiology has to work for sodium at 140 mmol/L
+   * and iodine at 0.5 umol/L, so a loss is always expressed relative to normal.
+   */
+  private def mineralFlush(state: ModelState): Float = {
+    val excess = Math.max(state.water - ModelConstants.WATER_NORMAL, 0f)
+    val full = ModelConstants.WATER_MAX - ModelConstants.WATER_NORMAL
+    clamp(excess / full, 0f, 1f) * OVERHYDRATION_FLUSH_FRACTION
+  }
+
+  /** Sweat: the same, driven by how far the core temperature is above normal. */
+  private def mineralSweat(state: ModelState): Float =
+    heatStress(state) * SWEAT_MINERAL_FRACTION_PER_DEGREE
+
+  private def stepMineral(value: Float, mineral: ModelMineral, loss: Float, excretion: Float): Float = {
+    val homeostasis = (mineral.normal - value) * ELECTROLYTE_HOMEOSTASIS
+    mineral.clamp(value + homeostasis - loss * excretion * mineral.normal)
+  }
+
+  private def stepElectrolytes(state: ModelState): ModelElectrolytes = {
+    val loss = mineralFlush(state) + mineralSweat(state)
+    val current = state.electrolytes
+    new ModelElectrolytes(
+      sodium = stepMineral(current.sodium, MineralRanges.SODIUM, loss, EXCRETION_SODIUM),
+      potassium = stepMineral(current.potassium, MineralRanges.POTASSIUM, loss, EXCRETION_POTASSIUM),
+      magnesium = stepMineral(current.magnesium, MineralRanges.MAGNESIUM, loss, EXCRETION_MAGNESIUM),
+      chloride = stepMineral(current.chloride, MineralRanges.CHLORIDE, loss, EXCRETION_CHLORIDE),
+      calcium = stepMineral(current.calcium, MineralRanges.CALCIUM, loss, EXCRETION_CALCIUM),
+    )
+  }
+
+  /**
+   * Iodine is pulled towards normal like everything else, but with a constant leak on top, so the
+   * equilibrium sits 15% low. Kelp is what lifts it back.
+   */
+  private def stepTraceElements(state: ModelState): ModelTraceElements = {
+    val mineral = MineralRanges.IODINE
+    val flush = mineralFlush(state) + mineralSweat(state)
+
+    val homeostasis = (mineral.normal - state.traceElements.iodine) * IODINE_HOMEOSTASIS
+    val loss = (IODINE_DRAIN_FRACTION + flush * EXCRETION_IODINE) * mineral.normal
+
+    new ModelTraceElements(mineral.clamp(state.traceElements.iodine + homeostasis - loss))
+  }
+
+  // ------------------------------------------------------------------ external inputs
+
+  /** Adds a pathogen seed, used by the infection sources. */
+  def seed(state: ModelState): ModelState = state
+
+  def seed(state: ModelState, bacteria: Float): ModelState = seed(state, bacteria, 0f)
+
+  def seed(state: ModelState, bacteria: Float, virus: Float): ModelState =
+    state
+      .withBacteria(clamp(state.bacteria + bacteria, 0f, ModelConstants.MAX_PATHOGEN))
+      .withVirus(clamp(state.virus + virus, 0f, ModelConstants.MAX_PATHOGEN))
+
+  /** Adds salicin, capped. */
+  def dose(state: ModelState, amount: Float): ModelState =
+    state.withSalicin(clamp(state.salicin + amount, 0f, ModelConstants.SALICIN_CAP))
+
+  /** Adds dexamethasone, capped. */
+  def inject(state: ModelState, amount: Float): ModelState =
+    state.withDexamethasone(clamp(state.dexamethasone + amount, 0f, ModelConstants.DEXAMETHASONE_CAP))
+
+  /** Adds water from a drink. */
+  def drink(state: ModelState, amount: Float): ModelState =
+    state.withWater(clamp(state.water + amount, ModelConstants.WATER_MIN, ModelConstants.WATER_MAX))
+
+  /** Adds salt, in mmol/L of serum sodium and chloride. */
+  def salt(state: ModelState, sodium: Float, chloride: Float, magnesium: Float, calcium: Float): ModelState = {
+    val e = state.electrolytes
+    state.withElectrolytes(
+      e
+        .withSodium(MineralRanges.SODIUM.clamp(e.sodium + sodium))
+        .withMagnesium(MineralRanges.MAGNESIUM.clamp(e.magnesium + magnesium))
+        .withChloride(MineralRanges.CHLORIDE.clamp(e.chloride + chloride))
+        .withCalcium(MineralRanges.CALCIUM.clamp(e.calcium + calcium)),
+    )
+  }
+
+  /** Adds iodine, in umol/L, which the body only gets from food - kelp, in this mod. */
+  def iodine(state: ModelState, amount: Float): ModelState =
+    state.withTraceElements(
+      state.traceElements.withIodine(MineralRanges.IODINE.clamp(state.traceElements.iodine + amount)),
+    )
+
+  /**
+   * Raises or lowers the fever so that the body *peaks* at `degrees` Celsius.
+   *
+   * This works out how much pyrogen is needed given whatever the infection is already doing, so the
+   * answer is the requested temperature whether or not the player is ill. Something below normal
+   * gives a negative offset, which is how hypothermia is tested. The extra settled tolerance pays for
+   * the same tolerance `stepPyrogen` waits for, so the peak lands on the request exactly.
+   */
+  def induceFever(state: ModelState, degrees: Float): ModelState =
+    induceFever(state, degrees, ModelConstants.TEMPERATURE_NORMAL)
+
+  def induceFever(state: ModelState, degrees: Float, ambient: Float): ModelState = {
+    val withoutPyrogen = targetTemperature(state.withPyrogen(0f), ambient)
+    val naive = degrees - withoutPyrogen
+    val needed = if (naive >= 0f) naive + PYROGEN_SETTLED else naive - PYROGEN_SETTLED
+    state.withPyrogen(clamp(needed, -ModelConstants.PYROGEN_CAP, ModelConstants.PYROGEN_CAP))
+  }
+
+  // ------------------------------------------------------------------ helpers
+
+  private def clamp(value: Float, min: Float, max: Float): Float =
+    if (value < min) min else if (value > max) max else value
+}
+

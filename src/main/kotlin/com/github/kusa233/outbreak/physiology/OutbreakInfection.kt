@@ -2,7 +2,8 @@ package com.github.kusa233.outbreak.physiology
 
 import com.github.kusa233.outbreak.registry.OutbreakItems
 import net.minecraft.server.level.ServerPlayer
-import net.minecraft.world.entity.EntityTypes
+import net.minecraft.util.RandomSource
+import net.minecraft.world.entity.Mob
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
@@ -11,27 +12,48 @@ import net.minecraft.world.phys.AABB
 /**
  * Which pathogens a player can pick up, and from what.
  *
- * * Eating risky food - raw meat, rotten flesh, poisonous potatoes and raw willow bark soup -
- *   has a 30% chance of seeding a bacterial infection.
- * * Coming into contact with a bat has a 15% chance of seeding a viral infection.
+ * There are three ways in, and all of them are contagion rather than bad luck:
+ *
+ * * **Eating something risky.** Raw meat, rotten flesh, poisonous potatoes and raw willow bark soup
+ *   carry a 30% chance of seeding a bacterial infection.
+ * * **Being touched by a creature.** Anything that walks, swims or flies past within
+ *   [CONTACT_RANGE] blocks has a 20% chance per second of passing on a virus. Bats are simply the
+ *   mob people notice.
+ * * **Having no immune system left.** While inflammation is at or below
+ *   [OutbreakData.IMMUNOSUPPRESSION_THRESHOLD] the player picks up a random bacterial infection at
+ *   15% per second, whether or not anything is nearby. This is what makes an overdose of
+ *   dexamethasone - or a long course of willow bark soup - genuinely dangerous.
  */
 object OutbreakInfection {
 
     /** Chance that a risky meal infects the player with bacteria. */
     const val BACTERIA_CHANCE = 0.30f
 
-    /** Chance that touching a bat infects the player with a virus. */
-    const val VIRUS_CHANCE = 0.15f
+    /** Chance per second that contact with a creature transmits a virus. */
+    const val CONTACT_CHANCE = 0.20f
+
+    /** Chance per second that a severely immunosuppressed player picks up bacteria from nowhere. */
+    const val IMMUNOSUPPRESSION_CHANCE = 0.15f
+
+    /**
+     * How often the two per-second rolls happen, in ticks. Exactly one second: the counter is
+     * decremented first and the roll happens when it reaches zero.
+     */
+    const val ROLL_TICKS = 20
 
     /** How much pathogen a single successful roll adds. */
     private const val BACTERIA_SEED = 6f
     private const val VIRUS_SEED = 5f
 
-    /** How close a bat has to be to count as contact, in blocks. */
-    private const val BAT_CONTACT_RANGE = 2.0
+    /**
+     * What an opportunistic infection seeds: a random load, so two players who both let their
+     * immune system collapse do not get the same illness.
+     */
+    private const val OPPORTUNISTIC_SEED_MIN = 4f
+    private const val OPPORTUNISTIC_SEED_MAX = 12f
 
-    /** After a contact roll the player is immune to further rolls for this long. */
-    private const val BAT_CONTACT_COOLDOWN = 200
+    /** How close a creature has to be to count as contact, in blocks. */
+    private const val CONTACT_RANGE = 2.0
 
     /** Raw meat plus the explicitly named risky foods. */
     private val RISKY_FOODS: Set<Item> = setOf(
@@ -70,26 +92,66 @@ object OutbreakInfection {
             item === OutbreakItems.SALT_RAW_WILLOW_BARK_SOUP
 
     /**
-     * Checks for a bat standing next to the player and rolls for a viral infection once per
-     * contact.
+     * Rolls once a second for a virus from whatever creature is standing next to the player.
+     *
+     * Any [Mob] counts - a cow, a wolf, a villager, a bat - but not the player themselves, and not
+     * decorative entities like armour stands, which are `LivingEntity`s but not `Mob`s.
      */
-    fun rollBatContact(player: ServerPlayer, data: OutbreakData, runtime: OutbreakRuntime): OutbreakData {
-        if (runtime.batCooldown > 0) {
-            runtime.batCooldown--
+    fun rollContact(player: ServerPlayer, data: OutbreakData, runtime: OutbreakRuntime): OutbreakData {
+        runtime.contactCooldown--
+        if (runtime.contactCooldown > 0) {
             return data
         }
+        runtime.contactCooldown = ROLL_TICKS
 
-        val box: AABB = player.boundingBox.inflate(BAT_CONTACT_RANGE)
-        val bats = player.level().getEntities(EntityTypes.BAT, box) { true }
-        if (bats.isEmpty()) {
+        val box: AABB = player.boundingBox.inflate(CONTACT_RANGE)
+        // No predicate needed: a player is not a Mob, so the player can never be in this list.
+        val creatures = player.level().getEntitiesOfClass(Mob::class.java, box)
+        if (creatures.isEmpty()) {
             return data
         }
-
-        runtime.batCooldown = BAT_CONTACT_COOLDOWN
-        return if (player.level().random.nextFloat() < VIRUS_CHANCE) {
+        return if (contactRoll(player.level().random)) {
             OutbreakPhysiology.seed(data, virus = VIRUS_SEED)
         } else {
             data
         }
     }
+
+    /**
+     * Rolls once a second for an opportunistic bacterial infection while the immune system is
+     * suppressed.
+     *
+     * Nothing has to be nearby and nothing has to have been eaten: this is the body's own flora
+     * getting in, which is exactly what "immunosuppressed" means.
+     */
+    fun rollImmunosuppression(player: ServerPlayer, data: OutbreakData, runtime: OutbreakRuntime): OutbreakData {
+        if (!data.isImmunosuppressed) {
+            // Not suppressed: leave the counter ready so the first suppressed tick rolls at once.
+            runtime.immunosuppressionCooldown = 0
+            return data
+        }
+        runtime.immunosuppressionCooldown--
+        if (runtime.immunosuppressionCooldown > 0) {
+            return data
+        }
+        runtime.immunosuppressionCooldown = ROLL_TICKS
+
+        val random = player.level().random
+        if (!opportunisticRoll(random)) {
+            return data
+        }
+        return OutbreakPhysiology.seed(data, bacteria = opportunisticLoad(random))
+    }
+
+    /**
+     * The two per-second dice, split out so that the odds can be tested without a world - a
+     * headless dev server has no entity-ticking chunks, so it cannot put a cow next to anybody.
+     */
+    fun contactRoll(random: RandomSource): Boolean = random.nextFloat() < CONTACT_CHANCE
+
+    fun opportunisticRoll(random: RandomSource): Boolean = random.nextFloat() < IMMUNOSUPPRESSION_CHANCE
+
+    /** The load an opportunistic infection seeds, somewhere in [OPPORTUNISTIC_SEED_MIN]..[MAX]. */
+    fun opportunisticLoad(random: RandomSource): Float =
+        OPPORTUNISTIC_SEED_MIN + random.nextFloat() * (OPPORTUNISTIC_SEED_MAX - OPPORTUNISTIC_SEED_MIN)
 }

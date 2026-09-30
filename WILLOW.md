@@ -8,7 +8,7 @@
 柳树皮汤同时也是生理系统（炎症 / 电解质 / 病原体 / 水杨苷）的一部分，
 那套系统单独写在 [`PHYSIOLOGY.md`](PHYSIOLOGY.md)。
 
-面向 Minecraft **26.3**（Fabric，Kotlin 2.4 / Java 25）。
+面向 Minecraft **26.3**（Fabric，Scala 3.9 / Kotlin 2.4 / Java 25）。
 
 ---
 
@@ -244,7 +244,8 @@ src/main/kotlin/com/github/kusa233/outbreak/
 ├─ command/OutbreakCommand.kt         /outbreak status | set | fever | cure
 ├─ physiology/                        生理 / 疾病 / 药物 数据系统
 │  ├─ OutbreakData.kt                 数据模型、编解码器、阈值、三个 attachment
-│  ├─ OutbreakPhysiology.kt           纯数据模型演算（不依赖任何 Minecraft 对象）
+│  ├─ Mineral.kt                      Kotlin 侧矿物枚举，参考范围全部取自 Scala 模型
+│  ├─ OutbreakPhysiology.kt           转发到 OutbreakModelBridge（只为恢复 Kotlin 的默认参数）
 │  ├─ OutbreakInfection.kt            感染来源与载量
 │  ├─ OutbreakIngestion.kt            吃喝下去之后的全部处理（水、盐、碘、脏水）
 │  └─ OutbreakSymptoms.kt             症状、抖动、体温、画面效果、每 tick 驱动
@@ -257,11 +258,17 @@ src/main/kotlin/com/github/kusa233/outbreak/
    ├─ block/BrineCauldronBlock.kt     盐水炼药锅（3 个蒸发阶段）
    └─ tree/                           自定义 TreeDecorator、TrunkPlacer 及其注册表类型
 
-src/main/java/com/github/kusa233/outbreak/mixin/
-├─ ItemMixin.java                     吃完 / 喝完的那一刻（原版没有这个事件）
-├─ PlayerMixin.java                   缩放所有饱食度消耗
-├─ GrindstoneInputSlotMixin.java      放宽砂轮输入槽
-└─ GrindstoneMenuMixin.java           让砂轮认得我们的转化表
+src/main/scala/com/github/kusa233/outbreak/physiology/model/
+├─ Model.scala                        矿物表（ModelMineral / MineralRanges）、介质 / 电解质 / 微量元素结构，以及 ModelConstants 里的全部标量常数
+└─ Physiology.scala                   全部数值与演算（不 import 任何 Minecraft / Kotlin）
+
+src/main/java/com/github/kusa233/outbreak/
+├─ physiology/OutbreakModelBridge.java  唯一的接缝：Kotlin ⇄ Scala 转换 + 全部转发 + 常数导出
+└─ mixin/
+   ├─ ItemMixin.java                     吃完 / 喝完的那一刻（原版没有这个事件）
+   ├─ PlayerMixin.java                   缩放所有饱食度消耗
+   ├─ GrindstoneInputSlotMixin.java      放宽砂轮输入槽
+   └─ GrindstoneMenuMixin.java           让砂轮认得我们的转化表
 
 src/client/
 ├─ java/.../mixin/client/

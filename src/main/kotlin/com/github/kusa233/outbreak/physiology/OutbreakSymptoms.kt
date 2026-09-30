@@ -30,12 +30,6 @@ object OutbreakSymptoms {
 
     private val MINING_MODIFIER_ID = Registration.id("infection_mining")
 
-    /** Up to 6% slower mining from the infection. */
-    private const val MINING_PENALTY_PER_SEVERITY = 0.06
-
-    /** Over-hydration makes the player weak and slows mining further. */
-    private const val MINING_PENALTY_OVERHYDRATED = 0.08
-
     /**
      * The screen effects that go with a fever and with hypothermia. The assets live in
      * `assets/outbreak/post_effect/<name>.json`, and the client only ever applies what the server
@@ -48,56 +42,17 @@ object OutbreakSymptoms {
     val HEAT_BLUR: Identifier = Registration.id("heat_blur")
     val COLD_SHIVER: Identifier = Registration.id("cold_shiver")
 
-    /** Every 15 seconds the game rolls for a brief camera shake. */
+    /**
+     * How often the game rolls for a brief camera shake, and how long one lasts once it triggers.
+     *
+     * These are Minecraft's cadence rather than the model's numbers - *when* to poke the client, not
+     * *how likely* the shiver is - so they stay here. The probability itself is in Scala.
+     */
     const val SHAKE_INTERVAL_TICKS = 300
-    const val SHAKE_CHANCE = 0.2f
-
-    /** How long a shake lasts once it triggers, in ticks. */
     const val SHAKE_DURATION_TICKS = 16
-
-    /** An immune storm both doubles the chance and shakes harder. */
-    private const val STORM_SHAKE_CHANCE_MULTIPLIER = 2f
-
-    /** No state, however bad, shakes the camera more often than this. */
-    private const val MAX_SHAKE_CHANCE = 0.85f
-
-    /** Extra exhaustion per roll while the player is ill. */
-    private const val EXHAUSTION_PER_ROLL = 0.03f
 
     /** How often the storm, mineral and thermal effects are refreshed. */
     private const val EFFECT_INTERVAL_TICKS = 40
-
-    // ------------------------------------------------------------------ environment
-
-    /** Vanilla's idea of a temperate biome; the neutral point of the ambient scale. */
-    private const val TEMPERATE_BIOME = 0.8f
-
-    /** Degrees of pull per unit of vanilla biome temperature, before thermoregulation. */
-    private const val BIOME_PULL = 2.0f
-
-    /**
-     * The thermoneutral zone: this much pull costs the body nothing at all, which is what keeps an
-     * ordinary walk through a taiga from being a medical event.
-     */
-    private const val THERMONEUTRAL_BAND = 2.0f
-
-    /** Soaked to the skin, or out in the rain and snow. */
-    private const val WET_PULL = 2.5f
-
-    /** Buried in powder snow. */
-    private const val POWDER_SNOW_PULL = 4.0f
-
-    /** On fire, or swimming in lava. */
-    private const val FIRE_PULL = 4.0f
-    private const val LAVA_PULL = 6.0f
-
-    // ------------------------------------------------------------------ thermal symptoms
-
-    /** Extra food exhaustion while shivering or running a fever. */
-    private const val THERMAL_EXHAUSTION = 0.25f
-
-    /** Extra chance of a shiver, per tier of thermal stress. */
-    private const val THERMAL_SHAKE_CHANCE = 0.15f
 
     /**
      * Runs the whole system for every online player, once per server tick.
@@ -121,7 +76,10 @@ object OutbreakSymptoms {
         val before = player.getAttachedOrCreate(OutbreakAttachments.DATA)
 
         var data = OutbreakPhysiology.tick(before, ambientTemperature(player))
-        data = OutbreakInfection.rollBatContact(player, data, runtime)
+        // Both of these roll once a second, and both are contagion: something touched the player,
+        // or the player's own immune system stopped keeping its own flora in check.
+        data = OutbreakInfection.rollContact(player, data, runtime)
+        data = OutbreakInfection.rollImmunosuppression(player, data, runtime)
         player.setAttached(OutbreakAttachments.DATA, data)
 
         this.applyMiningPenalty(player, data)
@@ -135,12 +93,7 @@ object OutbreakSymptoms {
 
     /**
      * The temperature the surroundings are dragging the player towards, on the body's own Celsius
-     * scale, before thermoregulation.
-     *
-     * The world is almost never hot enough to overwhelm a healthy body - a desert is 2.4 degrees
-     * above temperate, well inside [THERMONEUTRAL_BAND] - so the heat side of the model is mostly
-     * driven by fever. The cold side is where the environment bites: wet, powder snow, fire and
-     * lava are the things that get past the body's defences.
+     * scale, before thermoregulation. This reads the world; the arithmetic is the model's.
      */
     fun ambientTemperature(player: ServerPlayer): Float = environmentTemperature(
         biomeTemperature = player.level().getBiome(player.blockPosition()).value().baseTemperature,
@@ -150,60 +103,22 @@ object OutbreakSymptoms {
         fire = player.isOnFire,
     )
 
-    /**
-     * The pure half of [ambientTemperature], so that the environment can be reasoned about - and
-     * tested - without a world.
-     */
+    /** The pure half of [ambientTemperature], so the environment can be tested without a world. */
     fun environmentTemperature(
         biomeTemperature: Float,
         wet: Boolean = false,
         powderSnow: Boolean = false,
         lava: Boolean = false,
         fire: Boolean = false,
-    ): Float {
-        var pull = (biomeTemperature - TEMPERATE_BIOME) * BIOME_PULL
-        if (wet) {
-            pull -= WET_PULL
-        }
-        if (powderSnow) {
-            pull -= POWDER_SNOW_PULL
-        }
-        if (lava) {
-            pull += LAVA_PULL
-        } else if (fire) {
-            pull += FIRE_PULL
-        }
-
-        // Shrug off the thermoneutral zone, and only then let the body's defences matter.
-        val effective = when {
-            pull > THERMONEUTRAL_BAND -> pull - THERMONEUTRAL_BAND
-            pull < -THERMONEUTRAL_BAND -> pull + THERMONEUTRAL_BAND
-            else -> 0f
-        }
-
-        return (OutbreakData.TEMPERATURE_NORMAL + effective)
-            .coerceIn(OutbreakData.TEMPERATURE_MIN, OutbreakData.TEMPERATURE_MAX)
-    }
+    ): Float = OutbreakModelBridge.environmentTemperature(biomeTemperature, wet, powderSnow, lava, fire)
 
     // ------------------------------------------------------------------ symptoms
 
     private fun applyMiningPenalty(player: ServerPlayer, data: OutbreakData) {
         val instance = player.getAttribute(Attributes.BLOCK_BREAK_SPEED) ?: return
 
-        var penalty = 0.0
-        if (data.isSymptomatic) {
-            penalty += MINING_PENALTY_PER_SEVERITY * data.severity
-        }
-        if (data.isOverhydrated) {
-            penalty += MINING_PENALTY_OVERHYDRATED
-        }
-        // Hypokalaemia and hypocalcaemia both cause muscular weakness.
-        if (data.electrolytes.potassium < Electrolytes.SAFE_LOW) {
-            penalty += 0.06
-        }
-        if (data.electrolytes.calcium < Electrolytes.SAFE_LOW) {
-            penalty += 0.04
-        }
+        // How much slower this body mines is a model number; see src/main/scala.
+        val penalty = OutbreakModelBridge.miningPenalty(data).toDouble()
 
         if (penalty <= 0.0) {
             if (instance.hasModifier(MINING_MODIFIER_ID)) {
@@ -218,42 +133,22 @@ object OutbreakSymptoms {
 
     /**
      * The multiplier applied to every source of food exhaustion while the player is unwell, so
-     * that hunger drains a little faster. Used by `PlayerMixin`.
+     * that hunger drains a little faster. Used by `PlayerMixin`. The numbers are the model's.
      */
     @JvmStatic
     fun exhaustionMultiplier(player: Player): Float {
         val data = player.getAttachedOrElse(OutbreakAttachments.DATA, OutbreakData.HEALTHY)
-        var multiplier = 1f
-        if (data.isSymptomatic) {
-            multiplier += 0.5f * data.severity
-        }
-        if (data.isImmuneStorm) {
-            multiplier += 0.5f
-        }
-        if (data.isOverhydrated) {
-            multiplier += 0.2f
-        }
-        // Hyperchloraemia causes a mild metabolic acidosis with nausea and poor appetite.
-        if (data.electrolytes.chloride > Electrolytes.SAFE_HIGH) {
-            multiplier += 0.2f
-        }
-        if (data.electrolytes.magnesium < Electrolytes.SAFE_LOW) {
-            multiplier += 0.15f
-        }
-        // Shivering and a raised metabolic rate both cost calories.
-        if (data.hasThermalStress) {
-            multiplier += THERMAL_EXHAUSTION
-        }
-        return multiplier
+        return OutbreakModelBridge.exhaustionMultiplier(data)
     }
 
     /**
-     * Everything that has to be refreshed rather than set once: the storm, the water, the six
-     * minerals, and the body temperature.
+     * Everything that has to be refreshed rather than set once: sepsis, the storm, the water, the
+     * six minerals, and the body temperature.
      *
-     * It runs on the [EFFECT_INTERVAL_TICKS] cadence and re-applies each effect for three intervals,
-     * so an effect that stops being warranted simply lapses instead of having to be removed. Only
-     * vanilla effects are used, which is why none of this needs anything rendered for it.
+     * It runs on the [EFFECT_INTERVAL_TICKS] cadence - one pass every two seconds - and re-applies
+     * each effect for three intervals, so an effect that stops being warranted simply lapses instead
+     * of having to be removed. Only vanilla effects are used, which is why none of this needs
+     * anything rendered for it.
      */
     private fun applyOngoingEffects(player: ServerPlayer, data: OutbreakData, runtime: OutbreakRuntime) {
         if (runtime.shakeCooldown % EFFECT_INTERVAL_TICKS != 0) {
@@ -261,10 +156,17 @@ object OutbreakSymptoms {
         }
         val ticks = EFFECT_INTERVAL_TICKS * 3
 
+        // --- a severe infection hurts the host directly, and this is the one symptom that can
+        //     kill on its own.
+        val sepsis = sepsisDamage(data)
+        if (sepsis > 0f) {
+            player.hurtServer(player.level(), player.damageSources().magic(), sepsis)
+        }
+
         // --- immune storm: the response itself hurts the host
         if (data.isImmuneStorm) {
             player.addEffect(MobEffectInstance(MobEffects.WEAKNESS, ticks, 0))
-            player.causeFoodExhaustion(0.05f)
+            player.causeFoodExhaustion(OutbreakModelBridge.stormExhaustion())
         }
 
         // --- water
@@ -274,18 +176,26 @@ object OutbreakSymptoms {
             if (data.water > OutbreakData.WATER_VISIBLY_OVERHYDRATED) {
                 player.addEffect(MobEffectInstance(MobEffects.NAUSEA, ticks, 0))
             }
-        } else if (data.isDehydrated && data.water < 15f) {
+        } else if (data.isDehydrated && data.water < OutbreakData.WATER_SEVERELY_DEHYDRATED) {
             player.addEffect(MobEffectInstance(MobEffects.HUNGER, ticks, 0))
         }
 
-        // --- the six minerals, each judged on both sides of its safe band
+        // --- the six minerals, each judged on both sides of its reference range
         for (rule in MINERALS) {
-            rule.symptomFor(rule.of(data))?.invoke(player, ticks)
+            rule.symptomFor(data)?.invoke(player, ticks)
         }
 
         // --- body temperature
         applyThermalEffects(player, data, ticks)
     }
+
+    /**
+     * Magic damage a severe infection does in one two-second pass, and 0 while it is not severe.
+     *
+     * Public because a `FakePlayer` is deliberately invulnerable, so this is the half of "severe
+     * infections hurt" that can be tested headlessly; applying it is the one `hurtServer` call below.
+     */
+    fun sepsisDamage(data: OutbreakData): Float = OutbreakModelBridge.sepsisDamage(data.pathogenLoad)
 
     /**
      * Fever and hypothermia both produce weakness and mining fatigue, with the strength stepping
@@ -309,7 +219,7 @@ object OutbreakSymptoms {
         }
 
         // A fever is a furnace and a shiver is a workout; both burn food.
-        player.causeFoodExhaustion(EXHAUSTION_PER_ROLL * abs(tier))
+        player.causeFoodExhaustion(OutbreakModelBridge.thermalExhaustion(tier))
     }
 
     /**
@@ -347,41 +257,13 @@ object OutbreakSymptoms {
     }
 
     /**
-     * Chance that this tick's shake roll actually shakes the camera, `0..[MAX_SHAKE_CHANCE]`.
+     * Chance that this tick's shake roll actually shakes the camera, `0..MAX_SHAKE_CHANCE`.
      *
-     * Split out from [rollShake] so that it can be reasoned about - and tested - without a random
-     * number generator, because "why is my view still moving about when nothing is wrong with me?"
-     * is a question that deserves an answer rather than a shrug.
-     *
-     * Every term here has to come from something the player can actually notice. Over-hydration in
-     * particular only counts once it is past [OutbreakData.WATER_VISIBLY_OVERHYDRATED], because the
-     * thirst bar is ten cells wide and shows anything from 100 to 200 as simply "full" - a player
-     * standing there with a full bar and no other symptom was getting a camera tremor out of a
-     * state they had no way of seeing.
+     * The probability is the model's, in Scala, reached through `OutbreakModelBridge`; this only
+     * hands it the body. Every term there has to come from something the player can notice, which is
+     * why a fever below 38.5 and over-hydration behind a full thirst bar do not count.
      */
-    fun shakeChance(data: OutbreakData): Float {
-        var chance = if (data.isSymptomatic) SHAKE_CHANCE else 0f
-        if (data.isImmuneStorm) {
-            chance *= STORM_SHAKE_CHANCE_MULTIPLIER
-        }
-        if (data.water > OutbreakData.WATER_VISIBLY_OVERHYDRATED) {
-            chance += 0.1f
-        }
-        if (data.electrolytes.magnesium < Electrolytes.SAFE_LOW) {
-            chance += 0.15f
-        }
-        if (data.electrolytes.calcium < Electrolytes.DEFICIT) {
-            chance += 0.2f
-        }
-        // Palpitations are a classic thyrotoxic symptom.
-        if (data.traceElements.iodine > Electrolytes.EXCESS) {
-            chance += 0.1f
-        }
-        // Teeth chattering, or the rigors of a high fever. Only ever non-zero at or above
-        // FEVER_MILD (or at or below COLD_MILD), which is the point of the tier.
-        chance += THERMAL_SHAKE_CHANCE * abs(data.thermalTier)
-        return chance.coerceAtMost(MAX_SHAKE_CHANCE)
-    }
+    fun shakeChance(data: OutbreakData): Float = OutbreakModelBridge.shakeChance(data)
 
     /**
      * Rolls for the camera shake. Low magnesium and calcium both make the tremor more likely,
@@ -401,7 +283,7 @@ object OutbreakSymptoms {
 
         val amplitude = 0.6f + 0.8f * data.severity +
             (if (data.isImmuneStorm) 0.6f else 0f) +
-            (if (data.electrolytes.calcium < Electrolytes.DEFICIT) 0.4f else 0f) +
+            (if (data.electrolytes.calcium < Mineral.CALCIUM.severeLow) 0.4f else 0f) +
             (if (data.hasThermalStress) 0.4f else 0f)
         pushShake(player, amplitude)
     }
@@ -436,26 +318,31 @@ object OutbreakSymptoms {
     // ------------------------------------------------------------------ the mineral table
 
     /**
-     * One mineral, and what happens when it falls short of, or past, its safe band.
+     * One mineral, and what happens when it falls below or past its reference range.
      *
      * [deficit] and [excess] are the extremes, [low] and [high] the mild ends of the same sides, so
-     * every entry reads as a two-sided illness rather than as a list of one-way checks.
+     * every entry reads as a two-sided illness rather than as a list of one-way checks. The
+     * thresholds themselves come from [mineral], so a row is only the symptoms.
      */
     private class MineralRule(
+        val mineral: Mineral,
         val of: (OutbreakData) -> Float,
         val deficit: Symptom,
         val low: Symptom,
         val high: Symptom,
         val excess: Symptom,
     ) {
-        /** The symptom for [value], or null while it is inside the safe band. */
+        /** The symptom for [value], or null while it is inside the reference range. */
         fun symptomFor(value: Float): Symptom? = when {
-            value < Electrolytes.DEFICIT -> this.deficit
-            value < Electrolytes.SAFE_LOW -> this.low
-            value > Electrolytes.EXCESS -> this.excess
-            value > Electrolytes.SAFE_HIGH -> this.high
+            value < this.mineral.severeLow -> this.deficit
+            value < this.mineral.safeLow -> this.low
+            value > this.mineral.severeHigh -> this.excess
+            value > this.mineral.safeHigh -> this.high
             else -> null
         }
+
+        /** The symptom for the player's current value of this mineral. */
+        fun symptomFor(data: OutbreakData): Symptom? = this.symptomFor(this.of(data))
     }
 
     /** Builds a [Symptom] out of vanilla effects, with optional damage for the lethal extremes. */
@@ -472,11 +359,13 @@ object OutbreakSymptoms {
     /**
      * Every mineral, in the order `/outbreak status` prints them.
      *
-     * The thresholds are shared ([Electrolytes.DEFICIT] / [Electrolytes.SAFE_LOW] /
-     * [Electrolytes.SAFE_HIGH] / [Electrolytes.EXCESS]) so only the symptoms differ between rows.
-     */    private val MINERALS: List<MineralRule> = listOf(
+     * The thresholds are the clinical reference ranges in [Mineral]; only the symptoms differ
+     * between rows.
+     */
+    private val MINERALS: List<MineralRule> = listOf(
         // Sodium: hyponatraemia is confusion and nausea, hypernatraemia is intense thirst.
         MineralRule(
+            mineral = Mineral.SODIUM,
             of = { it.electrolytes.sodium },
             deficit = symptom(MobEffects.NAUSEA to 0, MobEffects.SLOWNESS to 0),
             low = symptom(MobEffects.WEAKNESS to 0),
@@ -485,6 +374,7 @@ object OutbreakSymptoms {
         ),
         // Potassium: both ends upset the heart, which is why the excess one does damage.
         MineralRule(
+            mineral = Mineral.POTASSIUM,
             of = { it.electrolytes.potassium },
             deficit = symptom(MobEffects.WEAKNESS to 1, MobEffects.MINING_FATIGUE to 0),
             low = symptom(MobEffects.WEAKNESS to 0),
@@ -493,6 +383,7 @@ object OutbreakSymptoms {
         ),
         // Magnesium: too little is tremor and cramps, too much is lethargy.
         MineralRule(
+            mineral = Mineral.MAGNESIUM,
             of = { it.electrolytes.magnesium },
             deficit = symptom(MobEffects.WEAKNESS to 0, MobEffects.SLOWNESS to 0),
             low = symptom(MobEffects.WEAKNESS to 0),
@@ -501,6 +392,7 @@ object OutbreakSymptoms {
         ),
         // Chloride follows sodium, but the acid-base side of it shows up as nausea and appetite.
         MineralRule(
+            mineral = Mineral.CHLORIDE,
             of = { it.electrolytes.chloride },
             deficit = symptom(MobEffects.NAUSEA to 0),
             low = symptom(MobEffects.WEAKNESS to 0),
@@ -509,6 +401,7 @@ object OutbreakSymptoms {
         ),
         // Calcium: hypocalcaemia is tetany, hypercalcaemia is lethargy.
         MineralRule(
+            mineral = Mineral.CALCIUM,
             of = { it.electrolytes.calcium },
             deficit = symptom(MobEffects.SLOWNESS to 0, MobEffects.WEAKNESS to 0),
             low = symptom(MobEffects.WEAKNESS to 0),
@@ -518,6 +411,7 @@ object OutbreakSymptoms {
         // Iodine: the thyroid. Deficiency is hypothyroidism (slow, weak, cold, hungry); excess is
         // thyrotoxicosis (appetite without weight gain, nausea, muscle wasting).
         MineralRule(
+            mineral = Mineral.IODINE,
             of = { it.traceElements.iodine },
             deficit = symptom(MobEffects.SLOWNESS to 1, MobEffects.WEAKNESS to 1, MobEffects.MINING_FATIGUE to 0),
             low = symptom(MobEffects.WEAKNESS to 0, MobEffects.SLOWNESS to 0, MobEffects.HUNGER to 0),
