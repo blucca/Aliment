@@ -32,6 +32,7 @@ object OutbreakCommand {
         "histamine", "prostaglandin", "leukotriene", "cytokine", "bradykinin",
         "bacteria", "virus",
         "salicin", "dexamethasone",
+        "scopolamine", "atropine",
         "temperature", "pyrogen",
     )
 
@@ -125,6 +126,11 @@ object OutbreakCommand {
                 if (data.isSevereInfection) "  [severe: taking damage]" else "",
             ),
             "  drugs  salicin %.2f  dexamethasone %.2f".format(data.salicin, data.dexamethasone),
+            "  mandrake  scopolamine %.2f  atropine %.2f  (load %.2f%s)%s".format(
+                data.scopolamine, data.atropine, data.anticholinergicLoad,
+                if (data.isVisionBlurred) ", sight blurred" else "",
+                if (data.thermalTier > 0 && data.anticholinergicLoad >= 1.5f) "  [drug fever]" else "",
+            ),
         )
         for (line in lines) {
             context.source.sendSuccess({ Component.literal(line) }, false)
@@ -175,6 +181,8 @@ object OutbreakCommand {
             "virus" -> data.copy(virus = clamp(value, OutbreakData.MAX_PATHOGEN))
             "salicin" -> data.copy(salicin = clamp(value, OutbreakData.SALICIN_CAP))
             "dexamethasone" -> data.copy(dexamethasone = clamp(value, OutbreakData.DEXAMETHASONE_CAP))
+            "scopolamine" -> data.withScopolamine(clamp(value, OutbreakData.ANTICHOLINERGIC_CAP))
+            "atropine" -> data.withAtropine(clamp(value, OutbreakData.ANTICHOLINERGIC_CAP))
             // Setting the temperature moves the body itself; setting the pyrogen moves the target
             // it is walking towards, which is what makes a fever persist.
             "temperature" -> data.copy(

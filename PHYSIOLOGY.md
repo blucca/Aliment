@@ -119,6 +119,33 @@ Outbreak（爆发）的核心系统：每个玩家体内持续演算的一套**�
 **过量**（浓度超过起效浓度）会把**静息介质水平**一起压下去，
 于是炎症跌破安全区 → 免疫抑制 → 感染反而跑得更快。
 
+### 曼陀罗生物碱 `scopolamine` / `atropine`
+
+曼陀罗（果实与种子，吃了才有）带进来两个独立数据，各自上限 **5**，**一个游戏日线性代谢完**：
+
+| 吃的东西 | 东莨菪碱 scopolamine | 阿托品 atropine |
+| --- | --- | --- |
+| `mandrake_fruit` | **+1.0** | **+0.1** |
+| `mandrake_seeds` | **+0.75** | **+0.1** |
+
+两者之和决定**体温**（设定点上移，不走前列腺素，所以**水杨苷退不掉**），
+单个或合计决定**视觉**：
+
+| 条件 | 效果 |
+| --- | --- |
+| 和 ≥ 1.5 | 体温往 **38 °C** 走 |
+| 和 ≥ 2.5 | 往 **39.5 °C** 走 |
+| 和 ≥ 4 | 往 **41 °C** 走（模型上限 42 °C） |
+| 任一 ≥ 2.3，或和 ≥ 2.7 | **视觉模糊**：雾收到 **8 格**，8 格外的方块全糊掉 |
+
+高温和视觉模糊**互不干涉、可以叠加**：发烧的三层画面效果（泛红、扭曲、动态模糊）和
+药物模糊是两个独立的东西，同时成立就同时挂在屏幕上。这就是"吃两颗曼陀罗会又烧又瞎"。
+
+> 实现上体温那部分是模型的（`Physiology.anticholinergicFever`，加进 `targetTemperature`），
+> 视觉那部分分两半：后处理效果由服务端像别的画面效果一样请求（`anticholinergic_blur`），
+> **雾是客户端渲染决定**，所以走同步标志 `OutbreakClientState.blurred` → `FogRendererMixin`
+> 把 `FogData` 的环境雾与天空/云淡出收到 8 格（照原版失明效果的做法，渲染距离本身不动）。
+
 ### 存在哪里
 
 用 Fabric 的 **Data Attachment API**：
@@ -356,7 +383,7 @@ damping = 1 - 0.88 * max(salicinFight, dexFight)
 
 ## 用到的 mixin
 
-一共 4 个，都写在 **Java** 里（Kotlin 混入需要 refmap，Java 有 Loom 的注解处理器，
+一共 **5 个服务端 + 3 个客户端**，都写在 **Java** 里（Kotlin 混入需要 refmap，Java 有 Loom 的注解处理器，
 而且能靠 Java 编译器直接校验目标），全部极短，只做转发：
 
 | Mixin | 目标 | 为什么必须用 mixin |
@@ -366,6 +393,7 @@ damping = 1 - 0.88 * max(salicinFight, dexFight)
 | `GrindstoneInputSlotMixin` | `GrindstoneMenu$2` / `$3` 的 `mayPlace` | 原版砂轮只收"可损坏或带附魔"的物品，我们的物品根本放不进去 |
 | `GrindstoneMenuMixin` | `GrindstoneMenu.computeResult` | 原版不知道我们的转化表，放进去也磨不出东西 |
 | `CameraMixin`（客户端） | `Camera.alignWithEntity` | 原版没有镜头抖动，这个版本的 Fabric 也移除了 `ViewportEvent` |
+| `FogRendererMixin`（客户端） | `FogRenderer.setupFog` | "只能看清 8 格"是渲染决定，服务端只说"你瞎了"（`client_state.blurred`），雾得客户端自己收 |
 | `HudMixin`（客户端） | `Hud.extractPlayerHealth` | 原版没有口渴条，挂在生命值渲染之后就能紧贴血条上方 |
 
 > 砂轮的两个输入槽是**匿名内部类**（`GrindstoneMenu$2` / `$3`），
@@ -503,7 +531,7 @@ damping = 1 - 0.88 * max(salicinFight, dexFight)
 
 `src/main/kotlin/.../dev/OutbreakPhysiologySelfTest.kt`（**默认不启用**，把它加进
 `fabric.mod.json` 的 `main` 入口点再 `gradle runServer` 就会在开服后 40 tick 自动跑完）
-跑出 **290/290 全过**：
+跑出 **319/319 全过**：
 
 ```
 homeostasis 3 days (one day's kelp a day): inflammation 25.0..25.0
@@ -554,12 +582,16 @@ chest loot: a chest holds outbreak:dexamethasone_injection 254/8000 = 3.2%
 creative: a severe infection does not advance, damage or symptomise the body, and the shimmer
           comes off the screen; back in survival the same body carries on from where it stopped
 death:    the respawned body is bacteria 0.0 virus 0.0 temperature 37.0 water 80.0
-PHYSIOLOGY SELFTEST DONE passed=290 failed=0
+mandrake: one fruit 1.0/0.1; two 2.2 (38 C); three 3.1 (39.5 C, sight blurred); a full dose 41 C
+          a game day clears both alkaloids; the drug fever and an infection fever add up to 42 C
+          blurred and feverish at once: [anticholinergic_blur, heat_haze, heat_blur]
+PHYSIOLOGY SELFTEST DONE passed=319 failed=0
 ```
 
 覆盖了**纯模型**、**mixin 端到端**（真的调 `ItemStack.finishUsingItem` 吃生肉 / 喝汤 / 喝海水，
 以及**真的构造一个 `GrindstoneMenu`** 验证两个砂轮 mixin 生效）、**症状表**、**三条感染路径**、
-**箱子战利品**、**创造模式冻结与死亡重置**、**翻译覆盖**与**同步**。
+**箱子战利品**、**曼陀罗生物碱**（含同步给客户端的模糊标志）、**创造模式冻结与死亡重置**、
+**翻译覆盖**与**同步**。
 
 > 箱子战利品那两条概率是**掷出来的**，不是把常数读回来断言：`LootPool` 建好之后什么也读不到
 > （只有一个 `addRandomItems` 和一个 `CODEC`），所以自检用 `LootParams` 把模组真正加进去的

@@ -1,4 +1,4 @@
-﻿<#
+<#
     gen_data.ps1 - regenerates every data / asset JSON file of the Outbreak willow set.
 
     The vanilla JSON that ships inside the Minecraft jar is used as the template for all the
@@ -377,6 +377,7 @@ $blockEntries = [ordered]@{
     'willow_soup_cauldron'    = 'Willow Bark Soup Cauldron'
     'rock_salt_ore'           = 'Rock Salt Ore'
     'brine_cauldron'          = 'Brine Cauldron'
+    'mandrake'                = 'Mandrake'
 }
 
 $itemEntries = [ordered]@{
@@ -405,6 +406,8 @@ $itemEntries = [ordered]@{
     'salt_willow_bark_soup'        = 'Salt Willow Bark Soup'
     'crude_salt_raw_willow_bark_soup' = 'Crude Salt Raw Willow Bark Soup'
     'salt_raw_willow_bark_soup'    = 'Salt Raw Willow Bark Soup'
+    'mandrake_fruit'               = 'Mandrake Fruit'
+    'mandrake_seeds'               = 'Mandrake Seeds'
 }
 
 # the two boats are plain items that also have entity names, like vanilla's
@@ -1157,5 +1160,153 @@ Write-VanillaTag 'item' 'chest_boats.json'                @("$ns`:willow_chest_b
 
 # entities
 Write-VanillaTag 'entity_type' 'boat.json'                @("$ns`:willow_boat", "$ns`:willow_chest_boat")
+
+# ---------------------------------------------------------------------------- mandrake
+
+# The mandrake is the mod's own plant, so there is no oak to rename: the vanilla sweet berry bush is
+# the template instead. It is the one vanilla plant that behaves the way a mandrake has to - four
+# ages driven by random ticks, bone meal, growth on soil rather than on farmland, and fruit that only
+# the last age gives up.
+function Convert-BerryAsset([string]$text) {
+    return ($text -replace 'minecraft:block/sweet_berry_bush_stage', "$ns`:block/mandrake_stage")
+}
+
+Write-Json "assets/$ns/blockstates/mandrake.json" `
+    (Convert-BerryAsset (Get-Vanilla "assets/minecraft/blockstates/sweet_berry_bush.json"))
+
+foreach ($stage in 0..3) {
+    Write-Json "assets/$ns/models/block/mandrake_stage$stage.json" `
+        (Convert-BerryAsset (Get-Vanilla "assets/minecraft/models/block/sweet_berry_bush_stage$stage.json"))
+}
+
+foreach ($mandrakeItem in @('mandrake_fruit', 'mandrake_seeds')) {
+    $itemModel = (Get-Vanilla "assets/minecraft/models/item/sweet_berries.json") `
+        -replace 'minecraft:item/sweet_berries', "$ns`:item/$mandrakeItem"
+    Write-Json "assets/$ns/models/item/$mandrakeItem.json" $itemModel
+
+    $itemDefinition = (Get-Vanilla "assets/minecraft/items/sweet_berries.json") `
+        -replace 'minecraft:item/sweet_berries', "$ns`:item/$mandrakeItem"
+    Write-Json "assets/$ns/items/$mandrakeItem.json" $itemDefinition
+}
+
+# One pool, gated on the fully grown state: 1-2 fruit from a ripe plant and nothing at all before it.
+# Fortune applies, like every other harvest in the game.
+Write-Json "data/$ns/loot_table/blocks/mandrake.json" @"
+{
+  "type": "minecraft:block",
+  "modifier": {
+    "type": "minecraft:explosion_decay"
+  },
+  "pools": [
+    {
+      "condition": {
+        "type": "minecraft:match_block",
+        "blocks": "$ns`:mandrake",
+        "state": {
+          "age": "3"
+        }
+      },
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "$ns`:mandrake_fruit"
+        }
+      ],
+      "modifier": [
+        {
+          "type": "minecraft:set_count",
+          "count": {
+            "type": "minecraft:uniform",
+            "max": 2,
+            "min": 1
+          }
+        },
+        {
+          "type": "minecraft:apply_bonus",
+          "enchantment": "minecraft:fortune",
+          "formula": "minecraft:uniform_bonus_count",
+          "parameters": {
+            "bonusMultiplier": 1
+          }
+        }
+      ],
+      "rolls": 1
+    }
+  ],
+  "random_sequence": "$ns`:blocks/mandrake"
+}
+"@
+
+# The seeds are taken out of the fruit, so they are a crafting action rather than a drop.
+Write-Json "data/$ns/recipe/mandrake_seeds.json" @"
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "$ns`:mandrake_fruit"
+  ],
+  "result": {
+    "count": 2,
+    "id": "$ns`:mandrake_seeds"
+  }
+}
+"@
+
+# Wild mandrakes. The patch is placed on grass and left at full age, exactly like vanilla's berry
+# bush patches: a plant the player walks up to and picks, rather than one that has to be waited for.
+Write-Json "data/$ns/worldgen/feature/mandrake.json" @"
+{
+  "type": "minecraft:simple_block",
+  "to_place": {
+    "id": "$ns`:mandrake",
+    "properties": {
+      "age": "3"
+    }
+  }
+}
+"@
+
+Write-Json "data/$ns/worldgen/placed_feature/mandrake_patch.json" @"
+{
+  "feature": "$ns`:mandrake",
+  "placement": [
+    {
+      "type": "minecraft:count",
+      "count": 6
+    },
+    {
+      "type": "minecraft:in_square"
+    },
+    {
+      "type": "minecraft:heightmap",
+      "heightmap": "WORLD_SURFACE_WG"
+    },
+    {
+      "type": "minecraft:biome"
+    },
+    {
+      "type": "minecraft:block_predicate_filter",
+      "predicate": {
+        "type": "minecraft:all_of",
+        "predicates": [
+          {
+            "type": "minecraft:matching_block_tag",
+            "tag": "minecraft:air"
+          },
+          {
+            "type": "minecraft:matching_blocks",
+            "blocks": "minecraft:grass_block",
+            "offset": [
+              0,
+              -1,
+              0
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
+"@
 
 Write-Host "gen_data.ps1 wrote $script:written JSON files into src/main/resources"

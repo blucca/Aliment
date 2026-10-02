@@ -83,6 +83,9 @@ object OutbreakCreativeTabs {
         OutbreakItems.SALT_WILLOW_BARK_SOUP,
         OutbreakItems.CRUDE_SALT_RAW_WILLOW_BARK_SOUP,
         OutbreakItems.SALT_RAW_WILLOW_BARK_SOUP,
+        // mandrake: the plant has no item form, so the tab carries the fruit and the seeds
+        OutbreakItems.MANDRAKE_FRUIT,
+        OutbreakItems.MANDRAKE_SEEDS,
     )
 
     /**

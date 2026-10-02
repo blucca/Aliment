@@ -5,6 +5,7 @@ import net.minecraft.core.Direction
 import net.minecraft.world.effect.MobEffectInstance
 import net.minecraft.world.effect.MobEffects
 import net.minecraft.world.food.FoodProperties
+import net.minecraft.world.item.BlockItem
 import net.minecraft.world.item.BoatItem
 import net.minecraft.world.item.HangingSignItem
 import net.minecraft.world.item.Item
@@ -229,10 +230,15 @@ object OutbreakItems {
     private const val RAW_SOUP_NAUSEA_CHANCE = 0.25F
     private const val RAW_SOUP_HUNGER_CHANCE = 0.15F
 
-    private fun buildFood(nutrition: Int, saturation: Float): FoodProperties = FoodProperties.Builder()
-        .nutrition(nutrition)
-        .saturationModifier(saturation)
-        .build()
+    private fun buildFood(nutrition: Int, saturation: Float, alwaysEdible: Boolean = false): FoodProperties {
+        val builder = FoodProperties.Builder()
+            .nutrition(nutrition)
+            .saturationModifier(saturation)
+        if (alwaysEdible) {
+            builder.alwaysEdible()
+        }
+        return builder.build()
+    }
 
     /**
      * Bottles behave like honey bottles (stack of 16, drink animation, gives the glass bottle
@@ -265,6 +271,33 @@ object OutbreakItems {
         }
         return consumable
     }
+
+    // ---------------------------------------------------------------- mandrake
+
+    /**
+     * The mandrake fruit: what a ripe plant gives up, and the only source of seed.
+     *
+     * It is edible, and eating it is the point: one fruit is a full dose of scopolamine, which is a
+     * trip and, past a couple of them, an overdose. `alwaysEdible` because a drug is not a meal - it
+     * has to go down whether or not the player is hungry.
+     */
+    val MANDRAKE_FRUIT: Item = Registration.registerItem(
+        "mandrake_fruit",
+        Item.Properties().food(mandrakeFood()),
+    ) { Item(it) }
+
+    /**
+     * Mandrake seeds, sown straight into soil and - because there is no seed item class left in this
+     * version - a plain [BlockItem] that is also edible. Aiming at a block plants it; aiming at
+     * nothing eats it, which is the same 0.75 of a dose with less of the delirium.
+     */
+    val MANDRAKE_SEEDS: Item = Registration.registerItem(
+        "mandrake_seeds",
+        Item.Properties().food(mandrakeFood()),
+    ) { BlockItem(OutbreakBlocks.MANDRAKE, it) }
+
+    /** One nutrition and a token of saturation: a mandrake fills a stomach, it does not feed one. */
+    private fun mandrakeFood(): FoodProperties = buildFood(1, 0.1f, alwaysEdible = true)
 
     fun initialize() {
     }

@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "age=0": {
+      "model": "outbreak:block/mandrake_stage0"
+    },
+    "age=1": {
+      "model": "outbreak:block/mandrake_stage1"
+    },
+    "age=2": {
+      "model": "outbreak:block/mandrake_stage2"
+    },
+    "age=3": {
+      "model": "outbreak:block/mandrake_stage3"
+    }
+  }
+}

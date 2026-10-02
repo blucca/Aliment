@@ -73,24 +73,33 @@ are dead code in the shipped jar.
 Drives the player-facing willow features with Fabric's `FakePlayer` on a headless server: axe
 stripping, grindstone grinding, filling the cauldron, the 60 second campfire cook, taking a serving
 with a bottle and with a bowl, and growing a willow next to a pool to check that the trunk leans
-towards the water.
+towards the water. Then the mandrake: sowing a seed on dirt, grass and coarse dirt but **not** on
+farmland (through the real item path), bone meal through all four stages, the loot table dropping
+1-2 fruit when ripe and nothing at all before that, the seeds recipe being in the recipe manager, and
+the wild patches being attached to the plains and the swamps and to nothing else. 23 checks.
 
 ### `dev/OutbreakPhysiologySelfTest.kt` - physiology
 
 Runs the whole model headlessly in a few milliseconds: homeostasis, infection clearance,
 untreated immune storm, salicin and dexamethasone control, overdose, drug metabolism, the immune
 competence curve, the mediator weights, thirst over a game day, over-hydration, electrolyte
-dilution from heavy drinking, the iodine steady state, the temperature model (fever, hypothermia,
-the environment, the thyroid) and the fever command. Then it exercises the mixins and the symptom
-layer end to end: it really eats raw meat through `ItemStack.finishUsingItem` and counts the
-infection rate, drinks all twelve of the drinks to check the 15 water each, drinks salt water and
-sea water to check the minerals, checks that swamp water is foul and sea water is not, probes every
-mineral on both sides of both of its thresholds, asserts the camera-shake chance is zero for every
-state the player cannot see, counts the two per-second contagion dice, checks which screen effects
-each fever tier asks for, drives a real `GrindstoneMenu` to prove the two grindstone mixins
-applied, and checks the exhaustion multiplier, the mining penalty and the synced client state. It
-also enumerates every item and entity type the mod registers and fails, naming the key, if any of
-them has no name in `en_us.json` or `zh_cn.json`. 253 checks.
+dilution from heavy drinking, the iodine store draining to its floor in exactly three game days and
+what a day's kelp does about it, the two mandrake alkaloids (the three fever steps, the blur
+thresholds, the cap and the metabolism, and that the drug fever stacks on an infection's), the
+temperature model (fever, hypothermia, the environment, the
+thyroid) and the fever command. Then it exercises the mixins and the symptom layer end to end: it
+really eats raw meat through `ItemStack.finishUsingItem` and counts the infection rate, eats a
+mandrake fruit and its seeds to check what they carry, drinks all
+twelve of the drinks to check the 15 water each, drinks salt water and sea water to check the
+minerals, checks that swamp water is foul and sea water is not, probes every mineral on both sides of
+both of its thresholds, asserts the camera-shake chance is zero for every state the player cannot
+see, counts the two per-second contagion dice, checks which screen effects each fever tier asks for
+and that the drug blur stacks with them, drives a real `GrindstoneMenu` to prove the two grindstone
+mixins applied, rolls the chest-loot pool
+the mod actually adds, freezes a creative player and respawns a dead one, and checks the exhaustion
+multiplier, the mining penalty and the synced client state. It also enumerates every item and entity
+type the mod registers and fails, naming the key, if any of them has no name in `en_us.json` or
+`zh_cn.json`. 319 checks.
 
 ### Running either one
 

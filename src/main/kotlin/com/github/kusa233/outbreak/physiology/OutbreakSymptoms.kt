@@ -43,6 +43,12 @@ object OutbreakSymptoms {
     val COLD_SHIVER: Identifier = Registration.id("cold_shiver")
 
     /**
+     * The mandrake blur, which is a heavier version of [HEAT_BLUR] and has its own id so that a
+     * fever and an alkaloid overdose can both be on the screen at once.
+     */
+    val ANTICHOLINERGIC_BLUR: Identifier = Registration.id("anticholinergic_blur")
+
+    /**
      * How often the game rolls for a brief camera shake, and how long one lasts once it triggers.
      *
      * These are Minecraft's cadence rather than the model's numbers - *when* to poke the client, not
@@ -255,12 +261,16 @@ object OutbreakSymptoms {
      *
      * The tiers line up with the bands in [OutbreakData.thermalTier]: the edge distortion is a
      * fever thing (38.5 and up), and the motion blur only joins it once the fever is dangerous.
+     *
+     * The mandrake blur is a fourth, independent effect: it has nothing to do with the temperature,
+     * so it stacks with any of the three - the player can be feverish *and* half blind.
      */
     private fun applyPostEffects(player: ServerPlayer, data: OutbreakData) {
         val tier = data.thermalTier
         syncPostEffect(player, HEAT_HAZE, tier >= 1)
         syncPostEffect(player, HEAT_BLUR, tier >= 2)
         syncPostEffect(player, COLD_SHIVER, tier <= -1)
+        syncPostEffect(player, ANTICHOLINERGIC_BLUR, data.isVisionBlurred)
     }
 
     /** Removes every screen effect, for `/outbreak cure` and anything else that resets the body. */
@@ -268,6 +278,7 @@ object OutbreakSymptoms {
         syncPostEffect(player, HEAT_HAZE, false)
         syncPostEffect(player, HEAT_BLUR, false)
         syncPostEffect(player, COLD_SHIVER, false)
+        syncPostEffect(player, ANTICHOLINERGIC_BLUR, false)
     }
 
     private fun syncPostEffect(player: ServerPlayer, id: Identifier, wanted: Boolean) {
@@ -328,14 +339,18 @@ object OutbreakSymptoms {
      */
     private fun syncClient(player: ServerPlayer, data: OutbreakData, runtime: OutbreakRuntime) {
         val water = data.water.toInt()
+        val blurred = data.isVisionBlurred
         val current = player.getAttachedOrElse(OutbreakAttachments.CLIENT, OutbreakClientState.INACTIVE)
 
-        if (water == runtime.syncedWater && current.shakeSequence == runtime.syncedShake) {
+        if (water == runtime.syncedWater &&
+            current.shakeSequence == runtime.syncedShake &&
+            current.blurred == blurred
+        ) {
             return
         }
         runtime.syncedWater = water
         runtime.syncedShake = current.shakeSequence
-        player.setAttached(OutbreakAttachments.CLIENT, current.copy(water = water))
+        player.setAttached(OutbreakAttachments.CLIENT, current.copy(water = water, blurred = blurred))
     }
 
     // ------------------------------------------------------------------ the mineral table

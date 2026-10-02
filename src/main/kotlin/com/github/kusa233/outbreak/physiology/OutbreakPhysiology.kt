@@ -83,4 +83,12 @@ object OutbreakPhysiology {
 
     /** Adds iodine, in umol/L, which the body only gets from food - kelp, in this mod. */
     fun iodine(data: OutbreakData, amount: Float): OutbreakData = OutbreakModelBridge.iodine(data, amount)
+
+    /**
+     * Adds the two tropane alkaloids a mandrake carries, capped at
+     * [OutbreakData.ANTICHOLINERGIC_CAP] each. Past 1.5 of the two together the body runs a
+     * temperature; past 2.3 of either, or 2.7 of the two, the player's sight blurs.
+     */
+    fun anticholinergic(data: OutbreakData, scopolamine: Float, atropine: Float): OutbreakData =
+        OutbreakModelBridge.anticholinergic(data, scopolamine, atropine)
 }

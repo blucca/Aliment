@@ -252,7 +252,8 @@ src/main/kotlin/com/github/kusa233/outbreak/
 ├─ dev/                               仅开发用的自检（默认不启用，见 tools/README.md）
 └─ world/
    ├─ OutbreakGrinding.kt             砂轮转化表（供两个砂轮 mixin 读取）
-   ├─ OutbreakLoot.kt                 村庄 / 前哨站箱子里的地塞米松注射液（3%）与柳树皮汤（10%）
+   ├─ OutbreakLoot.kt                 村庄 / 前哨站箱子里的地塞米松注射液（3%）与柳树皮汤（35%）
+   ├─ block/MandrakeBlock.kt          曼陀罗：四阶段、土上种植、骨粉催熟、只有成熟才结果
    ├─ block/WillowVinesBlock.kt       垂柳末端（可催长）
    ├─ block/WillowVinesPlantBlock.kt  垂柳中段
    ├─ block/WillowSoupCauldronBlock.kt 柳树皮汤炼药锅（水位 + 生/熟 + 篝火计时）
@@ -274,10 +275,12 @@ src/main/java/com/github/kusa233/outbreak/
 src/client/
 ├─ java/.../mixin/client/
 │  ├─ CameraMixin.java                镜头抖动（只动镜头）
+│  ├─ FogRendererMixin.java           曼陀罗中毒时把雾收到 8 格
 │  └─ HudMixin.java                   口渴条挂在生命值渲染之后
 └─ kotlin/.../client/
    ├─ OutbreakClient.kt               树叶染色、船模型层、船渲染器
    ├─ OutbreakClientShake.kt          把服务端的抖动序号变成衰减振荡
+   ├─ OutbreakClientBlur.kt           记住服务端同步过来的"视线模糊"标志
    └─ OutbreakThirstHud.kt            10 格口渴条
 
 src/main/resources/

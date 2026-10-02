@@ -2,7 +2,9 @@ package com.github.kusa233.outbreak.dev
 
 import com.github.kusa233.outbreak.registry.OutbreakBlocks
 import com.github.kusa233.outbreak.registry.OutbreakItems
+import com.github.kusa233.outbreak.registry.OutbreakWorldGen
 import com.github.kusa233.outbreak.registry.Registration
+import com.github.kusa233.outbreak.world.block.MandrakeBlock
 import com.github.kusa233.outbreak.world.block.WillowSoupCauldronBlock
 import net.fabricmc.api.ModInitializer
 import net.fabricmc.fabric.api.entity.FakePlayer
@@ -13,8 +15,12 @@ import net.minecraft.core.registries.Registries
 import net.minecraft.resources.ResourceKey
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.InteractionHand
+import net.minecraft.world.item.BoneMealItem
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
+import net.minecraft.world.level.biome.Biome
+import net.minecraft.world.level.biome.Biomes
+import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.LayeredCauldronBlock
 import net.minecraft.world.level.levelgen.feature.Feature
@@ -93,6 +99,8 @@ class OutbreakSelfTest : ModInitializer {
 
             3 -> {
                 testLeaning(level)
+                testMandrake(level, FakePlayer.get(level))
+                testMandrakeWorldGen(level)
                 stage = 4
             }
 
@@ -269,6 +277,109 @@ class OutbreakSelfTest : ModInitializer {
             }
         }
         return maxX
+    }
+
+    // ------------------------------------------------------------------ mandrake
+
+    /**
+     * The mandrake plant: sown into soil rather than onto farmland, grown through four stages with
+     * bone meal, and fruit only from the fourth.
+     *
+     * Sowing goes through the real item path (`BlockItem.useOn`, via the fake player), because "a
+     * mandrake grows on dirt and grass but not on farmland" is a placement rule and not a property
+     * of the block state - the only way to catch a regression in it is to actually plant one.
+     */
+    private fun testMandrake(level: ServerLevel, player: FakePlayer) {
+        val seeds = ItemStack(OutbreakItems.MANDRAKE_SEEDS)
+        val row = listOf(
+            "dirt" to Blocks.DIRT,
+            "grass" to Blocks.GRASS_BLOCK,
+            "farmland" to Blocks.FARMLAND,
+            "coarse dirt" to Blocks.COARSE_DIRT,
+        )
+        val planted = mutableMapOf<String, Boolean>()
+        row.forEachIndexed { index, (label, soil) ->
+            val ground = BlockPos(12 + index, FLOOR_Y + 1, 12)
+            level.setBlockAndUpdate(ground, soil.defaultBlockState())
+            level.setBlockAndUpdate(ground.above(), Blocks.AIR.defaultBlockState())
+            level.setBlockAndUpdate(ground.below(), Blocks.STONE.defaultBlockState())
+
+            player.inventory.clearContent()
+            player.setItemInHand(InteractionHand.MAIN_HAND, seeds.copy())
+            useOn(level, player, ground)
+            planted[label] = level.getBlockState(ground.above()).`is`(OutbreakBlocks.MANDRAKE)
+        }
+        logger.info("SELFTEST mandrake sown: {}", planted)
+        check("a mandrake seed is sown on dirt", planted["dirt"] == true)
+        check("and on grass", planted["grass"] == true)
+        check("and on coarse dirt", planted["coarse dirt"] == true)
+        check("and on farmland too", planted["farmland"] == true)
+
+        // Bone meal one stage at a time, all the way to fruit.
+        val plant = BlockPos(12, FLOOR_Y + 1, 14)
+        level.setBlockAndUpdate(plant.below(), Blocks.DIRT.defaultBlockState())
+        level.setBlockAndUpdate(plant.below(2), Blocks.STONE.defaultBlockState())
+        level.setBlockAndUpdate(plant, OutbreakBlocks.MANDRAKE.defaultBlockState())
+        val ages = mutableListOf(age(level, plant))
+        repeat(MandrakeBlock.MAX_AGE) {
+            BoneMealItem.growCrop(ItemStack(Items.BONE_MEAL), level, plant)
+            ages += age(level, plant)
+        }
+        logger.info("SELFTEST mandrake stages after bone meal: {}", ages)
+        check("bone meal takes a mandrake through four stages", ages == listOf(0, 1, 2, 3))
+        check("a ripe mandrake is no longer a bonemeal target", !BoneMealItem.growCrop(ItemStack(Items.BONE_MEAL), level, plant))
+
+        val ripe = Block.getDrops(level.getBlockState(plant), level, plant, null)
+        logger.info("SELFTEST ripe mandrake drops: {}", ripe.map { "${it.item} x${it.count}" })
+        val fruit = ripe.filter { it.`is`(OutbreakItems.MANDRAKE_FRUIT) }.sumOf { it.count }
+        check("a ripe mandrake drops fruit", fruit in 1..2)
+        check("and nothing else", ripe.all { it.`is`(OutbreakItems.MANDRAKE_FRUIT) })
+
+        // Every earlier stage is a waste of a seed, which is the whole point of waiting.
+        var unripeDrops = 0
+        for (unripe in 0 until MandrakeBlock.MAX_AGE) {
+            level.setBlockAndUpdate(
+                plant,
+                OutbreakBlocks.MANDRAKE.defaultBlockState().setValue(MandrakeBlock.AGE, unripe),
+            )
+            unripeDrops += Block.getDrops(level.getBlockState(plant), level, plant, null).size
+        }
+        check("an unripe mandrake drops nothing", unripeDrops == 0)
+
+        // The seeds are a crafting recipe, so it has to be in the recipe manager rather than merely
+        // in the file: this fails if the JSON is malformed or the id is wrong.
+        val recipe = level.server.recipeManager.byKey(
+            ResourceKey.create(Registries.RECIPE, Registration.id("mandrake_seeds")),
+        )
+        check("the mandrake seeds recipe is loaded", recipe.isPresent)
+    }
+
+    private fun age(level: ServerLevel, pos: BlockPos): Int =
+        level.getBlockState(pos).getValue(MandrakeBlock.AGE)
+
+    /**
+     * Where the mandrake grows wild, checked where that is actually decided: the biome generation
+     * settings Fabric's biome modification API writes into.
+     *
+     * A plains world is deliberately not needed for this. What has to hold is that the placed feature
+     * ends up attached to the plains and the swamps and to nothing else, and that is a registry fact
+     * that can be read straight off a running server - the worldgen itself is vanilla's
+     * `minecraft:simple_block` patch, which the datapack validation has already accepted.
+     */
+    private fun testMandrakeWorldGen(level: ServerLevel) {
+        val registries = level.server.registryAccess()
+        val mandrake = registries.lookupOrThrow(Registries.PLACED_FEATURE)
+            .getOrThrow(OutbreakWorldGen.MANDRAKE_PATCH)
+        val biomes = registries.lookupOrThrow(Registries.BIOME)
+
+        fun growsWild(key: ResourceKey<Biome>): Boolean =
+            biomes.getOrThrow(key).value().generationSettings.features().any { it.contains(mandrake) }
+
+        check("mandrakes grow wild in the plains", growsWild(Biomes.PLAINS))
+        check("and in the swamp", growsWild(Biomes.SWAMP))
+        check("and in a mangrove swamp", growsWild(Biomes.MANGROVE_SWAMP))
+        check("but not in a desert", !growsWild(Biomes.DESERT))
+        check("nor in a forest", !growsWild(Biomes.FOREST))
     }
 
     // ------------------------------------------------------------------ helpers

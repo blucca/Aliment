@@ -21,6 +21,9 @@ class OutbreakClient : ClientModInitializer {
         // Camera shake driven by the physiology system on the server.
         OutbreakClientShake.initialize()
 
+        // The mandrake blur: the fog half of it, mirroring the synced flag.
+        OutbreakClientBlur.initialize()
+
         // Registering our own model layers keeps the boat textures in the outbreak namespace.
         // BoatRenderer derives the texture from the layer id, so WILLOW_BOAT_LAYER maps to
         // assets/outbreak/textures/entity/boat/willow.png.

@@ -155,6 +155,18 @@ public final class OutbreakModelBridge {
     public static final int PYROGEN_METABOLISM_TICKS = ModelConstants.PYROGEN_METABOLISM_TICKS();
     public static final float PYROGEN_DECAY_PER_TICK = ModelConstants.PYROGEN_DECAY_PER_TICK();
 
+    // ---------------------------------------------------------------- mandrake alkaloids
+
+    /** The most of either tropane alkaloid a body can carry. */
+    public static final float ANTICHOLINERGIC_CAP = ModelConstants.ANTICHOLINERGIC_CAP();
+
+    /** How far a player whose sight the alkaloids have blurred can see, in blocks. */
+    public static final float ANTICHOLINERGIC_BLUR_DISTANCE = ModelConstants.ANTICHOLINERGIC_BLUR_DISTANCE();
+
+    /** Either alkaloid is cleared over one in-game day. */
+    public static final int ANTICHOLINERGIC_METABOLISM_TICKS = ModelConstants.ANTICHOLINERGIC_METABOLISM_TICKS();
+    public static final float ANTICHOLINERGIC_DECAY_PER_TICK = ModelConstants.ANTICHOLINERGIC_DECAY_PER_TICK();
+
     // ================================================================== the reference ranges
 
     /**
@@ -297,6 +309,8 @@ public final class OutbreakModelBridge {
                 0f,
                 0f,
                 TEMPERATURE_NORMAL,
+                0f,
+                0f,
                 0f);
     }
 
@@ -366,6 +380,21 @@ public final class OutbreakModelBridge {
 
     public static int thermalTier(float temperature) {
         return Physiology.thermalTier(temperature);
+    }
+
+    /** The two mandrake alkaloids, as one number. */
+    public static float anticholinergicLoad(OutbreakData data) {
+        return Physiology.anticholinergicLoad(toModel(data));
+    }
+
+    /** The temperature the alkaloids are driving the body towards, as an offset from normal. */
+    public static float anticholinergicFever(OutbreakData data) {
+        return Physiology.anticholinergicFever(toModel(data));
+    }
+
+    /** True when the alkaloids have blurred the player's sight. */
+    public static boolean isVisionBlurred(OutbreakData data) {
+        return Physiology.isVisionBlurred(toModel(data));
     }
 
     // ================================================================== symptom magnitudes
@@ -472,6 +501,11 @@ public final class OutbreakModelBridge {
         return fromModel(Physiology.iodine(toModel(data), amount));
     }
 
+    /** Adds the two tropane alkaloids a mandrake carries, capped. */
+    public static OutbreakData anticholinergic(OutbreakData data, float scopolamine, float atropine) {
+        return fromModel(Physiology.anticholinergic(toModel(data), scopolamine, atropine));
+    }
+
     // ================================================================== the conversion
     //
     // The only place a Kotlin `OutbreakData` becomes the model's `ModelState` or back. Everything
@@ -489,7 +523,9 @@ public final class OutbreakModelBridge {
                 data.getSalicin(),
                 data.getDexamethasone(),
                 data.getTemperature(),
-                data.getPyrogen());
+                data.getPyrogen(),
+                data.getScopolamine(),
+                data.getAtropine());
     }
 
     private static OutbreakData fromModel(ModelState state) {
@@ -503,7 +539,9 @@ public final class OutbreakModelBridge {
                 state.getSalicin(),
                 state.getDexamethasone(),
                 state.getTemperature(),
-                state.getPyrogen());
+                state.getPyrogen(),
+                state.getScopolamine(),
+                state.getAtropine());
     }
 
     private static ModelMediators toModel(Mediators mediators) {

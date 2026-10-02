@@ -1,6 +1,7 @@
-﻿package com.github.kusa233.outbreak.registry
+package com.github.kusa233.outbreak.registry
 
 import com.github.kusa233.outbreak.world.block.BrineCauldronBlock
+import com.github.kusa233.outbreak.world.block.MandrakeBlock
 import com.github.kusa233.outbreak.world.block.WillowSoupCauldronBlock
 import com.github.kusa233.outbreak.world.block.WillowVinesBlock
 import com.github.kusa233.outbreak.world.block.WillowVinesPlantBlock
@@ -307,7 +308,27 @@ object OutbreakBlocks {
             .noOcclusion(),
     ) { BrineCauldronBlock(it) }
 
+    // ---------------------------------------------------------------- mandrake
+
+    /**
+     * The mandrake plant, in four stages.
+     *
+     * It has no item form on purpose, exactly like vanilla's wheat and sweet berry bush: a mandrake
+     * is sown with [OutbreakItems.MANDRAKE_SEEDS] rather than placed from the inventory, which is
+     * what makes the fruit - and the wait for it - the point of the plant.
+     */
+    val MANDRAKE: Block = Registration.registerBlock(
+        "mandrake",
+        BlockBehaviour.Properties.of()
+            .mapColor(MapColor.PLANT)
+            .noCollision()
+            .randomTicks()
+            .instabreak()
+            .sound(SoundType.GRASS)
+            .offsetType(BlockBehaviour.OffsetType.XZ)
+            .pushReaction(PushReaction.POPPED),
+    ) { MandrakeBlock(it) }
+
     /** Touching this forces the whole object graph to be built. */
     fun initialize() {
-    }
-}
+    }}

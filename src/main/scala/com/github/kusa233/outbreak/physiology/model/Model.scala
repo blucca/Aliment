@@ -282,6 +282,41 @@ object ModelConstants {
   val PYROGEN_CAP: Float = 6f
   val PYROGEN_METABOLISM_TICKS: Int = 24000
   val PYROGEN_DECAY_PER_TICK: Float = PYROGEN_CAP / PYROGEN_METABOLISM_TICKS
+
+  // ---------------------------------------------------------------- anticholinergics
+
+  /** The most of either tropane alkaloid a body can carry. */
+  val ANTICHOLINERGIC_CAP: Float = 5f
+
+  /**
+   * Total alkaloid load at which the body starts running a temperature.
+   *
+   * Unlike a fever from an infection this is not the immune system: it is the drug shutting down
+   * sweating, which is exactly what atropine does to a real patient.
+   */
+  val ANTICHOLINERGIC_FEVER_THRESHOLD: Float = 1.5f
+
+  /** The two steps above it: 1.5..2.5 runs to 38, 2.5..4 to 39.5, and 4 or more to 41. */
+  val ANTICHOLINERGIC_FEVER_STEP: Float = 2.5f
+  val ANTICHOLINERGIC_FEVER_MAX: Float = 4f
+
+  /** The ceiling each step drives the core temperature towards. */
+  val ANTICHOLINERGIC_FEVER_MILD: Float = 38f
+  val ANTICHOLINERGIC_FEVER_SEVERE: Float = 39.5f
+  val ANTICHOLINERGIC_FEVER_EXTREME: Float = 41f
+
+  /** Either alkaloid alone this high blurs the vision... */
+  val ANTICHOLINERGIC_BLUR_SINGLE: Float = 2.3f
+
+  /** ...or the two of them together this high. */
+  val ANTICHOLINERGIC_BLUR_TOTAL: Float = 2.7f
+
+  /** How far a blurred player can see, in blocks. */
+  val ANTICHOLINERGIC_BLUR_DISTANCE: Float = 8f
+
+  /** Both alkaloids are cleared over one in-game day. */
+  val ANTICHOLINERGIC_METABOLISM_TICKS: Int = 24000
+  val ANTICHOLINERGIC_DECAY_PER_TICK: Float = ANTICHOLINERGIC_CAP / ANTICHOLINERGIC_METABOLISM_TICKS
 }
 
 /**
@@ -306,6 +341,10 @@ final case class ModelState(
     @BeanProperty dexamethasone: Float,
     @BeanProperty temperature: Float,
     @BeanProperty pyrogen: Float,
+    /** Scopolamine, the deliriant half of a mandrake, 0..[ModelConstants.ANTICHOLINERGIC_CAP]. */
+    @BeanProperty scopolamine: Float,
+    /** Atropine, the same plant's peripheral poison, on the same cap. */
+    @BeanProperty atropine: Float,
 ) {
   def withMediators(value: ModelMediators): ModelState = copy(mediators = value)
   def withBacteria(value: Float): ModelState = copy(bacteria = value)
@@ -317,4 +356,6 @@ final case class ModelState(
   def withDexamethasone(value: Float): ModelState = copy(dexamethasone = value)
   def withTemperature(value: Float): ModelState = copy(temperature = value)
   def withPyrogen(value: Float): ModelState = copy(pyrogen = value)
+  def withScopolamine(value: Float): ModelState = copy(scopolamine = value)
+  def withAtropine(value: Float): ModelState = copy(atropine = value)
 }

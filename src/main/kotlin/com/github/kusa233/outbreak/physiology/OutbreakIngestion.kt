@@ -62,6 +62,12 @@ object OutbreakIngestion {
     private const val KELP_IODINE = 0.10f
     private const val DRIED_KELP_IODINE = 0.20f
 
+    /** What one mandrake fruit carries, in dose units; the seeds are the same plant, watered down. */
+    private const val FRUIT_SCOPOLAMINE = 1.0f
+    private const val FRUIT_ATROPINE = 0.1f
+    private const val SEED_SCOPOLAMINE = 0.75f
+    private const val SEED_ATROPINE = 0.1f
+
     /** How much pathogen a single successful roll adds. */
     private const val BACTERIA_SEED = 6f
 
@@ -142,6 +148,13 @@ object OutbreakIngestion {
         when (stack.item) {
             Items.KELP -> data = OutbreakPhysiology.iodine(data, KELP_IODINE)
             Items.DRIED_KELP -> data = OutbreakPhysiology.iodine(data, DRIED_KELP_IODINE)
+
+            // The mandrake: scopolamine for the delirium, atropine for the dry mouth and the fever
+            // that comes with it. A fruit is a full dose of the first, the seeds three quarters.
+            OutbreakItems.MANDRAKE_FRUIT ->
+                data = OutbreakPhysiology.anticholinergic(data, FRUIT_SCOPOLAMINE, FRUIT_ATROPINE)
+            OutbreakItems.MANDRAKE_SEEDS ->
+                data = OutbreakPhysiology.anticholinergic(data, SEED_SCOPOLAMINE, SEED_ATROPINE)
             else -> Unit
         }
 

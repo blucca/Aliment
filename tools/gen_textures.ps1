@@ -2003,6 +2003,133 @@ New-ThirstCell (Join-Path $gdir 'thirst_half.png')  'half'
 New-ThirstCell (Join-Path $gdir 'thirst_full.png')  'full'
 
 # ---------------------------------------------------------------------
+# 32-37. mandrake - four growth stages, the fruit and the seeds
+# ---------------------------------------------------------------------
+# A dark leafy plant, a pale trumpet flower and a spiky green capsule. The four stages are meant to
+# read at a glance from a distance: a seedling, a leafy plant, a bud, and a flower with fruit.
+$cMkLeafD ='#26401A'; $cMkLeaf ='#3C6329'; $cMkLeafL='#5D9142'
+$cMkStemD ='#3A5A22'; $cMkStemL='#54802F'
+$cMkPetalD='#B9B5A0'; $cMkPetal ='#DCD8C4'; $cMkPetalL='#F2F0E2'
+$cMkThroat='#C9BE7A'
+$cMkFruitD='#2F4C1C'; $cMkFruit ='#4F7A34'; $cMkFruitL='#79A94E'
+$cMkSeedD ='#5A3F1E'; $cMkSeed  ='#8A6A3C'; $cMkSeedL ='#B08A5A'
+
+# stage 0: a seedling - one short stem and a pair of seed leaves
+$g = New-Grid 16 16
+GridRect $g 7 11 2 5 $cMkStemD
+GridPx  $g 7 10 $cMkStemL
+GridRect $g 4 11 3 1 $cMkLeaf
+GridRect $g 4 12 3 1 $cMkLeafD
+GridRect $g 9 11 3 1 $cMkLeafL
+GridRect $g 9 12 3 1 $cMkLeaf
+Save-Png (Join-Path $bdir 'mandrake_stage0.png') $g 16 16
+
+# stage 1: taller, two pairs of leaves
+$g = New-Grid 16 16
+GridRect $g 7 7 2 9 $cMkStemD
+GridRect $g 7 7 1 9 $cMkStemL
+GridRect $g 3 10 4 1 $cMkLeafD
+GridRect $g 3 11 4 1 $cMkLeaf
+GridRect $g 9 8 4 1 $cMkLeafL
+GridRect $g 9 9 4 1 $cMkLeaf
+GridRect $g 5 7 2 1 $cMkLeaf
+GridRect $g 9 6 2 1 $cMkLeafD
+GridPx  $g 7 6 $cMkLeafL
+Save-Png (Join-Path $bdir 'mandrake_stage1.png') $g 16 16
+
+# stage 2: a bushy plant with the bud that says "almost"
+$g = New-Grid 16 16
+GridRect $g 7 5 2 11 $cMkStemD
+GridRect $g 7 5 1 11 $cMkStemL
+GridRect $g 2 9 5 1 $cMkLeafD
+GridRect $g 2 10 5 1 $cMkLeaf
+GridRect $g 9 8 5 1 $cMkLeafL
+GridRect $g 9 9 5 1 $cMkLeaf
+GridRect $g 4 6 3 1 $cMkLeaf
+GridRect $g 9 5 3 1 $cMkLeafD
+GridRect $g 6 3 4 2 $cMkLeaf
+GridRect $g 7 2 2 2 $cMkLeafL
+Save-Png (Join-Path $bdir 'mandrake_stage2.png') $g 16 16
+
+# stage 3: flowering - the pale trumpet opens upwards and the fruit hangs at its side
+$g = New-Grid 16 16
+GridRect $g 7 8 2 8 $cMkStemD
+GridRect $g 7 8 1 8 $cMkStemL
+GridRect $g 2 11 5 1 $cMkLeafD
+GridRect $g 2 12 5 1 $cMkLeaf
+GridRect $g 9 9 5 1 $cMkLeafL
+GridRect $g 9 10 5 1 $cMkLeaf
+GridRect $g 4 10 3 1 $cMkLeaf
+GridRect $g 9 8 3 1 $cMkLeafD
+# the trumpet: a bell that flares at the mouth and tapers into the stem, throat showing inside
+GridPx  $g 5 2 $cMkPetalL
+GridRect $g 6 2 5 1 $cMkPetalL
+GridPx  $g 11 2 $cMkPetalL
+GridRect $g 5 3 1 2 $cMkPetalD
+GridPx  $g 6 3 $cMkPetal
+GridPx  $g 7 3 $cMkThroat
+GridPx  $g 8 3 $cMkThroat
+GridPx  $g 9 3 $cMkPetal
+GridPx  $g 10 3 $cMkPetalD
+GridPx  $g 6 4 $cMkPetal
+GridPx  $g 7 4 $cMkThroat
+GridPx  $g 8 4 $cMkThroat
+GridPx  $g 9 4 $cMkPetal
+GridRect $g 7 5 2 3 $cMkPetal
+GridPx  $g 7 7 $cMkPetalD
+GridPx  $g 8 7 $cMkPetalD
+# the capsule, knobbly and darker underneath
+foreach($fy in 12..15){ foreach($fx in 10..13){
+    $dx = $fx - 11.5; $dy = $fy - 13.5
+    if(($dx*$dx + $dy*$dy) -le 3.4){
+        $col = $cMkFruit
+        if($dy -gt 0.8){ $col = $cMkFruitD }
+        if($dx -lt -0.5 -and $dy -lt 0.5){ $col = $cMkFruitL }
+        $g[$fx,$fy] = $col
+    }
+} }
+foreach($pt in @(@(10,12),@(13,12),@(10,15),@(13,15),@(11,11),@(12,11))){
+    if($g[$pt[0],$pt[1]] -eq '#00000000'){ GridPx $g $pt[0] $pt[1] $cMkFruitD }
+}
+Save-Png (Join-Path $bdir 'mandrake_stage3.png') $g 16 16
+
+# the fruit on its own: the same capsule, seen up close, with the stalk still on it
+$g = New-Grid 16 16
+foreach($y in 0..15){ foreach($x in 0..15){
+    $dx = $x - 7.5; $dy = $y - 8.5
+    $d2 = ($dx*$dx*0.85) + ($dy*$dy)
+    $n = Noise $x $y 71
+    if($d2 -le 20.0){
+        $col = $cMkFruit
+        if($dy -lt -1.5){ $col = $cMkFruitL }
+        if($dy -gt 2.0 -or $d2 -gt 15.0){ $col = $cMkFruitD }
+        if($n -gt 0.86){ $col = $cMkFruitL }
+        elseif($n -lt 0.16){ $col = $cMkFruitD }
+        $g[$x,$y] = $col
+    }
+} }
+foreach($pt in @(@(2,7),@(3,5),@(13,7),@(12,5),@(3,12),@(4,13),@(12,12),@(11,13),@(7,14),@(8,14))){
+    GridPx $g $pt[0] $pt[1] $cMkFruitD
+}
+GridRect $g 7 1 2 3 $cMkSeedD
+GridPx  $g 7 1 $cMkSeed
+GridPx  $g 6 6 $cMkFruitL
+GridPx  $g 5 6 $cMkFruitL
+GridPx  $g 6 7 $cMkFruitL
+Save-Png (Join-Path $idir 'mandrake_fruit.png') $g 16 16
+
+# the seeds: a scatter of little brown pips
+$g = New-Grid 16 16
+foreach($sp in @(@(3,4),@(9,3),@(12,5),@(6,8),@(11,9),@(4,12),@(9,13))){
+    $sx = $sp[0]; $sy = $sp[1]
+    GridRect $g $sx $sy 2 3 $cMkSeed
+    GridRect $g $sx $sy 2 1 $cMkSeedL
+    GridPx  $g $sx ($sy + 2) $cMkSeedD
+    GridPx  $g ($sx + 1) ($sy + 2) $cMkSeedD
+}
+Save-Png (Join-Path $idir 'mandrake_seeds.png') $g 16 16
+
+# ---------------------------------------------------------------------
 # Normalise every output: force RGBA8 and strip all metadata, so that
 # re-running the script produces byte-identical files.
 # ---------------------------------------------------------------------

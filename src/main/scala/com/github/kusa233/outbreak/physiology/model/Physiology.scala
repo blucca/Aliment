@@ -240,6 +240,44 @@ object Physiology {
 
   def hasThermalStress(temperature: Float): Boolean = thermalTier(temperature) != 0
 
+  // ------------------------------------------------------------------ anticholinergics
+
+  /** The two tropane alkaloids a mandrake carries, as one number. */
+  def anticholinergicLoad(state: ModelState): Float = state.scopolamine + state.atropine
+
+  /**
+   * The temperature an anticholinergic overdose is driving the body towards.
+   *
+   * Atropine stops the body sweating - that is what it is given to a patient for - so past 1.5
+   * combined the core temperature climbs, in three steps: 38, 39.5 and 41 degrees. It is a set point
+   * shift like the thyroid's, not a fever: nothing here goes through prostaglandin, so salicin does
+   * nothing about it.
+   *
+   * Deliberately independent of the infection fever, so the two add up: a mandrake eaten while ill
+   * is worse than either on its own.
+   */
+  def anticholinergicFever(state: ModelState): Float = {
+    val load = anticholinergicLoad(state)
+    val target =
+      if (load < ModelConstants.ANTICHOLINERGIC_FEVER_THRESHOLD) return 0f
+      else if (load < ModelConstants.ANTICHOLINERGIC_FEVER_STEP) ModelConstants.ANTICHOLINERGIC_FEVER_MILD
+      else if (load < ModelConstants.ANTICHOLINERGIC_FEVER_MAX) ModelConstants.ANTICHOLINERGIC_FEVER_SEVERE
+      else ModelConstants.ANTICHOLINERGIC_FEVER_EXTREME
+    target - ModelConstants.TEMPERATURE_NORMAL
+  }
+
+  /**
+   * True when the alkaloids have blurred the player's sight.
+   *
+   * Either one on its own past 2.3, or the two together past 2.7 - which is the same kind of
+   * mydriasis that makes a patient given atropine unable to read. It stacks with everything else:
+   * a fever's haze and this are separate effects and both can be on the screen at once.
+   */
+  def isVisionBlurred(state: ModelState): Boolean =
+    state.scopolamine >= ModelConstants.ANTICHOLINERGIC_BLUR_SINGLE ||
+      state.atropine >= ModelConstants.ANTICHOLINERGIC_BLUR_SINGLE ||
+      anticholinergicLoad(state) >= ModelConstants.ANTICHOLINERGIC_BLUR_TOTAL
+
   // ------------------------------------------------------------------ the environment
 
   /** Vanilla's idea of a temperate biome; the neutral point of the ambient scale. */
@@ -384,6 +422,10 @@ object Physiology {
     val salicin = Math.max(state.salicin - ModelConstants.SALICIN_DECAY_PER_TICK, 0f)
     val dexamethasone = Math.max(state.dexamethasone - ModelConstants.DEXAMETHASONE_DECAY_PER_TICK, 0f)
     val pyrogen = stepPyrogen(state, ambient)
+    // The mandrake alkaloids clear the same way, over a game day, so a single fruit is a trip and a
+    // whole stack of them is an overdose the player has to wait out.
+    val scopolamine = Math.max(state.scopolamine - ModelConstants.ANTICHOLINERGIC_DECAY_PER_TICK, 0f)
+    val atropine = Math.max(state.atropine - ModelConstants.ANTICHOLINERGIC_DECAY_PER_TICK, 0f)
 
     // 2. Pathogens grow logistically and are cleared in proportion to immune competence.
     val competence = immuneCompetence(state.mediators.getInflammation)
@@ -394,6 +436,8 @@ object Physiology {
       .withSalicin(salicin)
       .withDexamethasone(dexamethasone)
       .withPyrogen(pyrogen)
+      .withScopolamine(scopolamine)
+      .withAtropine(atropine)
       .withBacteria(bacteria)
       .withVirus(virus)
 
@@ -491,7 +535,8 @@ object Physiology {
     val fever = Math.min(FEVER_PER_PROSTAGLANDIN * prostaglandin, FEVER_MAX)
     val environmental = (ambient - ModelConstants.TEMPERATURE_NORMAL) * AMBIENT_COUPLING
     val target = ModelConstants.TEMPERATURE_NORMAL +
-      fever + state.pyrogen + thyroidShift(state.traceElements.iodine) + environmental
+      fever + state.pyrogen + thyroidShift(state.traceElements.iodine) +
+      anticholinergicFever(state) + environmental
     clamp(target, ModelConstants.TEMPERATURE_MIN, ModelConstants.TEMPERATURE_MAX)
   }
 
@@ -646,6 +691,18 @@ object Physiology {
     state.withTraceElements(
       state.traceElements.withIodine(MineralRanges.IODINE.clamp(state.traceElements.iodine + amount)),
     )
+
+  /**
+   * Adds the two tropane alkaloids a mandrake carries, in dose units, both capped.
+   *
+   * Scopolamine is the one that crosses into the brain and does the hallucinating; atropine is the
+   * one that dries the body out and stops it sweating. A fruit (1.0 / 0.1) is a trip; the seeds
+   * (0.75 / 0.1) are the same trip with less of the delirium, which is why nobody eats them.
+   */
+  def anticholinergic(state: ModelState, scopolamine: Float, atropine: Float): ModelState =
+    state
+      .withScopolamine(clamp(state.scopolamine + scopolamine, 0f, ModelConstants.ANTICHOLINERGIC_CAP))
+      .withAtropine(clamp(state.atropine + atropine, 0f, ModelConstants.ANTICHOLINERGIC_CAP))
 
   /**
    * Raises or lowers the fever so that the body *peaks* at `degrees` Celsius.

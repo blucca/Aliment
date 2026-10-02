@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cross",
+  "textures": {
+    "cross": "outbreak:block/mandrake_stage1"
+  }
+}

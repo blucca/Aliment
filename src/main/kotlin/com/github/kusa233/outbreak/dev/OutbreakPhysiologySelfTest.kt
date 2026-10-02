@@ -105,6 +105,7 @@ class OutbreakPhysiologySelfTest : ModInitializer {
         drinkingDilutesElectrolytes()
         dehydrationStopsWhenDrinking()
         iodineDepletion()
+        anticholinergics()
         temperatureHomeostasis()
         environmentThermoregulation()
         feverFollowsProstaglandin()
@@ -589,6 +590,109 @@ class OutbreakPhysiologySelfTest : ModInitializer {
         check("neither is a fever on its own", !hyperthyroid.isFebrile && !hypothyroid.isHypothermic)
     }
 
+    // ================================================================== anticholinergics
+
+    /**
+     * The mandrake alkaloids: scopolamine for the delirium, atropine for the fever it drags along.
+     *
+     * A fruit is a full dose of scopolamine and a tenth of atropine; the seeds are three quarters of
+     * one and the same tenth. Both are capped at 5 and cleared over a game day, so one fruit is a
+     * trip that wears off and a stack of them is an overdose the player has to wait out.
+     *
+     * Past 1.5 combined the body runs a temperature - 38, then 39.5, then 41 - and past 2.3 of either
+     * one, or 2.7 of the two, the sight blurs. None of it goes through prostaglandin, so it is a set
+     * point shift that *stacks* with an infection's fever rather than replacing it.
+     */
+    private fun anticholinergics() {
+        var data = OutbreakData.HEALTHY
+        data = OutbreakPhysiology.anticholinergic(data, 1.0f, 0.1f)
+        logger.info(
+            "PHYS one mandrake fruit: scopolamine {} atropine {} load {}",
+            data.scopolamine, data.atropine, data.anticholinergicLoad,
+        )
+        check(
+            "one fruit is a full dose of scopolamine and a tenth of atropine",
+            abs(data.scopolamine - 1.0f) < 0.001f && abs(data.atropine - 0.1f) < 0.001f,
+        )
+        check("1.1 combined is below the fever threshold", abs(OutbreakPhysiology.targetTemperature(data) - 37f) < 0.001f)
+        check("and a single fruit does not blur the sight", !data.isVisionBlurred)
+
+        data = OutbreakPhysiology.anticholinergic(data, 1.0f, 0.1f)
+        logger.info("PHYS two fruits: load {} target {}", data.anticholinergicLoad, OutbreakPhysiology.targetTemperature(data))
+        check("two fruits start a fever", abs(OutbreakPhysiology.targetTemperature(data) - 38f) < 0.001f)
+        check("and 2.1 is still short of the blur", !data.isVisionBlurred)
+
+        data = OutbreakPhysiology.anticholinergic(data, 1.0f, 0.1f)
+        check("three fruits step the fever up to 39.5", abs(OutbreakPhysiology.targetTemperature(data) - 39.5f) < 0.001f)
+        check("and 3.1 combined blurs the sight", data.isVisionBlurred)
+
+        // The seeds are a milder dose and a tenth of atropine, so they add up the same way.
+        val fromSeeds = OutbreakPhysiology.anticholinergic(OutbreakData.HEALTHY, 0.75f, 0.1f)
+        check(
+            "the seeds are three quarters of a dose and the same atropine",
+            abs(fromSeeds.scopolamine - 0.75f) < 0.001f && abs(fromSeeds.atropine - 0.1f) < 0.001f,
+        )
+        check("and one dose of seeds is not enough for either effect", !fromSeeds.isVisionBlurred && abs(OutbreakPhysiology.targetTemperature(fromSeeds) - 37f) < 0.001f)
+
+        // Each alkaloid is capped on its own, so the pair can reach 10 between them.
+        val capped = OutbreakPhysiology.anticholinergic(OutbreakData.HEALTHY, 99f, 99f)
+        check(
+            "both alkaloids are capped at five",
+            abs(capped.scopolamine - OutbreakData.ANTICHOLINERGIC_CAP) < 0.001f &&
+                abs(capped.atropine - OutbreakData.ANTICHOLINERGIC_CAP) < 0.001f,
+        )
+        check("and 10 combined drives the fever to 41", abs(OutbreakPhysiology.targetTemperature(capped) - 41f) < 0.001f)
+
+        // Either one on its own is enough to blur, without the sum being anywhere near 2.7. The two
+        // samples either side of the sum use 1.375, which is exact in binary, so the boundary is not
+        // decided by a rounding error.
+        val blindFromScopolamine = OutbreakData.HEALTHY.withScopolamine(2.3f)
+        val blindFromAtropine = OutbreakData.HEALTHY.withAtropine(2.3f)
+        val togetherBlind = OutbreakData.HEALTHY.withScopolamine(1.375f).withAtropine(1.375f)
+        val togetherClear = OutbreakData.HEALTHY.withScopolamine(1.3f).withAtropine(1.3f)
+        check("2.3 of scopolamine alone blurs the sight", blindFromScopolamine.isVisionBlurred)
+        check("2.3 of atropine alone blurs it too", blindFromAtropine.isVisionBlurred)
+        check("and so does 2.75 of the two together", togetherBlind.isVisionBlurred)
+        check("but 2.6 of the two together is still clear", !togetherClear.isVisionBlurred)
+
+        // A real overdose has to actually heat the body up, not merely move a set point.
+        var overdosed = capped
+        repeat(3_000) { overdosed = OutbreakPhysiology.tick(overdosed) }
+        logger.info(
+            "PHYS overdose after 3000 ticks: temperature {} load {}",
+            overdosed.temperature, overdosed.anticholinergicLoad,
+        )
+        check("an overdose really heats the body", overdosed.temperature > 39f)
+        check("and it is not a fever salicin can treat", OutbreakPhysiology.dose(overdosed, 3f).let {
+            abs(OutbreakPhysiology.targetTemperature(it) - OutbreakPhysiology.targetTemperature(overdosed)) < 0.001f
+        })
+
+        // Nothing clears them but time: both are gone a game day later.
+        var clearing = capped
+        repeat(OutbreakData.ANTICHOLINERGIC_METABOLISM_TICKS) { clearing = OutbreakPhysiology.tick(clearing) }
+        logger.info("PHYS after a game day: scopolamine {} atropine {}", clearing.scopolamine, clearing.atropine)
+        check("a game day clears both alkaloids", clearing.scopolamine == 0f && clearing.atropine == 0f)
+        check("and the sight clears with them", !clearing.isVisionBlurred)
+
+        // The drug fever and an infection fever are separate terms, and they add up. The infection
+        // here is a mild one on purpose: 37 + 1 + 4 lands exactly on the model's 42 degree ceiling,
+        // so the sum can be read straight off the target instead of being clipped by it.
+        val infected = OutbreakData.HEALTHY.copy(mediators = OutbreakData.HEALTHY.mediators.withProstaglandin(50f))
+        val stacked = overdosed.withMediators(infected.mediators)
+        logger.info(
+            "PHYS fever terms: infection {} drug {} both {}",
+            OutbreakPhysiology.targetTemperature(infected),
+            OutbreakPhysiology.targetTemperature(overdosed),
+            OutbreakPhysiology.targetTemperature(stacked),
+        )
+        check("a drug fever stacks on top of an infection fever", abs(OutbreakPhysiology.targetTemperature(stacked) - 42f) < 0.01f)
+        check(
+            "and each of them is milder on its own",
+            OutbreakPhysiology.targetTemperature(stacked) > OutbreakPhysiology.targetTemperature(overdosed) &&
+                OutbreakPhysiology.targetTemperature(stacked) > OutbreakPhysiology.targetTemperature(infected),
+        )
+    }
+
     // ================================================================== symptoms
 
     /**
@@ -602,9 +706,44 @@ class OutbreakPhysiologySelfTest : ModInitializer {
         thermalSymptoms(player)
         shakeOnlyWhenSomethingIsVisible(player)
         postEffects(player)
+        anticholinergicSymptoms(player)
         seaWaterIsNotFoul(level, player)
         infectionRolls(player)
         severeInfectionDamages()
+    }
+
+    /**
+     * The visible half of a mandrake overdose.
+     *
+     * Two things have to happen and both are checked here: the blur is requested as a post effect like
+     * any other screen effect, and the synced client state carries the flag that makes the client
+     * close the fog in to eight blocks. The fever that comes with it is the model's, and is tested
+     * with the rest of the model.
+     */
+    private fun anticholinergicSymptoms(player: ServerPlayer) {
+        applyWith(player, OutbreakData.HEALTHY.withScopolamine(3f))
+        OutbreakSymptoms.tick(player)
+        val blurred = player.getAttachedOrCreate(OutbreakAttachments.CLIENT)
+        logger.info("PHYS blurred client state: {}", blurred)
+        check("a blurred player gets the blur post effect", player.getPostEffects().contains(OutbreakSymptoms.ANTICHOLINERGIC_BLUR))
+        check("and the client is told to close the fog in", blurred.blurred)
+        check("with no fever effect while the temperature is normal", !player.getPostEffects().contains(OutbreakSymptoms.HEAT_HAZE))
+
+        // The two are independent: a fever's own effects stay on the screen alongside the blur.
+        applyWith(player, OutbreakData.HEALTHY.withScopolamine(3f).withTemperature(41f))
+        OutbreakSymptoms.tick(player)
+        logger.info("PHYS blurred and feverish: {}", player.getPostEffects())
+        check(
+            "the drug blur stacks with the fever's own effects",
+            player.getPostEffects().contains(OutbreakSymptoms.ANTICHOLINERGIC_BLUR) &&
+                player.getPostEffects().contains(OutbreakSymptoms.HEAT_HAZE) &&
+                player.getPostEffects().contains(OutbreakSymptoms.HEAT_BLUR),
+        )
+
+        applyWith(player, OutbreakData.HEALTHY)
+        OutbreakSymptoms.tick(player)
+        check("the blur comes off once the alkaloids are gone", !player.getPostEffects().contains(OutbreakSymptoms.ANTICHOLINERGIC_BLUR))
+        check("and the fog opens back up", !player.getAttachedOrCreate(OutbreakAttachments.CLIENT).blurred)
     }
 
     /**
@@ -1304,6 +1443,26 @@ class OutbreakPhysiologySelfTest : ModInitializer {
         logger.info("PHYS iodine from kelp {} / dried kelp {}", afterKelp, afterDried)
         check("kelp adds 0.10 umol/L of iodine", abs(afterKelp - 0.40f) < 0.001f)
         check("dried kelp adds 0.20 umol/L", abs(afterDried - 0.50f) < 0.001f)
+
+        // The mandrake, eaten: the fruit and the seeds both carry the two alkaloids.
+        player.setAttached(OutbreakAttachments.DATA, OutbreakData.HEALTHY)
+        ItemStack(OutbreakItems.MANDRAKE_FRUIT, 1).finishUsingItem(level, player)
+        val afterFruit = player.getAttachedOrCreate(OutbreakAttachments.DATA)
+        player.setAttached(OutbreakAttachments.DATA, OutbreakData.HEALTHY)
+        ItemStack(OutbreakItems.MANDRAKE_SEEDS, 1).finishUsingItem(level, player)
+        val afterSeeds = player.getAttachedOrCreate(OutbreakAttachments.DATA)
+        logger.info(
+            "PHYS mandrake eaten: fruit {} / {} seeds {} / {}",
+            afterFruit.scopolamine, afterFruit.atropine, afterSeeds.scopolamine, afterSeeds.atropine,
+        )
+        check(
+            "eating a fruit adds a full dose of scopolamine and a tenth of atropine",
+            abs(afterFruit.scopolamine - 1.0f) < 0.001f && abs(afterFruit.atropine - 0.1f) < 0.001f,
+        )
+        check(
+            "eating the seeds adds three quarters of a dose and the same atropine",
+            abs(afterSeeds.scopolamine - 0.75f) < 0.001f && abs(afterSeeds.atropine - 0.1f) < 0.001f,
+        )
 
         player.setAttached(OutbreakAttachments.DATA, OutbreakData.HEALTHY)
         ItemStack(Items.BREAD, 1).finishUsingItem(level, player)

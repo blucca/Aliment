@@ -199,6 +199,13 @@ data class OutbreakData(
     val temperature: Float = TEMPERATURE_NORMAL,
     /** Circulating pyrogen, the exogenous fever driver, cleared over a game day. */
     val pyrogen: Float = 0f,
+    /**
+     * Scopolamine and atropine: the two tropane alkaloids a mandrake carries, 0..[ANTICHOLINERGIC_CAP]
+     * each. Past 1.5 of the two together the body runs a temperature, and past 2.3 of either (or 2.7
+     * of the two) the player's sight blurs down to [ANTICHOLINERGIC_BLUR_DISTANCE] blocks.
+     */
+    val scopolamine: Float = 0f,
+    val atropine: Float = 0f,
 ) {
 
     val inflammation: Float
@@ -278,6 +285,19 @@ data class OutbreakData(
     val thermalTier: Int
         get() = OutbreakModelBridge.thermalTier(this.temperature)
 
+    // ------------------------------------------------------------------ mandrake alkaloids
+
+    /** Scopolamine plus atropine, which is what the fever and the blur are both judged on. */
+    val anticholinergicLoad: Float
+        get() = OutbreakModelBridge.anticholinergicLoad(this)
+
+    /**
+     * True when the alkaloids have blurred the player's sight: either one past 2.3, or the two
+     * together past 2.7. Independent of any fever, so the two can be on the screen at once.
+     */
+    val isVisionBlurred: Boolean
+        get() = OutbreakModelBridge.isVisionBlurred(this)
+
     fun withMediators(value: Mediators): OutbreakData = this.copy(mediators = value)
 
     fun withElectrolytes(value: Electrolytes): OutbreakData = this.copy(electrolytes = value)
@@ -297,6 +317,10 @@ data class OutbreakData(
     fun withTemperature(value: Float): OutbreakData = this.copy(temperature = value)
 
     fun withPyrogen(value: Float): OutbreakData = this.copy(pyrogen = value)
+
+    fun withScopolamine(value: Float): OutbreakData = this.copy(scopolamine = value)
+
+    fun withAtropine(value: Float): OutbreakData = this.copy(atropine = value)
 
     companion object {
 
@@ -404,6 +428,17 @@ data class OutbreakData(
         @JvmField val PYROGEN_METABOLISM_TICKS: Int = OutbreakModelBridge.PYROGEN_METABOLISM_TICKS
         @JvmField val PYROGEN_DECAY_PER_TICK: Float = OutbreakModelBridge.PYROGEN_DECAY_PER_TICK
 
+        // ---------------------------------------------------------------- mandrake alkaloids
+
+        /** The most of either tropane alkaloid a body can carry. */
+        @JvmField val ANTICHOLINERGIC_CAP: Float = OutbreakModelBridge.ANTICHOLINERGIC_CAP
+
+        /** How far a blurred player can see, in blocks. */
+        @JvmField val ANTICHOLINERGIC_BLUR_DISTANCE: Float = OutbreakModelBridge.ANTICHOLINERGIC_BLUR_DISTANCE
+
+        /** Either alkaloid is cleared over one in-game day. */
+        @JvmField val ANTICHOLINERGIC_METABOLISM_TICKS: Int = OutbreakModelBridge.ANTICHOLINERGIC_METABOLISM_TICKS
+
         /** What a healthy player looks like. */
         @JvmField val HEALTHY: OutbreakData = OutbreakModelBridge.healthy()
 
@@ -421,6 +456,8 @@ data class OutbreakData(
                 // healthy player instead of being thrown away.
                 Codec.FLOAT.optionalFieldOf("temperature", TEMPERATURE_NORMAL).forGetter { it.temperature },
                 Codec.FLOAT.optionalFieldOf("pyrogen", 0f).forGetter { it.pyrogen },
+                Codec.FLOAT.optionalFieldOf("scopolamine", 0f).forGetter { it.scopolamine },
+                Codec.FLOAT.optionalFieldOf("atropine", 0f).forGetter { it.atropine },
             ).apply(instance, ::OutbreakData)
         }
     }
@@ -438,6 +475,12 @@ data class OutbreakClientState(
     val shakeAmplitude: Float,
     /** Whole water points, for the thirst bar. */
     val water: Int,
+    /**
+     * True while the mandrake alkaloids have blurred the player's sight. The client turns it into
+     * fog out at [OutbreakData.ANTICHOLINERGIC_BLUR_DISTANCE] blocks, which is the one part of the
+     * blur the server cannot draw for the player.
+     */
+    val blurred: Boolean = false,
 ) {
     companion object {
         val INACTIVE = OutbreakClientState(0, 0f, 0)
@@ -447,6 +490,7 @@ data class OutbreakClientState(
                 Codec.INT.fieldOf("shake_sequence").forGetter { it.shakeSequence },
                 Codec.FLOAT.fieldOf("shake_amplitude").forGetter { it.shakeAmplitude },
                 Codec.INT.fieldOf("water").forGetter { it.water },
+                Codec.BOOL.optionalFieldOf("blurred", false).forGetter { it.blurred },
             ).apply(instance, ::OutbreakClientState)
         }
 
@@ -455,6 +499,7 @@ data class OutbreakClientState(
                 ByteBufCodecs.VAR_INT, OutbreakClientState::shakeSequence,
                 ByteBufCodecs.FLOAT, OutbreakClientState::shakeAmplitude,
                 ByteBufCodecs.VAR_INT, OutbreakClientState::water,
+                ByteBufCodecs.BOOL, OutbreakClientState::blurred,
                 ::OutbreakClientState,
             )
     }
