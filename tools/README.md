@@ -107,7 +107,7 @@ mixins applied, rolls the chest-loot pool
 the mod actually adds, freezes a creative player and respawns a dead one, and checks the exhaustion
 multiplier, the mining penalty and the synced client state. It also enumerates every item and entity
 type the mod registers and fails, naming the key, if any of them has no name in `en_us.json` or
-`zh_cn.json`. 367 checks.
+`zh_cn.json` or `ja_jp.json`. 367 checks.
 
 ### Running either one
 

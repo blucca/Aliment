@@ -428,29 +428,40 @@ $zhSource = Get-Content (Join-Path $root "tools\lang_zh_cn.json") -Raw -Encoding
 $zhNames = @{}
 foreach ($prop in $zhSource.PSObject.Properties) { $zhNames[$prop.Name] = $prop.Value }
 
+$jaSource = Get-Content (Join-Path $root "tools\lang_ja_jp.json") -Raw -Encoding UTF8 | ConvertFrom-Json
+$jaNames = @{}
+foreach ($prop in $jaSource.PSObject.Properties) { $jaNames[$prop.Name] = $prop.Value }
+
 $en = [ordered]@{}
 $zh = [ordered]@{}
+$ja = [ordered]@{}
 foreach ($group in @(
     @{ prefix = 'block'; entries = $blockEntries },
     @{ prefix = 'item';  entries = $itemEntries }
 )) {
     foreach ($k in $group.entries.Keys) {
         if (-not $zhNames.ContainsKey($k)) { throw "tools/lang_zh_cn.json is missing an entry for $k" }
+        if (-not $jaNames.ContainsKey($k)) { throw "tools/lang_ja_jp.json is missing an entry for $k" }
         $en["$($group.prefix).$ns.$k"] = $group.entries[$k]
         $zh["$($group.prefix).$ns.$k"] = $zhNames[$k]
+        $ja["$($group.prefix).$ns.$k"] = $jaNames[$k]
     }
 }
 foreach ($k in $boatEntries.Keys) {
     if (-not $zhNames.ContainsKey($k)) { throw "tools/lang_zh_cn.json is missing an entry for $k" }
+    if (-not $jaNames.ContainsKey($k)) { throw "tools/lang_ja_jp.json is missing an entry for $k" }
     $en["item.$ns.$k"] = $boatEntries[$k]
     $zh["item.$ns.$k"] = $zhNames[$k]
+    $ja["item.$ns.$k"] = $jaNames[$k]
     $en["entity.$ns.$k"] = $boatEntries[$k]
     $zh["entity.$ns.$k"] = $zhNames[$k]
+    $ja["entity.$ns.$k"] = $jaNames[$k]
 }
 
 # The mod's own creative tab. Its Chinese name is "Bao Fa" (see tools/lang_zh_cn.json).
 $en["itemGroup.$ns.main"] = 'Outbreak'
 $zh["itemGroup.$ns.main"] = $zhNames['itemGroup.outbreak.main']
+$ja["itemGroup.$ns.main"] = $jaNames['itemGroup.outbreak.main']
 
 $advancements = @(
     @{
@@ -495,17 +506,23 @@ foreach ($adv in $advancements) {
     $descKey  = "advancements.$ns.$($adv.id).description"
     if (-not $zhNames.ContainsKey($titleKey)) { throw "tools/lang_zh_cn.json is missing an entry for $titleKey" }
     if (-not $zhNames.ContainsKey($descKey))  { throw "tools/lang_zh_cn.json is missing an entry for $descKey" }
+    if (-not $jaNames.ContainsKey($titleKey)) { throw "tools/lang_ja_jp.json is missing an entry for $titleKey" }
+    if (-not $jaNames.ContainsKey($descKey))  { throw "tools/lang_ja_jp.json is missing an entry for $descKey" }
     $en[$titleKey] = $adv.title_en
     $en[$descKey]  = $adv.desc_en
     $zh[$titleKey] = $zhNames[$titleKey]
     $zh[$descKey]  = $zhNames[$descKey]
+    $ja[$titleKey] = $jaNames[$titleKey]
+    $ja[$descKey]  = $jaNames[$descKey]
 }
 
 $en["tooltip.$ns.wine.concentration"] = 'Ethanol: %s'
 $zh["tooltip.$ns.wine.concentration"] = $zhNames['tooltip.outbreak.wine.concentration']
+$ja["tooltip.$ns.wine.concentration"] = $jaNames['tooltip.outbreak.wine.concentration']
 
 Write-Json "assets/$ns/lang/en_us.json" ($en | ConvertTo-Json -Depth 4)
 Write-Json "assets/$ns/lang/zh_cn.json" ($zh | ConvertTo-Json -Depth 4)
+Write-Json "assets/$ns/lang/ja_jp.json" ($ja | ConvertTo-Json -Depth 4)
 
 # ---------------------------------------------------------------------------- data: worldgen
 

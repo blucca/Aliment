@@ -1442,7 +1442,7 @@ class OutbreakPhysiologySelfTest : ModInitializer {
      * loads, so this fails the moment a key is renamed or an item is added without one.
      */
     private fun translationChecks() {
-        val languages = listOf("en_us", "zh_cn")
+        val languages = listOf("en_us", "zh_cn", "ja_jp")
         val names = languages.associateWith(::languageKeys)
 
         val missingItems = mutableListOf<String>()
