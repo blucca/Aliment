@@ -79,7 +79,7 @@ when ripe and nothing at all before that, the seeds recipe being in the recipe m
 patches being attached to the plains and the swamps and to nothing else, the gymnopilus' three
 cooking recipes loading with the same timings raw beef has, and its patches being attached to the dark
 forest and the taiga and to nothing else. It reads the worldgen answer out of the biome registry
-rather than by scanning a world, which is what the patches are actually decided by. 33 checks.
+rather than by scanning a world, which is what the patches are actually decided by, and verifies the advancement tree and triggers. 55 checks.
 
 ### `dev/OutbreakPhysiologySelfTest.kt` - physiology
 

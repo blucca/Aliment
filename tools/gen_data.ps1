@@ -447,6 +447,55 @@ foreach ($k in $boatEntries.Keys) {
 $en["itemGroup.$ns.main"] = 'Outbreak'
 $zh["itemGroup.$ns.main"] = $zhNames['itemGroup.outbreak.main']
 
+$advancements = @(
+    @{
+        id       = 'ancient_anti_inflammatory'
+        title_en = 'Ancient Anti-inflammatory'
+        desc_en  = 'Obtain a piece of willow bark'
+    },
+    @{
+        id       = 'just_crude_salt'
+        title_en = 'Just Crude Salt'
+        desc_en  = 'Crush a piece of rock salt ore'
+    },
+    @{
+        id       = 'crushed_again'
+        title_en = 'Crushed and Crushed Again'
+        desc_en  = 'Crush a piece of crude salt'
+    },
+    @{
+        id       = 'refined_salt'
+        title_en = 'Refined Salt'
+        desc_en  = 'High-purity refined table salt'
+    },
+    @{
+        id       = 'even_if_dangerous'
+        title_en = 'Even If Dangerous'
+        desc_en  = 'Taste the mandrake'
+    },
+    @{
+        id       = 'psychedelic_world'
+        title_en = 'Psychedelic World'
+        desc_en  = 'Eat a bite of Gymnopilus'
+    },
+    @{
+        id       = 'extreme_fever'
+        title_en = 'Hyperpyrexia'
+        desc_en  = 'Core body temperature exceeds 40 C'
+    }
+)
+
+foreach ($adv in $advancements) {
+    $titleKey = "advancements.$ns.$($adv.id).title"
+    $descKey  = "advancements.$ns.$($adv.id).description"
+    if (-not $zhNames.ContainsKey($titleKey)) { throw "tools/lang_zh_cn.json is missing an entry for $titleKey" }
+    if (-not $zhNames.ContainsKey($descKey))  { throw "tools/lang_zh_cn.json is missing an entry for $descKey" }
+    $en[$titleKey] = $adv.title_en
+    $en[$descKey]  = $adv.desc_en
+    $zh[$titleKey] = $zhNames[$titleKey]
+    $zh[$descKey]  = $zhNames[$descKey]
+}
+
 Write-Json "assets/$ns/lang/en_us.json" ($en | ConvertTo-Json -Depth 4)
 Write-Json "assets/$ns/lang/zh_cn.json" ($zh | ConvertTo-Json -Depth 4)
 
@@ -1502,5 +1551,265 @@ foreach ($stage in $psilocinStages) {
 }
 "@
 }
+
+# ---- advancements
+Write-Json "data/$ns/advancement/ancient_anti_inflammatory.json" @"
+{
+  "display": {
+    "icon": {
+      "count": 1,
+      "id": "$ns`:willow_bark"
+    },
+    "title": {
+      "translate": "advancements.$ns.ancient_anti_inflammatory.title"
+    },
+    "description": {
+      "translate": "advancements.$ns.ancient_anti_inflammatory.description"
+    },
+    "background": "minecraft:textures/gui/advancements/backgrounds/adventure.png",
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true
+  },
+  "criteria": {
+    "has_willow_bark": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "$ns`:willow_bark"
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "has_willow_bark"
+    ]
+  ]
+}
+"@
+
+Write-Json "data/$ns/advancement/just_crude_salt.json" @"
+{
+  "parent": "$ns`:ancient_anti_inflammatory",
+  "display": {
+    "icon": {
+      "count": 1,
+      "id": "$ns`:crude_salt"
+    },
+    "title": {
+      "translate": "advancements.$ns.just_crude_salt.title"
+    },
+    "description": {
+      "translate": "advancements.$ns.just_crude_salt.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true
+  },
+  "criteria": {
+    "crushed": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "crushed"
+    ]
+  ]
+}
+"@
+
+Write-Json "data/$ns/advancement/crushed_again.json" @"
+{
+  "parent": "$ns`:just_crude_salt",
+  "display": {
+    "icon": {
+      "count": 1,
+      "id": "$ns`:crude_salt_powder"
+    },
+    "title": {
+      "translate": "advancements.$ns.crushed_again.title"
+    },
+    "description": {
+      "translate": "advancements.$ns.crushed_again.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true
+  },
+  "criteria": {
+    "crushed": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "crushed"
+    ]
+  ]
+}
+"@
+
+Write-Json "data/$ns/advancement/refined_salt.json" @"
+{
+  "parent": "$ns`:crushed_again",
+  "display": {
+    "icon": {
+      "count": 1,
+      "id": "$ns`:salt_powder"
+    },
+    "title": {
+      "translate": "advancements.$ns.refined_salt.title"
+    },
+    "description": {
+      "translate": "advancements.$ns.refined_salt.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true
+  },
+  "criteria": {
+    "has_salt": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "$ns`:salt_powder"
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "has_salt"
+    ]
+  ]
+}
+"@
+
+Write-Json "data/$ns/advancement/even_if_dangerous.json" @"
+{
+  "parent": "$ns`:ancient_anti_inflammatory",
+  "display": {
+    "icon": {
+      "count": 1,
+      "id": "$ns`:mandrake_fruit"
+    },
+    "title": {
+      "translate": "advancements.$ns.even_if_dangerous.title"
+    },
+    "description": {
+      "translate": "advancements.$ns.even_if_dangerous.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true
+  },
+  "criteria": {
+    "mandrake_fruit": {
+      "trigger": "minecraft:consume_item",
+      "conditions": {
+        "item": {
+          "items": "$ns`:mandrake_fruit"
+        }
+      }
+    },
+    "mandrake_seeds": {
+      "trigger": "minecraft:consume_item",
+      "conditions": {
+        "item": {
+          "items": "$ns`:mandrake_seeds"
+        }
+      }
+    }
+  },
+  "requirements": [
+    [
+      "mandrake_fruit",
+      "mandrake_seeds"
+    ]
+  ]
+}
+"@
+
+Write-Json "data/$ns/advancement/psychedelic_world.json" @"
+{
+  "parent": "$ns`:even_if_dangerous",
+  "display": {
+    "icon": {
+      "count": 1,
+      "id": "$ns`:gymnopilus"
+    },
+    "title": {
+      "translate": "advancements.$ns.psychedelic_world.title"
+    },
+    "description": {
+      "translate": "advancements.$ns.psychedelic_world.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true
+  },
+  "criteria": {
+    "gymnopilus": {
+      "trigger": "minecraft:consume_item",
+      "conditions": {
+        "item": {
+          "items": "$ns`:gymnopilus"
+        }
+      }
+    },
+    "cooked_gymnopilus": {
+      "trigger": "minecraft:consume_item",
+      "conditions": {
+        "item": {
+          "items": "$ns`:cooked_gymnopilus"
+        }
+      }
+    }
+  },
+  "requirements": [
+    [
+      "gymnopilus",
+      "cooked_gymnopilus"
+    ]
+  ]
+}
+"@
+
+Write-Json "data/$ns/advancement/extreme_fever.json" @"
+{
+  "parent": "$ns`:ancient_anti_inflammatory",
+  "display": {
+    "icon": {
+      "count": 1,
+      "id": "$ns`:dexamethasone_injection"
+    },
+    "title": {
+      "translate": "advancements.$ns.extreme_fever.title"
+    },
+    "description": {
+      "translate": "advancements.$ns.extreme_fever.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true
+  },
+  "criteria": {
+    "fever": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "fever"
+    ]
+  ]
+}
+"@
 
 Write-Host "gen_data.ps1 wrote $script:written JSON files into src/main/resources"

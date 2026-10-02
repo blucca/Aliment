@@ -1,0 +1,28 @@
+{
+  "parent": "outbreak:ancient_anti_inflammatory",
+  "display": {
+    "icon": {
+      "count": 1,
+      "id": "outbreak:dexamethasone_injection"
+    },
+    "title": {
+      "translate": "advancements.outbreak.extreme_fever.title"
+    },
+    "description": {
+      "translate": "advancements.outbreak.extreme_fever.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true
+  },
+  "criteria": {
+    "fever": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "fever"
+    ]
+  ]
+}

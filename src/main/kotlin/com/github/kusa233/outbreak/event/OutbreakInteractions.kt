@@ -1,5 +1,6 @@
-﻿package com.github.kusa233.outbreak.event
+package com.github.kusa233.outbreak.event
 
+import com.github.kusa233.outbreak.advancement.OutbreakAdvancements
 import com.github.kusa233.outbreak.physiology.OutbreakIngestion
 import com.github.kusa233.outbreak.registry.OutbreakBlocks
 import com.github.kusa233.outbreak.registry.OutbreakItems
@@ -236,6 +237,9 @@ object OutbreakInteractions {
             level.gameEvent(GameEvent.BLOCK_CHANGE, pos, GameEvent.Context.of(player, newState))
             stack.hurtAndBreak(1, player, hand.asEquipmentSlot())
             Block.popResource(level, pos, ItemStack(OutbreakItems.WILLOW_BARK))
+            if (player is ServerPlayer) {
+                OutbreakAdvancements.award(player, OutbreakAdvancements.ANCIENT_ANTI_INFLAMMATORY)
+            }
         }
         level.playSound(player, pos, SoundEvents.AXE_STRIP.value(), SoundSource.BLOCKS, 1.0F, 1.0F)
         return InteractionResult.SUCCESS
@@ -268,6 +272,9 @@ object OutbreakInteractions {
             if (!player.addItem(produced)) {
                 // 26.3 added an explicit client-prediction argument to the drop helpers.
                 player.drop(produced, false, Prediction.SERVER_ONLY)
+            }
+            if (player is ServerPlayer) {
+                OutbreakAdvancements.onGrind(player, produced)
             }
             level.playSound(null, pos, SoundEvents.GRINDSTONE_USE, SoundSource.BLOCKS, 1.0F, 1.0F)
             if (level is ServerLevel) {

@@ -58,5 +58,19 @@
     "entity.outbreak.willow_boat":  "Willow Boat",
     "item.outbreak.willow_chest_boat":  "Willow Boat with Chest",
     "entity.outbreak.willow_chest_boat":  "Willow Boat with Chest",
-    "itemGroup.outbreak.main":  "Outbreak"
+    "itemGroup.outbreak.main":  "Outbreak",
+    "advancements.outbreak.ancient_anti_inflammatory.title":  "Ancient Anti-inflammatory",
+    "advancements.outbreak.ancient_anti_inflammatory.description":  "Obtain a piece of willow bark",
+    "advancements.outbreak.just_crude_salt.title":  "Just Crude Salt",
+    "advancements.outbreak.just_crude_salt.description":  "Crush a piece of rock salt ore",
+    "advancements.outbreak.crushed_again.title":  "Crushed and Crushed Again",
+    "advancements.outbreak.crushed_again.description":  "Crush a piece of crude salt",
+    "advancements.outbreak.refined_salt.title":  "Refined Salt",
+    "advancements.outbreak.refined_salt.description":  "High-purity refined table salt",
+    "advancements.outbreak.even_if_dangerous.title":  "Even If Dangerous",
+    "advancements.outbreak.even_if_dangerous.description":  "Taste the mandrake",
+    "advancements.outbreak.psychedelic_world.title":  "Psychedelic World",
+    "advancements.outbreak.psychedelic_world.description":  "Eat a bite of Gymnopilus",
+    "advancements.outbreak.extreme_fever.title":  "Hyperpyrexia",
+    "advancements.outbreak.extreme_fever.description":  "Core body temperature exceeds 40 C"
 }

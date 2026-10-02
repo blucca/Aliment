@@ -1,0 +1,28 @@
+{
+  "parent": "outbreak:ancient_anti_inflammatory",
+  "display": {
+    "icon": {
+      "count": 1,
+      "id": "outbreak:crude_salt"
+    },
+    "title": {
+      "translate": "advancements.outbreak.just_crude_salt.title"
+    },
+    "description": {
+      "translate": "advancements.outbreak.just_crude_salt.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true
+  },
+  "criteria": {
+    "crushed": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "crushed"
+    ]
+  ]
+}

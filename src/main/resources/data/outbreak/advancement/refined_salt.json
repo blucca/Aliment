@@ -1,0 +1,35 @@
+{
+  "parent": "outbreak:crushed_again",
+  "display": {
+    "icon": {
+      "count": 1,
+      "id": "outbreak:salt_powder"
+    },
+    "title": {
+      "translate": "advancements.outbreak.refined_salt.title"
+    },
+    "description": {
+      "translate": "advancements.outbreak.refined_salt.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true
+  },
+  "criteria": {
+    "has_salt": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "outbreak:salt_powder"
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "has_salt"
+    ]
+  ]
+}

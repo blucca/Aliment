@@ -917,7 +917,7 @@ class OutbreakPhysiologySelfTest : ModInitializer {
         var contacts = 0
         repeat(trials) { if (OutbreakInfection.contactRoll(random)) contacts++ }
         logger.info("PHYS contact dice: {}/{} rolls came up", contacts, trials)
-        check("contact is a 20% roll", contacts in 60..112)
+        check("contact is a 5% roll", contacts in 5..40)
 
         var opportunistic = 0
         val seeds = mutableSetOf<Float>()

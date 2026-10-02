@@ -17,7 +17,7 @@ import net.minecraft.world.phys.AABB
  * * **Eating something risky.** Raw meat, rotten flesh, poisonous potatoes and raw willow bark soup
  *   carry a 30% chance of seeding a bacterial infection.
  * * **Being touched by a creature.** Anything that walks, swims or flies past within
- *   [CONTACT_RANGE] blocks has a 20% chance per second of passing on a virus. Bats are simply the
+ *   [CONTACT_RANGE] blocks has a 5% chance per second of passing on a virus. Bats are simply the
  *   mob people notice.
  * * **Having no immune system left.** While inflammation is at or below
  *   [OutbreakData.IMMUNOSUPPRESSION_THRESHOLD] the player picks up a random bacterial infection at
@@ -30,7 +30,7 @@ object OutbreakInfection {
     const val BACTERIA_CHANCE = 0.30f
 
     /** Chance per second that contact with a creature transmits a virus. */
-    const val CONTACT_CHANCE = 0.20f
+    const val CONTACT_CHANCE = 0.05f
 
     /** Chance per second that a severely immunosuppressed player picks up bacteria from nowhere. */
     const val IMMUNOSUPPRESSION_CHANCE = 0.15f

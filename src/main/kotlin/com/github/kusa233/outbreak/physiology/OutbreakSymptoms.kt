@@ -1,5 +1,6 @@
 package com.github.kusa233.outbreak.physiology
 
+import com.github.kusa233.outbreak.advancement.OutbreakAdvancements
 import com.github.kusa233.outbreak.registry.Registration
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
 import net.minecraft.core.Holder
@@ -254,6 +255,9 @@ object OutbreakSymptoms {
      * [applyPostEffects] rather than here.
      */
     private fun applyThermalEffects(player: ServerPlayer, data: OutbreakData, ticks: Int) {
+        if (data.temperature > 40.0f) {
+            OutbreakAdvancements.award(player, OutbreakAdvancements.EXTREME_FEVER)
+        }
         val tier = data.thermalTier
         if (tier == 0) {
             return

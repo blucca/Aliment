@@ -58,5 +58,19 @@
     "entity.outbreak.willow_boat":  "柳木船",
     "item.outbreak.willow_chest_boat":  "柳木运输船",
     "entity.outbreak.willow_chest_boat":  "柳木运输船",
-    "itemGroup.outbreak.main":  "爆发"
+    "itemGroup.outbreak.main":  "爆发",
+    "advancements.outbreak.ancient_anti_inflammatory.title":  "古老的抗炎",
+    "advancements.outbreak.ancient_anti_inflammatory.description":  "获得一块柳树皮",
+    "advancements.outbreak.just_crude_salt.title":  "只是粗盐",
+    "advancements.outbreak.just_crude_salt.description":  "碾碎一块岩盐矿",
+    "advancements.outbreak.crushed_again.title":  "碎了又碎",
+    "advancements.outbreak.crushed_again.description":  "碾碎一块粗盐",
+    "advancements.outbreak.refined_salt.title":  "精盐",
+    "advancements.outbreak.refined_salt.description":  "不含杂质的精品食盐",
+    "advancements.outbreak.even_if_dangerous.title":  "即便是危险的",
+    "advancements.outbreak.even_if_dangerous.description":  "品尝一口曼陀罗的味道",
+    "advancements.outbreak.psychedelic_world.title":  "迷幻的世界",
+    "advancements.outbreak.psychedelic_world.description":  "吃下一口橘黄伞菇",
+    "advancements.outbreak.extreme_fever.title":  "超高热",
+    "advancements.outbreak.extreme_fever.description":  "核心体温超过40摄氏度"
 }

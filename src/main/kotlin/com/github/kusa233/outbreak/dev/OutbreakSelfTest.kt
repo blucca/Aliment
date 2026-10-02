@@ -1,5 +1,6 @@
 package com.github.kusa233.outbreak.dev
 
+import com.github.kusa233.outbreak.advancement.OutbreakAdvancements
 import com.github.kusa233.outbreak.registry.OutbreakBlocks
 import com.github.kusa233.outbreak.registry.OutbreakItems
 import com.github.kusa233.outbreak.registry.OutbreakWorldGen
@@ -9,6 +10,7 @@ import com.github.kusa233.outbreak.world.block.WillowSoupCauldronBlock
 import net.fabricmc.api.ModInitializer
 import net.fabricmc.fabric.api.entity.FakePlayer
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
+import net.minecraft.advancements.AdvancementType
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.core.registries.Registries
@@ -103,6 +105,7 @@ class OutbreakSelfTest : ModInitializer {
                 testMandrake(level, FakePlayer.get(level))
                 testMandrakeWorldGen(level)
                 testGymnopilusCooking(level)
+                testAdvancements(level, FakePlayer.get(level))
                 stage = 4
             }
 
@@ -411,6 +414,64 @@ class OutbreakSelfTest : ModInitializer {
             check("the $id recipe is loaded", recipe != null)
             check("and it cooks for $seconds seconds", recipe != null && recipe.cookingTime() == seconds * 20)
         }
+    }
+
+    private fun testAdvancements(level: ServerLevel, player: FakePlayer) {
+        val server = level.server
+        val advancements = server.advancements
+
+        val aAncient = advancements.get(OutbreakAdvancements.ANCIENT_ANTI_INFLAMMATORY)
+        val aOre = advancements.get(OutbreakAdvancements.JUST_CRUDE_SALT)
+        val aSalt = advancements.get(OutbreakAdvancements.CRUSHED_AGAIN)
+        val aRefined = advancements.get(OutbreakAdvancements.REFINED_SALT)
+        val aMandrake = advancements.get(OutbreakAdvancements.EVEN_IF_DANGEROUS)
+        val aMushroom = advancements.get(OutbreakAdvancements.PSYCHEDELIC_WORLD)
+        val aFever = advancements.get(OutbreakAdvancements.EXTREME_FEVER)
+
+        check("ancient_anti_inflammatory is loaded", aAncient != null)
+        check("just_crude_salt is loaded", aOre != null)
+        check("crushed_again is loaded", aSalt != null)
+        check("refined_salt is loaded", aRefined != null)
+        check("even_if_dangerous is loaded", aMandrake != null)
+        check("psychedelic_world is loaded", aMushroom != null)
+        check("extreme_fever is loaded", aFever != null)
+
+        if (aAncient == null || aOre == null || aSalt == null || aRefined == null ||
+            aMandrake == null || aMushroom == null || aFever == null
+        ) {
+            return
+        }
+
+        check("ancient_anti_inflammatory is a root advancement", aAncient.value.isRoot)
+        check("just_crude_salt connects to ancient_anti_inflammatory", aOre.value.parent.orElse(null) == OutbreakAdvancements.ANCIENT_ANTI_INFLAMMATORY)
+        check("crushed_again connects to just_crude_salt", aSalt.value.parent.orElse(null) == OutbreakAdvancements.JUST_CRUDE_SALT)
+        check("refined_salt connects to crushed_again", aRefined.value.parent.orElse(null) == OutbreakAdvancements.CRUSHED_AGAIN)
+        check("even_if_dangerous connects to ancient_anti_inflammatory", aMandrake.value.parent.orElse(null) == OutbreakAdvancements.ANCIENT_ANTI_INFLAMMATORY)
+        check("psychedelic_world connects to even_if_dangerous", aMushroom.value.parent.orElse(null) == OutbreakAdvancements.EVEN_IF_DANGEROUS)
+        check("extreme_fever connects to ancient_anti_inflammatory", aFever.value.parent.orElse(null) == OutbreakAdvancements.ANCIENT_ANTI_INFLAMMATORY)
+        check("extreme_fever is a challenge", aFever.value.display.orElse(null)?.type() == AdvancementType.CHALLENGE)
+
+        // Test awarding
+        OutbreakAdvancements.award(player, OutbreakAdvancements.ANCIENT_ANTI_INFLAMMATORY)
+        check("ancient_anti_inflammatory can be awarded", player.advancements.getOrStartProgress(aAncient).isDone)
+
+        OutbreakAdvancements.onGrind(player, ItemStack(OutbreakItems.CRUDE_SALT))
+        check("grinding rock salt ore awards just_crude_salt", player.advancements.getOrStartProgress(aOre).isDone)
+
+        OutbreakAdvancements.onGrind(player, ItemStack(OutbreakItems.CRUDE_SALT_POWDER))
+        check("grinding crude salt awards crushed_again", player.advancements.getOrStartProgress(aSalt).isDone)
+
+        OutbreakAdvancements.award(player, OutbreakAdvancements.REFINED_SALT)
+        check("refined_salt can be awarded", player.advancements.getOrStartProgress(aRefined).isDone)
+
+        OutbreakAdvancements.award(player, OutbreakAdvancements.EVEN_IF_DANGEROUS)
+        check("even_if_dangerous can be awarded", player.advancements.getOrStartProgress(aMandrake).isDone)
+
+        OutbreakAdvancements.award(player, OutbreakAdvancements.PSYCHEDELIC_WORLD)
+        check("psychedelic_world can be awarded", player.advancements.getOrStartProgress(aMushroom).isDone)
+
+        OutbreakAdvancements.award(player, OutbreakAdvancements.EXTREME_FEVER)
+        check("extreme_fever can be awarded", player.advancements.getOrStartProgress(aFever).isDone)
     }
 
     // ------------------------------------------------------------------ helpers

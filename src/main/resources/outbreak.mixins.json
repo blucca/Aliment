@@ -6,6 +6,7 @@
   "mixins": [
     "GrindstoneInputSlotMixin",
     "GrindstoneMenuMixin",
+    "GrindstoneResultSlotMixin",
     "ItemMixin",
     "PlayerMixin"
   ],

@@ -212,7 +212,7 @@ Outbreak（爆发）的核心系统：每个玩家体内持续演算的一套**�
 | --- | --- | --- | --- |
 | 生肉（牛猪鸡羊兔鳕鲑热带鱼）、腐肉、毒马铃薯 | 细菌 | **30%** | +6 |
 | 生柳树皮汤（含带盐版） | 细菌 | **30%** | +6 |
-| **任何生物**走到 2 格以内 | 病毒 | **20% / 秒** | +5 |
+| **任何生物**走到 2 格以内 | 病毒 | **5% / 秒** | +5 |
 | **免疫抑制时**（炎症 ≤ 12）凭空 | 细菌 | **15% / 秒** | **随机 +4 ~ +12** |
 
 * 食物走 `Item.finishUsingItem`（见下面的 mixin），所以是"真正咽下去的那一刻"判定。
@@ -593,7 +593,7 @@ translations: [en_us, zh_cn] languages, missing item names [] missing entity nam
   -> every outbreak item and entity is named, and the standing sign takes block.outbreak.willow_sign
 every mineral probed on both sides of both of its thresholds (36 cases) + the 14 named rows
 sepsis damage per two-second pass: load 60 -> 1.0  load 100 -> 2.0  (59 -> 0)
-contact dice: 85/400 came up (20%) ; the roll arms a one second cooldown and nothing nearby is safe
+contact dice: 20/400 came up (5%) ; the roll arms a one second cooldown and nothing nearby is safe
 immunosuppression: 47/400 seeded bacteria (15%), 47 distinct loads, all inside +4..+12
 one serving of salt water: Na 143.5 (inside 135..145) ; two servings: 147.0 (past it)
 one bottle of sea water: water 95, sodium 143.0, magnesium 0.90

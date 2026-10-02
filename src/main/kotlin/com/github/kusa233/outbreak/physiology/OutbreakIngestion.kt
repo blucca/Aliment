@@ -1,5 +1,6 @@
 package com.github.kusa233.outbreak.physiology
 
+import com.github.kusa233.outbreak.advancement.OutbreakAdvancements
 import com.github.kusa233.outbreak.registry.OutbreakItems
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.effect.MobEffectInstance
@@ -155,15 +156,24 @@ object OutbreakIngestion {
 
             // The mandrake: scopolamine for the delirium, atropine for the dry mouth and the fever
             // that comes with it. A fruit is a full dose of the first, the seeds three quarters.
-            OutbreakItems.MANDRAKE_FRUIT ->
+            OutbreakItems.MANDRAKE_FRUIT -> {
                 data = OutbreakPhysiology.anticholinergic(data, FRUIT_SCOPOLAMINE, FRUIT_ATROPINE)
-            OutbreakItems.MANDRAKE_SEEDS ->
+                OutbreakAdvancements.award(player, OutbreakAdvancements.EVEN_IF_DANGEROUS)
+            }
+            OutbreakItems.MANDRAKE_SEEDS -> {
                 data = OutbreakPhysiology.anticholinergic(data, SEED_SCOPOLAMINE, SEED_ATROPINE)
+                OutbreakAdvancements.award(player, OutbreakAdvancements.EVEN_IF_DANGEROUS)
+            }
 
             // The gymnopilus. Raw it hands over both compounds at once; cooked it hands over nothing,
             // because the heat that makes it food is what destroys them.
-            OutbreakItems.GYMNOPILUS ->
+            OutbreakItems.GYMNOPILUS -> {
                 data = OutbreakPhysiology.mushroom(data, MUSHROOM_PSILOCYBIN, MUSHROOM_PSILOCIN)
+                OutbreakAdvancements.award(player, OutbreakAdvancements.PSYCHEDELIC_WORLD)
+            }
+            OutbreakItems.COOKED_GYMNOPILUS -> {
+                OutbreakAdvancements.award(player, OutbreakAdvancements.PSYCHEDELIC_WORLD)
+            }
             else -> Unit
         }
 

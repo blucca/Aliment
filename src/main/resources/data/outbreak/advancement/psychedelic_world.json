@@ -1,0 +1,42 @@
+{
+  "parent": "outbreak:even_if_dangerous",
+  "display": {
+    "icon": {
+      "count": 1,
+      "id": "outbreak:gymnopilus"
+    },
+    "title": {
+      "translate": "advancements.outbreak.psychedelic_world.title"
+    },
+    "description": {
+      "translate": "advancements.outbreak.psychedelic_world.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true
+  },
+  "criteria": {
+    "gymnopilus": {
+      "trigger": "minecraft:consume_item",
+      "conditions": {
+        "item": {
+          "items": "outbreak:gymnopilus"
+        }
+      }
+    },
+    "cooked_gymnopilus": {
+      "trigger": "minecraft:consume_item",
+      "conditions": {
+        "item": {
+          "items": "outbreak:cooked_gymnopilus"
+        }
+      }
+    }
+  },
+  "requirements": [
+    [
+      "gymnopilus",
+      "cooked_gymnopilus"
+    ]
+  ]
+}
