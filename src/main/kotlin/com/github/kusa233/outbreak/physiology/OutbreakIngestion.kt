@@ -68,6 +68,10 @@ object OutbreakIngestion {
     private const val SEED_SCOPOLAMINE = 0.75f
     private const val SEED_ATROPINE = 0.1f
 
+    /** One raw gymnopilus: a dose of the prodrug and a dose of what it becomes. */
+    private const val MUSHROOM_PSILOCYBIN = 1.3f
+    private const val MUSHROOM_PSILOCIN = 1.3f
+
     /** How much pathogen a single successful roll adds. */
     private const val BACTERIA_SEED = 6f
 
@@ -155,6 +159,11 @@ object OutbreakIngestion {
                 data = OutbreakPhysiology.anticholinergic(data, FRUIT_SCOPOLAMINE, FRUIT_ATROPINE)
             OutbreakItems.MANDRAKE_SEEDS ->
                 data = OutbreakPhysiology.anticholinergic(data, SEED_SCOPOLAMINE, SEED_ATROPINE)
+
+            // The gymnopilus. Raw it hands over both compounds at once; cooked it hands over nothing,
+            // because the heat that makes it food is what destroys them.
+            OutbreakItems.GYMNOPILUS ->
+                data = OutbreakPhysiology.mushroom(data, MUSHROOM_PSILOCYBIN, MUSHROOM_PSILOCIN)
             else -> Unit
         }
 

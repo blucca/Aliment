@@ -32,6 +32,9 @@ object OutbreakWorldGen {
     val MANDRAKE_PATCH: ResourceKey<PlacedFeature> =
         ResourceKey.create(Registries.PLACED_FEATURE, Registration.id("mandrake_patch"))
 
+    val GYMNOPILUS_PATCH: ResourceKey<PlacedFeature> =
+        ResourceKey.create(Registries.PLACED_FEATURE, Registration.id("gymnopilus_patch"))
+
     /**
      * Where a mandrake grows wild: both plains and both swamps, since a sunflower plain is still a
      * plain and a mangrove swamp is still a swamp.
@@ -41,6 +44,19 @@ object OutbreakWorldGen {
         Biomes.SUNFLOWER_PLAINS,
         Biomes.SWAMP,
         Biomes.MANGROVE_SWAMP,
+    )
+
+    /**
+     * Where the gymnopilus grows wild: the damp, shaded and woody biomes a rustgill belongs in. It
+     * also grows in the two swamps the mandrake likes, but the patches are placed separately.
+     */
+    private val GYMNOPILUS_BIOMES = listOf(
+        Biomes.DARK_FOREST,
+        Biomes.SWAMP,
+        Biomes.MANGROVE_SWAMP,
+        Biomes.OLD_GROWTH_PINE_TAIGA,
+        Biomes.OLD_GROWTH_SPRUCE_TAIGA,
+        Biomes.TAIGA,
     )
 
     fun initialize() {
@@ -58,6 +74,11 @@ object OutbreakWorldGen {
             BiomeSelectors.includeByKey(MANDRAKE_BIOMES),
             GenerationStep.Decoration.VEGETAL_DECORATION,
             MANDRAKE_PATCH,
+        )
+        BiomeModifications.addFeature(
+            BiomeSelectors.includeByKey(GYMNOPILUS_BIOMES),
+            GenerationStep.Decoration.VEGETAL_DECORATION,
+            GYMNOPILUS_PATCH,
         )
     }
 }

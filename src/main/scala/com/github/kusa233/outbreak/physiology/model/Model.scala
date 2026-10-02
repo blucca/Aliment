@@ -317,6 +317,37 @@ object ModelConstants {
   /** Both alkaloids are cleared over one in-game day. */
   val ANTICHOLINERGIC_METABOLISM_TICKS: Int = 24000
   val ANTICHOLINERGIC_DECAY_PER_TICK: Float = ANTICHOLINERGIC_CAP / ANTICHOLINERGIC_METABOLISM_TICKS
+
+  // ---------------------------------------------------------------- psilocybin and psilocin
+
+  /** The most of either of the mushroom's compounds a body can carry. */
+  val PSILOCYBIN_CAP: Float = 10f
+  val PSILOCIN_CAP: Float = 10f
+
+  /** One mushroom's worth, which is the unit both of the rates below are written in. */
+  val PSILOCIN_DOSE: Float = 1.3f
+
+  /** A dose of psilocybin becomes psilocin over half a game day, one for one. */
+  val PSILOCYBIN_METABOLISM_TICKS: Int = 12000
+  val PSILOCYBIN_DECAY_PER_TICK: Float = PSILOCIN_DOSE / PSILOCYBIN_METABOLISM_TICKS
+
+  /**
+   * Psilocin leaves at a flat 1.3 a game day whatever the level, rather than as a fraction of what
+   * is there - so a single mushroom is gone in a day and ten of them take eight.
+   */
+  val PSILOCIN_METABOLISM_TICKS: Int = 24000
+  val PSILOCIN_DECAY_PER_TICK: Float = PSILOCIN_DOSE / PSILOCIN_METABOLISM_TICKS
+
+  /** Where the four stages of the trip start: outlines, colour, a mild warp, a hard one. */
+  val PSILOCIN_OUTLINE: Float = 1.2f
+  val PSILOCIN_COLOUR: Float = 1.7f
+  val PSILOCIN_WARP: Float = 2.5f
+  val PSILOCIN_STORM: Float = 5f
+
+  /** Past a hard warp the body runs hot, and at 7 it is as bad as either of them gets. */
+  val PSILOCIN_FEVER_STEP: Float = 7f
+  val PSILOCIN_FEVER_MILD: Float = 39f
+  val PSILOCIN_FEVER_EXTREME: Float = 41f
 }
 
 /**
@@ -345,6 +376,10 @@ final case class ModelState(
     @BeanProperty scopolamine: Float,
     /** Atropine, the same plant's peripheral poison, on the same cap. */
     @BeanProperty atropine: Float,
+    /** Psilocybin, the mushroom's prodrug: no effect of its own, converted into psilocin. 0..10. */
+    @BeanProperty psilocybin: Float,
+    /** Psilocin, which is what the trip and the fever actually come from. 0..10. */
+    @BeanProperty psilocin: Float,
 ) {
   def withMediators(value: ModelMediators): ModelState = copy(mediators = value)
   def withBacteria(value: Float): ModelState = copy(bacteria = value)
@@ -358,4 +393,6 @@ final case class ModelState(
   def withPyrogen(value: Float): ModelState = copy(pyrogen = value)
   def withScopolamine(value: Float): ModelState = copy(scopolamine = value)
   def withAtropine(value: Float): ModelState = copy(atropine = value)
+  def withPsilocybin(value: Float): ModelState = copy(psilocybin = value)
+  def withPsilocin(value: Float): ModelState = copy(psilocin = value)
 }

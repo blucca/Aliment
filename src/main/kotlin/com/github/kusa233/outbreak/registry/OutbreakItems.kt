@@ -296,6 +296,37 @@ object OutbreakItems {
         Item.Properties().food(mandrakeFood()),
     ) { BlockItem(OutbreakBlocks.MANDRAKE, it) }
 
+    // ---------------------------------------------------------------- gymnopilus
+
+    /**
+     * The gymnopilus mushroom, raw. It is the block's item form.
+     *
+     * Eating it raw is the whole point: a dose of psilocybin and a dose of psilocin at once, which is
+     * why it comes on fast and then keeps topping itself up for the next half a game day. Cooking
+     * destroys both compounds, so the cooked mushroom is just food.
+     */
+    val GYMNOPILUS: Item = Registration.registerItem(
+        "gymnopilus",
+        Item.Properties().food(mushroomFood(3, 4f)),
+    ) { BlockItem(OutbreakBlocks.GYMNOPILUS, it) }
+
+    /** The same mushroom out of a furnace, a smoker or a campfire: 4 hunger, 5 saturation, no trip. */
+    val COOKED_GYMNOPILUS: Item = Registration.registerItem(
+        "cooked_gymnopilus",
+        Item.Properties().food(mushroomFood(4, 5f)),
+    ) { Item(it) }
+
+    /**
+     * Food written the way a player reads it off the tooltip: hunger first, saturation points second.
+     *
+     * Minecraft stores saturation as a *multiplier* on hunger - points = hunger * multiplier * 2 - so
+     * the multiplier is derived here rather than written down, and cannot drift away from the two
+     * numbers that actually matter. `alwaysEdible` because a mushroom is not a meal: being full must
+     * not stand between a player and the trip.
+     */
+    private fun mushroomFood(nutrition: Int, saturationPoints: Float): FoodProperties =
+        buildFood(nutrition, saturationPoints / (nutrition * 2f), alwaysEdible = true)
+
     /** One nutrition and a token of saturation: a mandrake fills a stomach, it does not feed one. */
     private fun mandrakeFood(): FoodProperties = buildFood(1, 0.1f, alwaysEdible = true)
 

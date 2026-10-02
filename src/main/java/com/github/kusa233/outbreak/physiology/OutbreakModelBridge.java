@@ -167,6 +167,19 @@ public final class OutbreakModelBridge {
     public static final int ANTICHOLINERGIC_METABOLISM_TICKS = ModelConstants.ANTICHOLINERGIC_METABOLISM_TICKS();
     public static final float ANTICHOLINERGIC_DECAY_PER_TICK = ModelConstants.ANTICHOLINERGIC_DECAY_PER_TICK();
 
+    // ---------------------------------------------------------------- gymnopilus compounds
+
+    /** The most of either of the mushroom's compounds a body can carry. */
+    public static final float PSILOCYBIN_CAP = ModelConstants.PSILOCYBIN_CAP();
+    public static final float PSILOCIN_CAP = ModelConstants.PSILOCIN_CAP();
+
+    /** What one raw mushroom carries, which is the unit both rates below are written in. */
+    public static final float PSILOCIN_DOSE = ModelConstants.PSILOCIN_DOSE();
+
+    /** Psilocybin becomes psilocin over half a game day; psilocin leaves over a whole one. */
+    public static final int PSILOCYBIN_METABOLISM_TICKS = ModelConstants.PSILOCYBIN_METABOLISM_TICKS();
+    public static final int PSILOCIN_METABOLISM_TICKS = ModelConstants.PSILOCIN_METABOLISM_TICKS();
+
     // ================================================================== the reference ranges
 
     /**
@@ -311,6 +324,8 @@ public final class OutbreakModelBridge {
                 TEMPERATURE_NORMAL,
                 0f,
                 0f,
+                0f,
+                0f,
                 0f);
     }
 
@@ -395,6 +410,16 @@ public final class OutbreakModelBridge {
     /** True when the alkaloids have blurred the player's sight. */
     public static boolean isVisionBlurred(OutbreakData data) {
         return Physiology.isVisionBlurred(toModel(data));
+    }
+
+    /** How far into the trip the player is: 0 nothing, 1 outlines, 2 colour, 3 warp, 4 hard warp. */
+    public static int psilocinTier(OutbreakData data) {
+        return Physiology.psilocinTier(toModel(data));
+    }
+
+    /** The temperature a heavy trip is driving the body towards, as an offset from normal. */
+    public static float psilocinFever(OutbreakData data) {
+        return Physiology.psilocinFever(toModel(data));
     }
 
     // ================================================================== symptom magnitudes
@@ -506,6 +531,11 @@ public final class OutbreakModelBridge {
         return fromModel(Physiology.anticholinergic(toModel(data), scopolamine, atropine));
     }
 
+    /** Adds what a raw gymnopilus carries: a dose of psilocybin and a dose of psilocin. */
+    public static OutbreakData mushroom(OutbreakData data, float psilocybin, float psilocin) {
+        return fromModel(Physiology.mushroom(toModel(data), psilocybin, psilocin));
+    }
+
     // ================================================================== the conversion
     //
     // The only place a Kotlin `OutbreakData` becomes the model's `ModelState` or back. Everything
@@ -525,7 +555,9 @@ public final class OutbreakModelBridge {
                 data.getTemperature(),
                 data.getPyrogen(),
                 data.getScopolamine(),
-                data.getAtropine());
+                data.getAtropine(),
+                data.getPsilocybin(),
+                data.getPsilocin());
     }
 
     private static OutbreakData fromModel(ModelState state) {
@@ -541,7 +573,9 @@ public final class OutbreakModelBridge {
                 state.getTemperature(),
                 state.getPyrogen(),
                 state.getScopolamine(),
-                state.getAtropine());
+                state.getAtropine(),
+                state.getPsilocybin(),
+                state.getPsilocin());
     }
 
     private static ModelMediators toModel(Mediators mediators) {

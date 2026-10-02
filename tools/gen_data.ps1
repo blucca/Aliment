@@ -378,6 +378,7 @@ $blockEntries = [ordered]@{
     'rock_salt_ore'           = 'Rock Salt Ore'
     'brine_cauldron'          = 'Brine Cauldron'
     'mandrake'                = 'Mandrake'
+    'gymnopilus'              = 'Gymnopilus'
 }
 
 $itemEntries = [ordered]@{
@@ -408,6 +409,8 @@ $itemEntries = [ordered]@{
     'salt_raw_willow_bark_soup'    = 'Salt Raw Willow Bark Soup'
     'mandrake_fruit'               = 'Mandrake Fruit'
     'mandrake_seeds'               = 'Mandrake Seeds'
+    'gymnopilus'                   = 'Gymnopilus'
+    'cooked_gymnopilus'            = 'Cooked Gymnopilus'
 }
 
 # the two boats are plain items that also have entity names, like vanilla's
@@ -1309,5 +1312,195 @@ Write-Json "data/$ns/worldgen/placed_feature/mandrake_patch.json" @"
   ]
 }
 "@
+
+# ---------------------------------------------------------------------------- gymnopilus
+
+# The gymnopilus is a mushroom, so vanilla's brown mushroom is the template for the block side of it:
+# a cross-shaped sprite in a single-variant blockstate. The item models come from the same place, so
+# the cooked one - which is an item and nothing else - is built from cooked beef, whose shape is
+# exactly "an item that is a food and has no block".
+function Convert-MushroomAsset([string]$text) {
+    return ($text -replace 'minecraft:block/brown_mushroom', "$ns`:block/gymnopilus")
+}
+
+Write-Json "assets/$ns/blockstates/gymnopilus.json" `
+    (Convert-MushroomAsset (Get-Vanilla "assets/minecraft/blockstates/brown_mushroom.json"))
+Write-Json "assets/$ns/models/block/gymnopilus.json" `
+    (Convert-MushroomAsset (Get-Vanilla "assets/minecraft/models/block/brown_mushroom.json"))
+
+$rawItemModel = (Get-Vanilla "assets/minecraft/models/item/brown_mushroom.json") `
+    -replace 'minecraft:block/brown_mushroom', "$ns`:block/gymnopilus"
+Write-Json "assets/$ns/models/item/gymnopilus.json" $rawItemModel
+$rawItemDefinition = (Get-Vanilla "assets/minecraft/items/brown_mushroom.json") `
+    -replace 'minecraft:item/brown_mushroom', "$ns`:item/gymnopilus"
+Write-Json "assets/$ns/items/gymnopilus.json" $rawItemDefinition
+
+$cookedItemModel = (Get-Vanilla "assets/minecraft/models/item/cooked_beef.json") `
+    -replace 'minecraft:item/cooked_beef', "$ns`:item/cooked_gymnopilus"
+Write-Json "assets/$ns/models/item/cooked_gymnopilus.json" $cookedItemModel
+$cookedItemDefinition = (Get-Vanilla "assets/minecraft/items/cooked_beef.json") `
+    -replace 'minecraft:item/cooked_beef', "$ns`:item/cooked_gymnopilus"
+Write-Json "assets/$ns/items/cooked_gymnopilus.json" $cookedItemDefinition
+
+# Picking one drops one, the way a flower does.
+$mushroomLoot = (Get-Vanilla "data/minecraft/loot_table/blocks/dandelion.json") `
+    -replace 'minecraft:dandelion', "$ns`:gymnopilus"
+$mushroomLoot = $mushroomLoot -replace 'minecraft:blocks/dandelion', "$ns`:blocks/gymnopilus"
+Write-Json "data/$ns/loot_table/blocks/gymnopilus.json" $mushroomLoot
+
+# Three ways to cook it, all with the same timing as raw beef in this version: 200 ticks in a furnace
+# and in a smoker, 600 over a campfire.
+foreach ($cook in @(
+    @{ suffix = '';                     kind = 'minecraft:smelting';         ticks = 200 },
+    @{ suffix = '_from_smoking';        kind = 'minecraft:smoking';          ticks = 200 },
+    @{ suffix = '_from_campfire_cooking'; kind = 'minecraft:campfire_cooking'; ticks = 600 }
+)) {
+    Write-Json "data/$ns/recipe/cooked_gymnopilus$($cook.suffix).json" @"
+{
+  "type": "$($cook.kind)",
+  "category": "food",
+  "cookingtime": $($cook.ticks),
+  "experience": 0.35,
+  "ingredient": "$ns`:gymnopilus",
+  "result": {
+    "id": "$ns`:cooked_gymnopilus"
+  }
+}
+"@
+}
+
+# It grows wild in the damp, shaded, woody places a rustgill belongs in, three tries a chunk - rare
+# enough that finding one is worth the trip away from the path.
+Write-Json "data/$ns/worldgen/feature/gymnopilus.json" @"
+{
+  "type": "minecraft:simple_block",
+  "to_place": {
+    "id": "$ns`:gymnopilus"
+  }
+}
+"@
+
+Write-Json "data/$ns/worldgen/placed_feature/gymnopilus_patch.json" @"
+{
+  "feature": "$ns`:gymnopilus",
+  "placement": [
+    {
+      "type": "minecraft:count",
+      "count": 3
+    },
+    {
+      "type": "minecraft:in_square"
+    },
+    {
+      "type": "minecraft:heightmap",
+      "heightmap": "WORLD_SURFACE_WG"
+    },
+    {
+      "type": "minecraft:biome"
+    },
+    {
+      "type": "minecraft:block_predicate_filter",
+      "predicate": {
+        "type": "minecraft:all_of",
+        "predicates": [
+          {
+            "type": "minecraft:matching_block_tag",
+            "tag": "minecraft:air"
+          },
+          {
+            "type": "minecraft:matching_block_tag",
+            "tag": "minecraft:substrate_overworld",
+            "offset": [
+              0,
+              -1,
+              0
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
+"@
+
+# The four stages of the psilocin trip. All of them run the same shader; only the four intensities
+# differ, and each stage is written out in full rather than layered, so stage 4 is the whole effect
+# turned up rather than stage 1 plus three more passes.
+#
+# The colour cast is deliberately low even at its highest - a player has to be able to see what they
+# are walking into - while the lines and the grain carry the effect instead.
+$psilocinStages = @(
+    @{ name = 'psilocin_outline'; line = 0.9;  colour = 0.0;  noise = 0.0;  warp = 0.0 },
+    @{ name = 'psilocin_colour';  line = 0.85; colour = 0.3;  noise = 0.2;  warp = 0.0 },
+    @{ name = 'psilocin_warp';    line = 0.9;  colour = 0.36; noise = 0.24; warp = 0.35 },
+    @{ name = 'psilocin_storm';   line = 1.0;  colour = 0.45; noise = 0.3;  warp = 1.0 }
+)
+foreach ($stage in $psilocinStages) {
+    Write-Json "assets/$ns/post_effect/$($stage.name).json" @"
+{
+  "targets": {
+    "swap": {}
+  },
+  "passes": [
+    {
+      "vertex_shader": "minecraft:core/screenquad",
+      "fragment_shader": "$ns`:post/psilocin",
+      "inputs": [
+        {
+          "sampler_name": "In",
+          "target": "minecraft:main",
+          "bilinear": true
+        }
+      ],
+      "output": "swap",
+      "uniforms": {
+        "PsilocinConfig": [
+          {
+            "name": "LineStrength",
+            "type": "float",
+            "value": $($stage.line)
+          },
+          {
+            "name": "ColourStrength",
+            "type": "float",
+            "value": $($stage.colour)
+          },
+          {
+            "name": "NoiseStrength",
+            "type": "float",
+            "value": $($stage.noise)
+          },
+          {
+            "name": "WarpStrength",
+            "type": "float",
+            "value": $($stage.warp)
+          }
+        ]
+      }
+    },
+    {
+      "vertex_shader": "minecraft:core/screenquad",
+      "fragment_shader": "minecraft:post/blit",
+      "inputs": [
+        {
+          "sampler_name": "In",
+          "target": "swap"
+        }
+      ],
+      "output": "minecraft:main",
+      "uniforms": {
+        "BlitConfig": [
+          {
+            "name": "ColorModulate",
+            "type": "vec4",
+            "value": [ 1.0, 1.0, 1.0, 1.0 ]
+          }
+        ]
+      }
+    }
+  ]
+}
+"@
+}
 
 Write-Host "gen_data.ps1 wrote $script:written JSON files into src/main/resources"

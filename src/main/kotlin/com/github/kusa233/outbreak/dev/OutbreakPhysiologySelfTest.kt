@@ -23,6 +23,7 @@ import net.fabricmc.fabric.api.entity.FakePlayer
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
 import net.minecraft.core.Holder
 import net.minecraft.core.Registry
+import net.minecraft.core.component.DataComponents
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.resources.Identifier
 import net.minecraft.server.level.ServerLevel
@@ -106,6 +107,7 @@ class OutbreakPhysiologySelfTest : ModInitializer {
         dehydrationStopsWhenDrinking()
         iodineDepletion()
         anticholinergics()
+        psilocybinAndPsilocin()
         temperatureHomeostasis()
         environmentThermoregulation()
         feverFollowsProstaglandin()
@@ -693,7 +695,143 @@ class OutbreakPhysiologySelfTest : ModInitializer {
         )
     }
 
+    // ================================================================== psilocybin
+
+    /**
+     * The gymnopilus compounds.
+     *
+     * A raw mushroom is a dose (1.3) of each. Psilocybin does nothing on its own - it has no
+     * threshold, no tier and no fever - it simply becomes psilocin one for one over half a game day.
+     * Psilocin is what the trip and the fever come from, and it leaves at a flat 1.3 a game day
+     * rather than as a fraction of what is in the body, so the length of a trip is proportional to
+     * how much was eaten: one mushroom is two days, five of them are ten.
+     */
+    private fun psilocybinAndPsilocin() {
+        var data = OutbreakPhysiology.mushroom(OutbreakData.HEALTHY, 1.3f, 1.3f)
+        logger.info(
+            "PHYS one raw gymnopilus: psilocybin {} psilocin {} tier {}",
+            data.psilocybin, data.psilocin, data.psilocinTier,
+        )
+        check("a raw mushroom is a dose of each compound", abs(data.psilocybin - 1.3f) < 0.001f && abs(data.psilocin - 1.3f) < 0.001f)
+        check("1.3 is enough for the outlines and no more", data.psilocinTier == 1)
+        check("and not enough for any fever", abs(OutbreakPhysiology.targetTemperature(data) - 37f) < 0.001f)
+
+        // Half a game day in: half the prodrug has turned into psilocin, and psilocin is already
+        // leaving at its own flat rate, so the level is above the 1.3 that was eaten.
+        repeat(OutbreakData.PSILOCYBIN_METABOLISM_TICKS / 2) { data = OutbreakPhysiology.tick(data) }
+        logger.info("PHYS half a day after one mushroom: psilocybin {} psilocin {}", data.psilocybin, data.psilocin)
+        check("half the psilocybin is gone after half a game day", abs(data.psilocybin - 0.65f) < 0.02f)
+        check("and it arrived as psilocin, against the psilocin leaving", data.psilocin > 1.55f)
+
+        var day = OutbreakPhysiology.mushroom(OutbreakData.HEALTHY, 1.3f, 1.3f)
+        repeat(OutbreakData.PSILOCIN_METABOLISM_TICKS) { day = OutbreakPhysiology.tick(day) }
+        logger.info("PHYS a day after one mushroom: psilocybin {} psilocin {}", day.psilocybin, day.psilocin)
+        check("a game day finishes the conversion", day.psilocybin == 0f)
+        check("and half of the total psilocin is left", abs(day.psilocin - 1.3f) < 0.02f)
+
+        repeat(OutbreakData.PSILOCIN_METABOLISM_TICKS) { day = OutbreakPhysiology.tick(day) }
+        logger.info("PHYS two days after one mushroom: psilocin {}", day.psilocin)
+        check("one mushroom is gone after two game days", day.psilocin < 0.02f)
+
+        // Five mushrooms: thirteen units of psilocin in total, at a flat 1.3 a day.
+        var heavy = OutbreakPhysiology.mushroom(OutbreakData.HEALTHY, 6.5f, 6.5f)
+        var days = 0
+        while (days < 15 && heavy.psilocin > 0f) {
+            repeat(OutbreakData.PSILOCIN_METABOLISM_TICKS) { heavy = OutbreakPhysiology.tick(heavy) }
+            days++
+        }
+        logger.info("PHYS five mushrooms took {} game days to clear", days)
+        check("five mushrooms take ten game days at a flat 1.3 a day", days in 10..11)
+
+        // Psilocybin on its own is inert, and it stays inert: it converts into psilocin at exactly the
+        // rate psilocin is cleared, so on its own it can never build up enough to start a trip. What
+        // it does is replace what is being cleared, which is why a raw mushroom lasts twice as long
+        // as the psilocin in it would on its own.
+        val prodrug = OutbreakData.HEALTHY.withPsilocybin(5f)
+        check(
+            "psilocybin on its own has no effect at all",
+            prodrug.psilocinTier == 0 && abs(OutbreakPhysiology.targetTemperature(prodrug) - 37f) < 0.001f,
+        )
+        var coming = prodrug
+        repeat(OutbreakData.PSILOCYBIN_METABOLISM_TICKS / 2) { coming = OutbreakPhysiology.tick(coming) }
+        logger.info("PHYS half a day of psilocybin alone: psilocybin {} psilocin {}", coming.psilocybin, coming.psilocin)
+        check("the prodrug does turn into psilocin", coming.psilocin > 0.25f)
+        check("and it never gets anywhere near a trip on its own", coming.psilocinTier == 0)
+
+        // Every stage of the trip, either side of its threshold: these are strict, so 1.2 exactly is
+        // still nothing, and the fever that comes with the last stage only starts past 5.
+        val stages = listOf(
+            1.19f to 0, 1.21f to 1,
+            1.69f to 1, 1.71f to 2,
+            2.49f to 2, 2.51f to 3,
+            4.99f to 3, 5.01f to 4,
+        )
+        for ((level, tier) in stages) {
+            val body = OutbreakData.HEALTHY.withPsilocin(level)
+            check("psilocin $level is trip stage $tier", body.psilocinTier == tier)
+        }
+        check("the thresholds are strict: 1.2 exactly is still no trip", OutbreakData.HEALTHY.withPsilocin(1.2f).psilocinTier == 0)
+        check("5 exactly is still the mild warp", OutbreakData.HEALTHY.withPsilocin(5f).psilocinTier == 3)
+        check("and 5 exactly is not yet a fever", abs(OutbreakPhysiology.targetTemperature(OutbreakData.HEALTHY.withPsilocin(5f)) - 37f) < 0.001f)
+        check("5.01 is 39 degrees", abs(OutbreakPhysiology.targetTemperature(OutbreakData.HEALTHY.withPsilocin(5.01f)) - 39f) < 0.001f)
+        check("and 7 is 41", abs(OutbreakPhysiology.targetTemperature(OutbreakData.HEALTHY.withPsilocin(7f)) - 41f) < 0.001f)
+
+        val capped = OutbreakPhysiology.mushroom(OutbreakData.HEALTHY, 99f, 99f)
+        check(
+            "both compounds are capped at ten",
+            capped.psilocybin == OutbreakData.PSILOCYBIN_CAP && capped.psilocin == OutbreakData.PSILOCIN_CAP,
+        )
+
+        // Three set point shifts that all stack: this mushroom's (+2), the mandrake's (+1) and, when
+        // an infection is added to them, whatever the immune system is doing.
+        val stacked = OutbreakData.HEALTHY.withPsilocin(5.5f).withScopolamine(2f)
+        check(
+            "the mushroom fever stacks on the mandrake fever",
+            abs(OutbreakPhysiology.targetTemperature(stacked) - 40f) < 0.001f,
+        )
+    }
+
     // ================================================================== symptoms
+
+    /**
+     * The trip on the screen: one stage at a time, never two, and off again when it wears off.
+     *
+     * The stage is a server-side decision like any other screen effect - the client is only told
+     * which of the four post effects to run - so this is checked on the requested effects rather
+     * than on anything drawn.
+     */
+    private fun psilocinSymptoms(player: ServerPlayer) {
+        val stages = listOf(
+            1.5f to OutbreakSymptoms.PSILOCIN_OUTLINE,
+            2.0f to OutbreakSymptoms.PSILOCIN_COLOUR,
+            3.0f to OutbreakSymptoms.PSILOCIN_WARP,
+            6.0f to OutbreakSymptoms.PSILOCIN_STORM,
+        )
+        val all = stages.map { it.second }
+
+        for ((level, expected) in stages) {
+            applyWith(player, OutbreakData.HEALTHY.withPsilocin(level))
+            OutbreakSymptoms.tick(player)
+            val onScreen = player.getPostEffects().filter { it in all }
+            logger.info("PHYS psilocin {} asked for {}", level, onScreen)
+            check("psilocin $level asks for exactly one trip effect", onScreen.size == 1)
+            check("psilocin $level asks for $expected", onScreen.singleOrNull() == expected)
+        }
+
+        // It stacks with the rest of the screen: a bad trip while feverish shows both.
+        applyWith(player, OutbreakData.HEALTHY.withPsilocin(6f).withTemperature(41f))
+        OutbreakSymptoms.tick(player)
+        logger.info("PHYS trip and fever at once: {}", player.getPostEffects())
+        check(
+            "the trip stacks with the fever's own effects",
+            player.getPostEffects().contains(OutbreakSymptoms.PSILOCIN_STORM) &&
+                player.getPostEffects().contains(OutbreakSymptoms.HEAT_BLUR),
+        )
+
+        applyWith(player, OutbreakData.HEALTHY)
+        OutbreakSymptoms.tick(player)
+        check("the trip comes off once the psilocin is gone", player.getPostEffects().none { it in all })
+    }
 
     /**
      * The symptom half: run the real server tick against a `FakePlayer` and look at what lands on
@@ -707,6 +845,7 @@ class OutbreakPhysiologySelfTest : ModInitializer {
         shakeOnlyWhenSomethingIsVisible(player)
         postEffects(player)
         anticholinergicSymptoms(player)
+        psilocinSymptoms(player)
         seaWaterIsNotFoul(level, player)
         infectionRolls(player)
         severeInfectionDamages()
@@ -1462,6 +1601,49 @@ class OutbreakPhysiologySelfTest : ModInitializer {
         check(
             "eating the seeds adds three quarters of a dose and the same atropine",
             abs(afterSeeds.scopolamine - 0.75f) < 0.001f && abs(afterSeeds.atropine - 0.1f) < 0.001f,
+        )
+
+        // The mushroom, raw and cooked: the raw one carries both compounds, cooking destroys them.
+        player.setAttached(OutbreakAttachments.DATA, OutbreakData.HEALTHY)
+        ItemStack(OutbreakItems.GYMNOPILUS, 1).finishUsingItem(level, player)
+        val afterRaw = player.getAttachedOrCreate(OutbreakAttachments.DATA)
+        player.setAttached(OutbreakAttachments.DATA, OutbreakData.HEALTHY)
+        ItemStack(OutbreakItems.COOKED_GYMNOPILUS, 1).finishUsingItem(level, player)
+        val afterCooked = player.getAttachedOrCreate(OutbreakAttachments.DATA)
+        logger.info(
+            "PHYS gymnopilus eaten: raw {} / {} cooked {} / {}",
+            afterRaw.psilocybin, afterRaw.psilocin, afterCooked.psilocybin, afterCooked.psilocin,
+        )
+        check(
+            "eating a raw gymnopilus adds a dose of each compound",
+            abs(afterRaw.psilocybin - 1.3f) < 0.001f && abs(afterRaw.psilocin - 1.3f) < 0.001f,
+        )
+        check(
+            "eating a cooked one adds neither",
+            afterCooked.psilocybin == 0f && afterCooked.psilocin == 0f,
+        )
+
+        // Food is written as hunger plus saturation *points*. `FoodProperties.saturation()` is
+        // already the points - the builder's `saturationModifier` is what multiplies them out - so
+        // these two read straight off the item, which is the point of deriving rather than hardcoding
+        // the multiplier in `OutbreakItems`.
+        val rawFood = OutbreakItems.GYMNOPILUS.components().get(DataComponents.FOOD)
+        val cookedFood = OutbreakItems.COOKED_GYMNOPILUS.components().get(DataComponents.FOOD)
+        logger.info(
+            "PHYS gymnopilus food: raw {} hunger {} saturation, cooked {} hunger {} saturation",
+            rawFood?.nutrition(), rawFood?.saturation(), cookedFood?.nutrition(), cookedFood?.saturation(),
+        )
+        check(
+            "the raw mushroom is 3 hunger and 4 saturation",
+            rawFood != null && rawFood.nutrition() == 3 && abs(rawFood.saturation() - 4f) < 0.01f,
+        )
+        check(
+            "and the cooked one is 4 hunger and 5 saturation",
+            cookedFood != null && cookedFood.nutrition() == 4 && abs(cookedFood.saturation() - 5f) < 0.01f,
+        )
+        check(
+            "a raw mushroom can be eaten even on a full stomach",
+            rawFood != null && rawFood.canAlwaysEat(),
         )
 
         player.setAttached(OutbreakAttachments.DATA, OutbreakData.HEALTHY)

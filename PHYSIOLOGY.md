@@ -146,6 +146,34 @@ Outbreak（爆发）的核心系统：每个玩家体内持续演算的一套**�
 > **雾是客户端渲染决定**，所以走同步标志 `OutbreakClientState.blurred` → `FogRendererMixin`
 > 把 `FogData` 的环境雾与天空/云淡出收到 8 格（照原版失明效果的做法，渲染距离本身不动）。
 
+### 裸盖菇素与裸盖菇素醇 `psilocybin` / `psilocin`
+
+橘黄裸伞（**生吃**；熟的什么物质都不带）带进来两个数据，各自上限 **10**：
+
+| 数据 | 作用 | 代谢 |
+| --- | --- | --- |
+| 裸盖菇素 psilocybin | **本身没有任何效果**，是前药 | **半游戏日内一比一**变成裸盖菇素醇（1.3 每半日） |
+| 裸盖菇素醇 psilocin | 视觉四阶段 + 体温 | **固定速率**：1.3 每游戏日，与体内含量无关 |
+
+一颗生蘑菇一次给 **1.3 / 1.3**。因为代谢是**固定速率**而不是按比例，一次蘑菇的总量是
+1.3 + 1.3 = 2.6，正好 **两个游戏日**清完；五颗（6.5 / 6.5）总量 13，就是 **十个游戏日**——
+吃得多不是"待得久一点"，是线性变长（上限 10/10 时约十六日）。
+
+视觉四阶段（服务端按 `psilocin` 选一个后处理效果，客户端只负责画）：
+
+| 条件 | 效果 |
+| --- | --- |
+| > 1.2 | 从方块边缘**随机方向拉出彩色线条**（每 8 像素格子用自己的哈希选一个方向和长度，某像素沿该方向一段距离外正好有亮度跳变 → 说明那里是边缘，这个像素就点亮。所以亮起来的其实是边缘的"位移副本"，四段不同距离不同强度叠起来就是一条从边缘射出的锥形线；边缘本身**不会被整条描边染色**） |
+| > 1.7 | 方块开始**染上随机亮色**（每 8 像素一格随机色相，**混回原像素而不是覆盖**，保留明暗所以形状仍然看得清；强度只有 0.30），再叠一层**全屏彩色噪点**（一像素一粒，约 45% 的像素各拿一个随机色相，强度 0.20） |
+| > 2.5 | 全屏幕**轻度扭曲**（两组正弦波推采样点） |
+| > 5 | **剧烈扭曲**，同时体温开始上升（最高 **39 °C**） |
+| ≥ 7 | 体温可达 **41 °C** |
+
+阈值是**严格大于**（`>`），体温那档从 5 起、7 再上一档，都是设定点上移、不走前列腺素，
+所以**和曼陀罗的热、感染的热全部叠加**（模型上限仍是 42 °C）。四阶段是**包含关系**：
+第 4 阶段仍然有彩线和染色，只是强度更高——四个后处理 JSON 指向同一个着色器
+（`shaders/post/psilocin.fsh`），只是三个强度不同，而不是四层叠加。
+
 ### 存在哪里
 
 用 Fabric 的 **Data Attachment API**：
@@ -531,7 +559,7 @@ damping = 1 - 0.88 * max(salicinFight, dexFight)
 
 `src/main/kotlin/.../dev/OutbreakPhysiologySelfTest.kt`（**默认不启用**，把它加进
 `fabric.mod.json` 的 `main` 入口点再 `gradle runServer` 就会在开服后 40 tick 自动跑完）
-跑出 **319/319 全过**：
+跑出 **361/361 全过**：
 
 ```
 homeostasis 3 days (one day's kelp a day): inflammation 25.0..25.0
@@ -585,7 +613,11 @@ death:    the respawned body is bacteria 0.0 virus 0.0 temperature 37.0 water 80
 mandrake: one fruit 1.0/0.1; two 2.2 (38 C); three 3.1 (39.5 C, sight blurred); a full dose 41 C
           a game day clears both alkaloids; the drug fever and an infection fever add up to 42 C
           blurred and feverish at once: [anticholinergic_blur, heat_haze, heat_blur]
-PHYSIOLOGY SELFTEST DONE passed=319 failed=0
+gymnopilus: one raw mushroom 1.3/1.3; half a day later psilocybin 0.65 psilocin 1.63
+          a day finishes the conversion with 1.3 psilocin left; five doses take ten game days
+          the trip: 1.5 -> psilocin_outline 2.0 -> psilocin_colour 3.0 -> psilocin_warp 6.0 -> storm
+          a raw mushroom is 3 hunger / 4 saturation, cooked 4 / 5 and neither compound
+PHYSIOLOGY SELFTEST DONE passed=361 failed=0
 ```
 
 覆盖了**纯模型**、**mixin 端到端**（真的调 `ItemStack.finishUsingItem` 吃生肉 / 喝汤 / 喝海水，

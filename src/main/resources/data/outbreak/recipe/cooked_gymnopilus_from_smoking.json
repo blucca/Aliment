@@ -1,0 +1,10 @@
+{
+  "type": "minecraft:smoking",
+  "category": "food",
+  "cookingtime": 200,
+  "experience": 0.35,
+  "ingredient": "outbreak:gymnopilus",
+  "result": {
+    "id": "outbreak:cooked_gymnopilus"
+  }
+}

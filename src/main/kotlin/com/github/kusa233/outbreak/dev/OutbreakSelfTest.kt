@@ -18,6 +18,7 @@ import net.minecraft.world.InteractionHand
 import net.minecraft.world.item.BoneMealItem
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
+import net.minecraft.world.item.crafting.AbstractCookingRecipe
 import net.minecraft.world.level.biome.Biome
 import net.minecraft.world.level.biome.Biomes
 import net.minecraft.world.level.block.Block
@@ -101,6 +102,7 @@ class OutbreakSelfTest : ModInitializer {
                 testLeaning(level)
                 testMandrake(level, FakePlayer.get(level))
                 testMandrakeWorldGen(level)
+                testGymnopilusCooking(level)
                 stage = 4
             }
 
@@ -380,6 +382,35 @@ class OutbreakSelfTest : ModInitializer {
         check("and in a mangrove swamp", growsWild(Biomes.MANGROVE_SWAMP))
         check("but not in a desert", !growsWild(Biomes.DESERT))
         check("nor in a forest", !growsWild(Biomes.FOREST))
+
+        val gymnopilus = registries.lookupOrThrow(Registries.PLACED_FEATURE)
+            .getOrThrow(OutbreakWorldGen.GYMNOPILUS_PATCH)
+        fun sprouted(key: ResourceKey<Biome>): Boolean =
+            biomes.getOrThrow(key).value().generationSettings.features().any { it.contains(gymnopilus) }
+
+        check("gymnopilus grows wild in the dark forest", sprouted(Biomes.DARK_FOREST))
+        check("and in the taiga", sprouted(Biomes.TAIGA))
+        check("but not in the plains", !sprouted(Biomes.PLAINS))
+        check("nor in a desert", !sprouted(Biomes.DESERT))
+    }
+
+    /**
+     * The three ways to cook a gymnopilus, all of them with the timing raw beef has in this version:
+     * 200 ticks in a furnace and in a smoker, 600 over a campfire.
+     *
+     * A recipe that failed to parse is simply not in the manager, so asking for it by name is the
+     * whole check - and the ingredient and result are printed, because "it loaded" is not the same as
+     * "it loaded correctly".
+     */
+    private fun testGymnopilusCooking(level: ServerLevel) {
+        val recipes = level.server.recipeManager
+        for ((id, seconds) in listOf("cooked_gymnopilus" to 10, "cooked_gymnopilus_from_smoking" to 10, "cooked_gymnopilus_from_campfire_cooking" to 30)) {
+            val key = ResourceKey.create(Registries.RECIPE, Registration.id(id))
+            val recipe = recipes.byKey(key).orElse(null)?.value() as? AbstractCookingRecipe
+            logger.info("SELFTEST cooking recipe {}: {}", id, recipe)
+            check("the $id recipe is loaded", recipe != null)
+            check("and it cooks for $seconds seconds", recipe != null && recipe.cookingTime() == seconds * 20)
+        }
     }
 
     // ------------------------------------------------------------------ helpers

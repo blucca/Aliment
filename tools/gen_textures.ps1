@@ -2160,6 +2160,86 @@ foreach($sp in @(@(3,4),@(9,3),@(12,5),@(6,8),@(11,9),@(4,12),@(9,13))){
 Save-Png (Join-Path $idir 'mandrake_seeds.png') $g 16 16
 
 # ---------------------------------------------------------------------
+# 38-39. gymnopilus junonius - the growing mushroom and the cooked one
+# ---------------------------------------------------------------------
+# The spectacular rustgill. block/gymnopilus.png is the living mushroom: a round
+# rusty orange-yellow cap sitting on a short pale stem. item/cooked_gymnopilus.png
+# is the same mushroom after cooking - the same silhouette, but one pixel lower,
+# narrower, flatter and browner - so the two read as one plant at two moments
+# rather than as two unrelated items.
+$cGyCapL  ='#E0A040'; $cGyCapM  ='#C07A22'; $cGyCapD  ='#8A5210'  # cap, lit to shaded
+$cGyStem  ='#D8CBA6'; $cGyStemD ='#A89878'                        # stem, lit side and shadow
+$cGyCookL ='#8A6A3C'; $cGyCookM ='#6E5228'; $cGyCookD ='#5A4630'  # the same cap, cooked
+$cGyCookStem='#B3A47F'; $cGyCookStemD='#8A7C5E'                   # and the same stem, cooked
+
+# One cap, drawn from a row table - each row is (y, first x, width) - so the two
+# mushrooms cannot drift apart: the lit band runs down the middle of the dome, the
+# rim row is shaded a shade harder than the body so it darkens at the shoulders, and
+# Noise roughens the boundary between the shades. capTop/capBot are the rows the
+# gradient spans, so the cooked cap shades over its own height; capSpot salts the
+# speckles separately, because one threshold gives a different number of spots on a
+# cap of a different size.
+function New-GymnopilusCap($cGyGrid,$cGyCapRows,[string]$cGyCapL,[string]$cGyCapM,[string]$cGyCapD,[int]$cGyCapTop,[int]$cGyCapBot,[int]$cGyCapSalt,[int]$cGyCapSpot){
+    foreach($cGyRow in $cGyCapRows){
+        for($cGyI = 0; $cGyI -lt $cGyRow[2]; $cGyI++){
+            $cGyX = $cGyRow[1] + $cGyI
+            $cGyY = $cGyRow[0]
+            $cGyNx = [Math]::Abs((([double]$cGyX) - 7.5) / 6.0)
+            $cGyNy = (([double]$cGyY) - $cGyCapTop) / ([double]($cGyCapBot - $cGyCapTop))
+            $cGyRim = 0.0
+            if($cGyY -ge $cGyCapBot){ $cGyRim = 0.20 }
+            $cGySh = ($cGyNy * 0.30) + ($cGyNx * 0.50) + $cGyRim + (((Noise $cGyX $cGyY $cGyCapSalt) - 0.5) * 0.25)
+            $cGyCol = $cGyCapM
+            if($cGySh -lt 0.30){ $cGyCol = $cGyCapL }
+            elseif($cGySh -ge 0.72){ $cGyCol = $cGyCapD }
+            $cGyGrid[$cGyX,$cGyY] = $cGyCol
+        }
+    }
+    # a few darker speckles on the body of the cap - never on its outline or its rim,
+    # where a dark pixel reads as a chip out of the silhouette rather than as a spot
+    foreach($cGyRow in $cGyCapRows){
+        for($cGyI = 1; $cGyI -lt ($cGyRow[2] - 1); $cGyI++){
+            $cGyX = $cGyRow[1] + $cGyI
+            $cGyY = $cGyRow[0]
+            if($cGyY -ge $cGyCapBot){ continue }
+            if($cGyGrid[$cGyX,$cGyY] -ne $cGyCapD -and (Noise $cGyX $cGyY $cGyCapSpot) -gt 0.90){
+                $cGyGrid[$cGyX,$cGyY] = $cGyCapD
+            }
+        }
+    }
+}
+
+# the growing mushroom: a round rusty cap over a short pale stem. The cap grows in
+# steps from four pixels to ten and its widest rows are its lower pair, so the
+# silhouette is a broad cap that overhangs the stalk, the way a vanilla mushroom
+# block sprite does. The rim is deliberately not a clean line - its lit middle is
+# notched with one pixel of cap dark - so the brim looks uneven the way a real one does.
+$g = New-Grid 16 16
+$cGyGrowRows = @(@(4,6,4), @(5,5,6), @(6,4,8), @(7,3,10), @(8,3,10))
+New-GymnopilusCap -cGyGrid $g -cGyCapRows $cGyGrowRows -cGyCapL $cGyCapL -cGyCapM $cGyCapM -cGyCapD $cGyCapD -cGyCapTop 4 -cGyCapBot 8 -cGyCapSalt 91 -cGyCapSpot 116
+GridPx $g 6 8 $cGyCapD
+# the stem: two pixels wide, lit down its left side and shadowed on the right, with
+# its bottom row in shadow so the mushroom looks planted rather than propped up
+GridRect $g 7 9 2 5 $cGyStemD
+GridRect $g 7 9 1 5 $cGyStem
+GridRect $g 7 13 2 1 $cGyStemD
+Save-Png (Join-Path $bdir 'gymnopilus.png') $g 16 16
+# The cap has to reach the stem, or the sprite is a cap floating above a stem.
+Assert-ConnectedArt $g 'block/gymnopilus.png' 7 4 7 10
+
+# the cooked mushroom: the same cap one pixel lower, two pixels narrower and one row
+# flatter, on a stem one row shorter, in the dulled brown palette
+$g = New-Grid 16 16
+$cGyCookRows = @(@(5,6,4), @(6,5,6), @(7,4,8), @(8,4,8))
+New-GymnopilusCap -cGyGrid $g -cGyCapRows $cGyCookRows -cGyCapL $cGyCookL -cGyCapM $cGyCookM -cGyCapD $cGyCookD -cGyCapTop 5 -cGyCapBot 8 -cGyCapSalt 113 -cGyCapSpot 125
+GridPx $g 7 8 $cGyCookD
+GridRect $g 7 9 2 4 $cGyCookStemD
+GridRect $g 7 9 1 4 $cGyCookStem
+GridRect $g 7 12 2 1 $cGyCookStemD
+Save-Png (Join-Path $idir 'cooked_gymnopilus.png') $g 16 16
+Assert-ConnectedArt $g 'item/cooked_gymnopilus.png' 7 5 7 10
+
+# ---------------------------------------------------------------------
 # Normalise every output: force RGBA8 and strip all metadata, so that
 # re-running the script produces byte-identical files.
 # ---------------------------------------------------------------------

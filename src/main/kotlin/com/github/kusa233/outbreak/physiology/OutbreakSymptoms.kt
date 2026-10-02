@@ -49,6 +49,25 @@ object OutbreakSymptoms {
     val ANTICHOLINERGIC_BLUR: Identifier = Registration.id("anticholinergic_blur")
 
     /**
+     * The four stages of a psilocin trip: `psilocinTier` is the index into [PSILOCIN_EFFECTS] plus
+     * one, and exactly one of them is ever on the screen. They are stages rather than layers because
+     * each one is the whole effect at a higher intensity - the outlines and the colour are still
+     * there at stage four, just bent along with everything else - and they stack with the fever and
+     * the mandrake blur like any other screen effect.
+     */
+    val PSILOCIN_OUTLINE: Identifier = Registration.id("psilocin_outline")
+    val PSILOCIN_COLOUR: Identifier = Registration.id("psilocin_colour")
+    val PSILOCIN_WARP: Identifier = Registration.id("psilocin_warp")
+    val PSILOCIN_STORM: Identifier = Registration.id("psilocin_storm")
+
+    private val PSILOCIN_EFFECTS: List<Identifier> = listOf(
+        PSILOCIN_OUTLINE,
+        PSILOCIN_COLOUR,
+        PSILOCIN_WARP,
+        PSILOCIN_STORM,
+    )
+
+    /**
      * How often the game rolls for a brief camera shake, and how long one lasts once it triggers.
      *
      * These are Minecraft's cadence rather than the model's numbers - *when* to poke the client, not
@@ -271,6 +290,9 @@ object OutbreakSymptoms {
         syncPostEffect(player, HEAT_BLUR, tier >= 2)
         syncPostEffect(player, COLD_SHIVER, tier <= -1)
         syncPostEffect(player, ANTICHOLINERGIC_BLUR, data.isVisionBlurred)
+        // The trip, one stage at a time. The fever that comes with the last stage is the model's.
+        val trip = data.psilocinTier
+        PSILOCIN_EFFECTS.forEachIndexed { index, id -> syncPostEffect(player, id, trip == index + 1) }
     }
 
     /** Removes every screen effect, for `/outbreak cure` and anything else that resets the body. */
@@ -279,6 +301,9 @@ object OutbreakSymptoms {
         syncPostEffect(player, HEAT_BLUR, false)
         syncPostEffect(player, COLD_SHIVER, false)
         syncPostEffect(player, ANTICHOLINERGIC_BLUR, false)
+        for (id in PSILOCIN_EFFECTS) {
+            syncPostEffect(player, id, false)
+        }
     }
 
     private fun syncPostEffect(player: ServerPlayer, id: Identifier, wanted: Boolean) {

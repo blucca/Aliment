@@ -278,6 +278,39 @@ object Physiology {
       state.atropine >= ModelConstants.ANTICHOLINERGIC_BLUR_SINGLE ||
       anticholinergicLoad(state) >= ModelConstants.ANTICHOLINERGIC_BLUR_TOTAL
 
+  // ------------------------------------------------------------------ psilocybin
+
+  /**
+   * How far into the trip the player is, as one of the four stages the client has an effect for.
+   *
+   * `1` pulls coloured outlines out of every block edge, `2` starts dyeing the blocks themselves in
+   * random bright colours, `3` bends the whole screen and `4` bends it hard. The stages are nested:
+   * a stage 3 trip still has the outlines and the colour, because the client effect for it is the
+   * whole thing at a higher intensity rather than a layer on top of the one below.
+   */
+  def psilocinTier(state: ModelState): Int =
+    if (state.psilocin > ModelConstants.PSILOCIN_STORM) 4
+    else if (state.psilocin > ModelConstants.PSILOCIN_WARP) 3
+    else if (state.psilocin > ModelConstants.PSILOCIN_COLOUR) 2
+    else if (state.psilocin > ModelConstants.PSILOCIN_OUTLINE) 1
+    else 0
+
+  /**
+   * The temperature a heavy trip drives the body towards: nothing at all until the world is already
+   * in pieces, then 39 degrees, then the same 41 the mandrake alkaloids reach at their worst.
+   *
+   * Like the alkaloid fever this is a set point shift rather than a fever - nothing here touches
+   * prostaglandin, so salicin does not touch it either - and it stacks with whatever else is going
+   * on, including the mandrake's own.
+   */
+  def psilocinFever(state: ModelState): Float =
+    if (state.psilocin <= ModelConstants.PSILOCIN_STORM) 0f
+    else if (state.psilocin < ModelConstants.PSILOCIN_FEVER_STEP) {
+      ModelConstants.PSILOCIN_FEVER_MILD - ModelConstants.TEMPERATURE_NORMAL
+    } else {
+      ModelConstants.PSILOCIN_FEVER_EXTREME - ModelConstants.TEMPERATURE_NORMAL
+    }
+
   // ------------------------------------------------------------------ the environment
 
   /** Vanilla's idea of a temperate biome; the neutral point of the ambient scale. */
@@ -426,6 +459,16 @@ object Physiology {
     // whole stack of them is an overdose the player has to wait out.
     val scopolamine = Math.max(state.scopolamine - ModelConstants.ANTICHOLINERGIC_DECAY_PER_TICK, 0f)
     val atropine = Math.max(state.atropine - ModelConstants.ANTICHOLINERGIC_DECAY_PER_TICK, 0f)
+    // The mushroom's compounds. Psilocybin has no effect of its own: it is a prodrug, and every
+    // tick a slice of it turns into exactly as much psilocin. Psilocin then leaves at a flat rate,
+    // so what is in the body is the integral of the dose rather than a decaying fraction of it.
+    val converted = Math.min(state.psilocybin, ModelConstants.PSILOCYBIN_DECAY_PER_TICK)
+    val psilocybin = state.psilocybin - converted
+    val psilocin = clamp(
+      state.psilocin + converted - ModelConstants.PSILOCIN_DECAY_PER_TICK,
+      0f,
+      ModelConstants.PSILOCIN_CAP,
+    )
 
     // 2. Pathogens grow logistically and are cleared in proportion to immune competence.
     val competence = immuneCompetence(state.mediators.getInflammation)
@@ -438,6 +481,8 @@ object Physiology {
       .withPyrogen(pyrogen)
       .withScopolamine(scopolamine)
       .withAtropine(atropine)
+      .withPsilocybin(psilocybin)
+      .withPsilocin(psilocin)
       .withBacteria(bacteria)
       .withVirus(virus)
 
@@ -536,7 +581,7 @@ object Physiology {
     val environmental = (ambient - ModelConstants.TEMPERATURE_NORMAL) * AMBIENT_COUPLING
     val target = ModelConstants.TEMPERATURE_NORMAL +
       fever + state.pyrogen + thyroidShift(state.traceElements.iodine) +
-      anticholinergicFever(state) + environmental
+      anticholinergicFever(state) + psilocinFever(state) + environmental
     clamp(target, ModelConstants.TEMPERATURE_MIN, ModelConstants.TEMPERATURE_MAX)
   }
 
@@ -703,6 +748,18 @@ object Physiology {
     state
       .withScopolamine(clamp(state.scopolamine + scopolamine, 0f, ModelConstants.ANTICHOLINERGIC_CAP))
       .withAtropine(clamp(state.atropine + atropine, 0f, ModelConstants.ANTICHOLINERGIC_CAP))
+
+  /**
+   * Adds what one raw gymnopilus carries, in dose units, both capped.
+   *
+   * A raw mushroom is a dose of each at once, which is why it comes on fast: the psilocin is there
+   * immediately and the psilocybin behind it keeps topping it up for the next half a day. A cooked
+   * one carries neither - heat destroys both compounds - so it is food and nothing more.
+   */
+  def mushroom(state: ModelState, psilocybin: Float, psilocin: Float): ModelState =
+    state
+      .withPsilocybin(clamp(state.psilocybin + psilocybin, 0f, ModelConstants.PSILOCYBIN_CAP))
+      .withPsilocin(clamp(state.psilocin + psilocin, 0f, ModelConstants.PSILOCIN_CAP))
 
   /**
    * Raises or lowers the fever so that the body *peaks* at `degrees` Celsius.

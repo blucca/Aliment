@@ -91,4 +91,11 @@ object OutbreakPhysiology {
      */
     fun anticholinergic(data: OutbreakData, scopolamine: Float, atropine: Float): OutbreakData =
         OutbreakModelBridge.anticholinergic(data, scopolamine, atropine)
+
+    /**
+     * Adds what one raw gymnopilus carries: a dose of psilocybin, which does nothing on its own and
+     * becomes psilocin over the next half a game day, and a dose of psilocin, which is the trip.
+     */
+    fun mushroom(data: OutbreakData, psilocybin: Float, psilocin: Float): OutbreakData =
+        OutbreakModelBridge.mushroom(data, psilocybin, psilocin)
 }

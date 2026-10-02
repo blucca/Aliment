@@ -254,6 +254,7 @@ src/main/kotlin/com/github/kusa233/outbreak/
    ├─ OutbreakGrinding.kt             砂轮转化表（供两个砂轮 mixin 读取）
    ├─ OutbreakLoot.kt                 村庄 / 前哨站箱子里的地塞米松注射液（3%）与柳树皮汤（35%）
    ├─ block/MandrakeBlock.kt          曼陀罗：四阶段、土上种植、骨粉催熟、只有成熟才结果
+   ├─ block/GymnopilusBlock.kt        橘黄裸伞：土或原木上都能长，没有原版的黑暗限制
    ├─ block/WillowVinesBlock.kt       垂柳末端（可催长）
    ├─ block/WillowVinesPlantBlock.kt  垂柳中段
    ├─ block/WillowSoupCauldronBlock.kt 柳树皮汤炼药锅（水位 + 生/熟 + 篝火计时）

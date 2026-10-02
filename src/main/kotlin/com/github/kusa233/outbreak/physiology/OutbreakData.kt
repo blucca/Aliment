@@ -206,6 +206,15 @@ data class OutbreakData(
      */
     val scopolamine: Float = 0f,
     val atropine: Float = 0f,
+    /**
+     * What a raw gymnopilus carries, 0..[PSILOCYBIN_CAP] and 0..[PSILOCIN_CAP].
+     *
+     * Psilocybin has no effect of its own: it converts into psilocin one for one over half a game
+     * day, and psilocin is what the trip and the fever come from. Psilocin itself is cleared at a
+     * flat [PSILOCIN_DOSE] a game day, so a big dose lasts proportionally longer.
+     */
+    val psilocybin: Float = 0f,
+    val psilocin: Float = 0f,
 ) {
 
     val inflammation: Float
@@ -298,6 +307,20 @@ data class OutbreakData(
     val isVisionBlurred: Boolean
         get() = OutbreakModelBridge.isVisionBlurred(this)
 
+    /**
+     * How far into the trip the player is, as the stage the client has a screen effect for:
+     *
+     * | tier | psilocin | what the screen does |
+     * | --- | --- | --- |
+     * | 0 | ≤ 1.2 | nothing |
+     * | 1 | > 1.2 | coloured outlines along every block edge |
+     * | 2 | > 1.7 | the blocks themselves start taking random bright colours |
+     * | 3 | > 2.5 | and the whole screen starts to bend |
+     * | 4 | > 5 | it bends hard, and the body starts to run hot |
+     */
+    val psilocinTier: Int
+        get() = OutbreakModelBridge.psilocinTier(this)
+
     fun withMediators(value: Mediators): OutbreakData = this.copy(mediators = value)
 
     fun withElectrolytes(value: Electrolytes): OutbreakData = this.copy(electrolytes = value)
@@ -321,6 +344,10 @@ data class OutbreakData(
     fun withScopolamine(value: Float): OutbreakData = this.copy(scopolamine = value)
 
     fun withAtropine(value: Float): OutbreakData = this.copy(atropine = value)
+
+    fun withPsilocybin(value: Float): OutbreakData = this.copy(psilocybin = value)
+
+    fun withPsilocin(value: Float): OutbreakData = this.copy(psilocin = value)
 
     companion object {
 
@@ -439,6 +466,19 @@ data class OutbreakData(
         /** Either alkaloid is cleared over one in-game day. */
         @JvmField val ANTICHOLINERGIC_METABOLISM_TICKS: Int = OutbreakModelBridge.ANTICHOLINERGIC_METABOLISM_TICKS
 
+        // ---------------------------------------------------------------- gymnopilus compounds
+
+        /** The most of either of the mushroom's compounds a body can carry. */
+        @JvmField val PSILOCYBIN_CAP: Float = OutbreakModelBridge.PSILOCYBIN_CAP
+        @JvmField val PSILOCIN_CAP: Float = OutbreakModelBridge.PSILOCIN_CAP
+
+        /** What one raw mushroom carries, which is the unit both metabolism rates are written in. */
+        @JvmField val PSILOCIN_DOSE: Float = OutbreakModelBridge.PSILOCIN_DOSE
+
+        /** Psilocybin becomes psilocin over half a game day; psilocin leaves over a whole one. */
+        @JvmField val PSILOCYBIN_METABOLISM_TICKS: Int = OutbreakModelBridge.PSILOCYBIN_METABOLISM_TICKS
+        @JvmField val PSILOCIN_METABOLISM_TICKS: Int = OutbreakModelBridge.PSILOCIN_METABOLISM_TICKS
+
         /** What a healthy player looks like. */
         @JvmField val HEALTHY: OutbreakData = OutbreakModelBridge.healthy()
 
@@ -458,6 +498,8 @@ data class OutbreakData(
                 Codec.FLOAT.optionalFieldOf("pyrogen", 0f).forGetter { it.pyrogen },
                 Codec.FLOAT.optionalFieldOf("scopolamine", 0f).forGetter { it.scopolamine },
                 Codec.FLOAT.optionalFieldOf("atropine", 0f).forGetter { it.atropine },
+                Codec.FLOAT.optionalFieldOf("psilocybin", 0f).forGetter { it.psilocybin },
+                Codec.FLOAT.optionalFieldOf("psilocin", 0f).forGetter { it.psilocin },
             ).apply(instance, ::OutbreakData)
         }
     }

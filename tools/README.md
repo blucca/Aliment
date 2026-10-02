@@ -73,10 +73,13 @@ are dead code in the shipped jar.
 Drives the player-facing willow features with Fabric's `FakePlayer` on a headless server: axe
 stripping, grindstone grinding, filling the cauldron, the 60 second campfire cook, taking a serving
 with a bottle and with a bowl, and growing a willow next to a pool to check that the trunk leans
-towards the water. Then the mandrake: sowing a seed on dirt, grass and coarse dirt but **not** on
-farmland (through the real item path), bone meal through all four stages, the loot table dropping
-1-2 fruit when ripe and nothing at all before that, the seeds recipe being in the recipe manager, and
-the wild patches being attached to the plains and the swamps and to nothing else. 23 checks.
+towards the water. Then the plants: sowing a mandrake seed on dirt, grass, coarse dirt and farmland
+(through the real item path), bone meal through all four stages, the loot table dropping 1-2 fruit
+when ripe and nothing at all before that, the seeds recipe being in the recipe manager, the mandrake
+patches being attached to the plains and the swamps and to nothing else, the gymnopilus' three
+cooking recipes loading with the same timings raw beef has, and its patches being attached to the dark
+forest and the taiga and to nothing else. It reads the worldgen answer out of the biome registry
+rather than by scanning a world, which is what the patches are actually decided by. 33 checks.
 
 ### `dev/OutbreakPhysiologySelfTest.kt` - physiology
 
@@ -85,21 +88,26 @@ untreated immune storm, salicin and dexamethasone control, overdose, drug metabo
 competence curve, the mediator weights, thirst over a game day, over-hydration, electrolyte
 dilution from heavy drinking, the iodine store draining to its floor in exactly three game days and
 what a day's kelp does about it, the two mandrake alkaloids (the three fever steps, the blur
-thresholds, the cap and the metabolism, and that the drug fever stacks on an infection's), the
+thresholds, the cap and the metabolism, and that the drug fever stacks on an infection's), the two
+gymnopilus compounds (that psilocybin is inert and converts one for one over half a day, that
+psilocin leaves at a flat 1.3 a day so five doses are ten game days, all four trip stages either
+side of their thresholds, and the two fever steps), the
 temperature model (fever, hypothermia, the environment, the
 thyroid) and the fever command. Then it exercises the mixins and the symptom layer end to end: it
 really eats raw meat through `ItemStack.finishUsingItem` and counts the infection rate, eats a
-mandrake fruit and its seeds to check what they carry, drinks all
+mandrake fruit and its seeds and a raw and a cooked gymnopilus to check what each carries, reads the
+two mushrooms' food values off their item components, drinks all
 twelve of the drinks to check the 15 water each, drinks salt water and sea water to check the
 minerals, checks that swamp water is foul and sea water is not, probes every mineral on both sides of
 both of its thresholds, asserts the camera-shake chance is zero for every state the player cannot
-see, counts the two per-second contagion dice, checks which screen effects each fever tier asks for
-and that the drug blur stacks with them, drives a real `GrindstoneMenu` to prove the two grindstone
+see, counts the two per-second contagion dice, checks which screen effects each fever tier asks for,
+that the drug blur stacks with them and that exactly one trip stage is on the screen at a time,
+drives a real `GrindstoneMenu` to prove the two grindstone
 mixins applied, rolls the chest-loot pool
 the mod actually adds, freezes a creative player and respawns a dead one, and checks the exhaustion
 multiplier, the mining penalty and the synced client state. It also enumerates every item and entity
 type the mod registers and fails, naming the key, if any of them has no name in `en_us.json` or
-`zh_cn.json`. 319 checks.
+`zh_cn.json`. 361 checks.
 
 ### Running either one
 

@@ -86,6 +86,9 @@ object OutbreakCreativeTabs {
         // mandrake: the plant has no item form, so the tab carries the fruit and the seeds
         OutbreakItems.MANDRAKE_FRUIT,
         OutbreakItems.MANDRAKE_SEEDS,
+        // gymnopilus: raw and cooked, the second one only food
+        OutbreakItems.GYMNOPILUS,
+        OutbreakItems.COOKED_GYMNOPILUS,
     )
 
     /**

@@ -1,6 +1,7 @@
 package com.github.kusa233.outbreak.registry
 
 import com.github.kusa233.outbreak.world.block.BrineCauldronBlock
+import com.github.kusa233.outbreak.world.block.GymnopilusBlock
 import com.github.kusa233.outbreak.world.block.MandrakeBlock
 import com.github.kusa233.outbreak.world.block.WillowSoupCauldronBlock
 import com.github.kusa233.outbreak.world.block.WillowVinesBlock
@@ -328,6 +329,23 @@ object OutbreakBlocks {
             .offsetType(BlockBehaviour.OffsetType.XZ)
             .pushReaction(PushReaction.POPPED),
     ) { MandrakeBlock(it) }
+
+    // ---------------------------------------------------------------- gymnopilus
+
+    /**
+     * The gymnopilus mushroom. Its item form is an ordinary edible mushroom registered in
+     * [OutbreakItems], because the food values live with the rest of the food.
+     */
+    val GYMNOPILUS: Block = Registration.registerBlock(
+        "gymnopilus",
+        BlockBehaviour.Properties.of()
+            .mapColor(MapColor.COLOR_ORANGE)
+            .noCollision()
+            .instabreak()
+            .sound(SoundType.GRASS)
+            .offsetType(BlockBehaviour.OffsetType.XZ)
+            .pushReaction(PushReaction.POPPED),
+    ) { GymnopilusBlock(it) }
 
     /** Touching this forces the whole object graph to be built. */
     fun initialize() {
