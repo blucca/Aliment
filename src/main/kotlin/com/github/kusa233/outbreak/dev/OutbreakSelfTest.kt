@@ -5,8 +5,13 @@ import com.github.kusa233.outbreak.registry.OutbreakBlocks
 import com.github.kusa233.outbreak.registry.OutbreakItems
 import com.github.kusa233.outbreak.registry.OutbreakWorldGen
 import com.github.kusa233.outbreak.registry.Registration
+import com.github.kusa233.outbreak.world.block.AlcoholCauldronBlock
+import com.github.kusa233.outbreak.world.block.CondenserPipeBlock
+import com.github.kusa233.outbreak.world.block.FermentationTankBlock
+import com.github.kusa233.outbreak.world.block.FermentationTankBlockEntity
 import com.github.kusa233.outbreak.world.block.MandrakeBlock
 import com.github.kusa233.outbreak.world.block.WillowSoupCauldronBlock
+import com.github.kusa233.outbreak.world.item.WineItem
 import net.fabricmc.api.ModInitializer
 import net.fabricmc.fabric.api.entity.FakePlayer
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
@@ -25,6 +30,7 @@ import net.minecraft.world.level.biome.Biome
 import net.minecraft.world.level.biome.Biomes
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.Blocks
+import net.minecraft.world.level.block.CampfireBlock
 import net.minecraft.world.level.block.LayeredCauldronBlock
 import net.minecraft.world.level.levelgen.feature.Feature
 import net.minecraft.world.phys.BlockHitResult
@@ -106,6 +112,7 @@ class OutbreakSelfTest : ModInitializer {
                 testMandrakeWorldGen(level)
                 testGymnopilusCooking(level)
                 testAdvancements(level, FakePlayer.get(level))
+                testFermentationAndDistillation(level, FakePlayer.get(level))
                 stage = 4
             }
 
@@ -472,6 +479,139 @@ class OutbreakSelfTest : ModInitializer {
 
         OutbreakAdvancements.award(player, OutbreakAdvancements.EXTREME_FEVER)
         check("extreme_fever can be awarded", player.advancements.getOrStartProgress(aFever).isDone)
+    }
+
+    private fun testFermentationAndDistillation(level: ServerLevel, player: FakePlayer) {
+        val recipes = level.server.recipeManager
+        check(
+            "the fermentation_tank recipe is loaded",
+            recipes.byKey(ResourceKey.create(Registries.RECIPE, Registration.id("fermentation_tank"))).isPresent,
+        )
+        check(
+            "the condenser_pipe recipe is loaded",
+            recipes.byKey(ResourceKey.create(Registries.RECIPE, Registration.id("condenser_pipe"))).isPresent,
+        )
+        check(
+            "the brewer_yeast recipe is loaded",
+            recipes.byKey(ResourceKey.create(Registries.RECIPE, Registration.id("brewer_yeast"))).isPresent,
+        )
+
+        // 1. Fermentation Tank setup
+        val tankPos = BlockPos(5, 201, 5)
+        level.setBlockAndUpdate(tankPos, OutbreakBlocks.FERMENTATION_TANK.defaultBlockState())
+        val entity = level.getBlockEntity(tankPos) as? FermentationTankBlockEntity
+        check("fermentation tank block entity exists", entity != null)
+        if (entity == null) return
+
+        check("tank starts empty", entity.waterLevel == 0 && !entity.hasSugar && !entity.hasYeast)
+
+        // Add water with bucket
+        player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(Items.WATER_BUCKET))
+        useOn(level, player, tankPos)
+        check(
+            "using water bucket sets level to 3 and liquid to blue water",
+            entity.waterLevel == 3 &&
+                level.getBlockState(tankPos).getValue(FermentationTankBlock.LEVEL) == 3 &&
+                level.getBlockState(tankPos).getValue(FermentationTankBlock.LIQUID) == FermentationTankBlock.TankLiquid.WATER,
+        )
+
+        // Add sugar
+        player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(Items.SUGAR))
+        useOn(level, player, tankPos)
+        check(
+            "sugar is added to the tank and turns liquid white",
+            entity.hasSugar &&
+                level.getBlockState(tankPos).getValue(FermentationTankBlock.LIQUID) == FermentationTankBlock.TankLiquid.SUGAR,
+        )
+
+        // Add brewer's yeast
+        player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(OutbreakItems.BREWER_YEAST))
+        useOn(level, player, tankPos)
+        check("yeast is added to the tank", entity.hasYeast)
+        check("tank is now fermenting", entity.isFermenting)
+
+        // Simulate 5 minutes fermentation completion
+        entity.fermentProgress = FermentationTankBlockEntity.FERMENT_TICKS - 1
+        FermentationTankBlockEntity.serverTick(level, tankPos, level.getBlockState(tankPos), entity)
+        check("fermentation produces 7% ethanol", entity.ethanol == 0.07f)
+        check("fermentation turns liquid light blue wine", level.getBlockState(tankPos).getValue(FermentationTankBlock.LIQUID) == FermentationTankBlock.TankLiquid.WINE)
+        check("fermentation consumed sugar", !entity.hasSugar)
+        check("fermentation consumed yeast", !entity.hasYeast)
+
+        // Bottle one serving of wine (7%)
+        player.inventory.clearContent()
+        player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(Items.GLASS_BOTTLE))
+        useOn(level, player, tankPos)
+        val bottledWine = (0 until player.inventory.containerSize)
+            .map { player.inventory.getItem(it) }
+            .firstOrNull { it.`is`(OutbreakItems.WINE) }
+        check("bottling fermented tank yields wine", bottledWine != null)
+        check(
+            "wine has 7% ethanol concentration in NBT",
+            bottledWine != null && WineItem.getConcentration(bottledWine) == 0.07f,
+        )
+        check("tank water level decremented to 2", entity.waterLevel == 2)
+
+        // 2. Condenser Pipe connection
+        val riserPos = tankPos.above()
+        level.setBlockAndUpdate(riserPos, OutbreakBlocks.CONDENSER_PIPE.defaultBlockState())
+        val riserState1 = level.getBlockState(riserPos)
+        check("single condenser pipe outlet faces UP", !riserState1.getValue(CondenserPipeBlock.OUTLET_DOWN))
+        check("single condenser pipe hitbox extends UP to 1.0", riserState1.getShape(level, riserPos).bounds().maxY == 1.0)
+
+        val sidePos = riserPos.east()
+        level.setBlockAndUpdate(sidePos, OutbreakBlocks.CONDENSER_PIPE.defaultBlockState())
+        val sideState = level.getBlockState(sidePos)
+        val riserState2 = level.getBlockState(riserPos)
+        check("connected side condenser pipe outlet faces DOWN", sideState.getValue(CondenserPipeBlock.OUTLET_DOWN))
+        check("riser condenser pipe outlet faces DOWN when connected horizontally", riserState2.getValue(CondenserPipeBlock.OUTLET_DOWN))
+        check("connected condenser pipe hitbox no longer extends UP (maxY = 0.75)", riserState2.getShape(level, riserPos).bounds().maxY == 0.75)
+
+        // 3. Distillation into cauldron over campfire
+        val firePos = tankPos.below()
+        level.setBlockAndUpdate(firePos, Blocks.CAMPFIRE.defaultBlockState().setValue(CampfireBlock.LIT, true))
+        val cauldronPos = sidePos.below()
+        level.setBlockAndUpdate(cauldronPos, Blocks.CAULDRON.defaultBlockState())
+
+        check("tank is ready for distillation", entity.isDistilling)
+
+        // Advance distillation 30 seconds
+        entity.distillProgress = FermentationTankBlockEntity.DISTILL_TICKS - 1
+        FermentationTankBlockEntity.serverTick(level, tankPos, level.getBlockState(tankPos), entity)
+
+        val cauldronState1 = level.getBlockState(cauldronPos)
+        check("distillation into cauldron produces alcohol cauldron level 1", cauldronState1.`is`(OutbreakBlocks.ALCOHOL_CAULDRON) && cauldronState1.getValue(AlcoholCauldronBlock.LEVEL) == 1)
+        check("tank water level decremented to 1", entity.waterLevel == 1)
+
+        // Bottle distilled wine from cauldron
+        player.inventory.clearContent()
+        player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(Items.GLASS_BOTTLE))
+        useOn(level, player, cauldronPos)
+        val distilledWine = (0 until player.inventory.containerSize)
+            .map { player.inventory.getItem(it) }
+            .firstOrNull { it.`is`(OutbreakItems.WINE) }
+        check("bottling alcohol cauldron yields wine", distilledWine != null)
+        check(
+            "distilled wine has 40% ethanol concentration in NBT",
+            distilledWine != null && WineItem.getConcentration(distilledWine) == 0.40f,
+        )
+        check("cauldron reverted to plain cauldron", level.getBlockState(cauldronPos).`is`(Blocks.CAULDRON))
+
+        // 4. Waste when outlet faces UP (remove side pipe)
+        level.setBlockAndUpdate(sidePos, Blocks.AIR.defaultBlockState())
+        val riserState3 = level.getBlockState(riserPos)
+        check("single riser pipe outlet reverted to UP", !riserState3.getValue(CondenserPipeBlock.OUTLET_DOWN))
+
+        entity.distillProgress = FermentationTankBlockEntity.DISTILL_TICKS - 1
+        FermentationTankBlockEntity.serverTick(level, tankPos, level.getBlockState(tankPos), entity)
+        check("uncondensed distillation evaporates liquid from tank", entity.waterLevel == 0 && entity.ethanol == 0f)
+        check("no alcohol went into cauldron when wasted", level.getBlockState(cauldronPos).`is`(Blocks.CAULDRON))
+
+        // Clean up test area
+        level.setBlockAndUpdate(tankPos, Blocks.AIR.defaultBlockState())
+        level.setBlockAndUpdate(riserPos, Blocks.AIR.defaultBlockState())
+        level.setBlockAndUpdate(firePos, Blocks.STONE.defaultBlockState())
+        level.setBlockAndUpdate(cauldronPos, Blocks.AIR.defaultBlockState())
     }
 
     // ------------------------------------------------------------------ helpers

@@ -25,6 +25,9 @@
     "block.outbreak.brine_cauldron":  "粗盐水炼药锅",
     "block.outbreak.mandrake":  "曼陀罗花",
     "block.outbreak.gymnopilus":  "橘黄裸伞",
+    "block.outbreak.fermentation_tank":  "玻璃发酵罐",
+    "block.outbreak.condenser_pipe":  "玻璃冷凝管",
+    "block.outbreak.alcohol_cauldron":  "酒精炼药锅",
     "item.outbreak.willow_bark":  "柳树树皮",
     "item.outbreak.willow_bark_pieces":  "柳树皮碎片",
     "item.outbreak.raw_willow_bark_soup_bottle":  "生柳树皮汤",
@@ -54,6 +57,8 @@
     "item.outbreak.mandrake_seeds":  "曼陀罗种子",
     "item.outbreak.gymnopilus":  "橘黄裸伞",
     "item.outbreak.cooked_gymnopilus":  "熟橘黄裸伞",
+    "item.outbreak.brewer_yeast":  "酿酒酵母",
+    "item.outbreak.wine":  "酒",
     "item.outbreak.willow_boat":  "柳木船",
     "entity.outbreak.willow_boat":  "柳木船",
     "item.outbreak.willow_chest_boat":  "柳木运输船",
@@ -72,5 +77,6 @@
     "advancements.outbreak.psychedelic_world.title":  "迷幻的世界",
     "advancements.outbreak.psychedelic_world.description":  "吃下一口橘黄伞菇",
     "advancements.outbreak.extreme_fever.title":  "超高热",
-    "advancements.outbreak.extreme_fever.description":  "核心体温超过40摄氏度"
+    "advancements.outbreak.extreme_fever.description":  "核心体温超过40摄氏度",
+    "tooltip.outbreak.wine.concentration":  "酒精浓度: %s"
 }

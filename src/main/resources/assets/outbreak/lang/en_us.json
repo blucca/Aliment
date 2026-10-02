@@ -25,6 +25,9 @@
     "block.outbreak.brine_cauldron":  "Brine Cauldron",
     "block.outbreak.mandrake":  "Mandrake",
     "block.outbreak.gymnopilus":  "Gymnopilus",
+    "block.outbreak.fermentation_tank":  "Glass Fermentation Tank",
+    "block.outbreak.condenser_pipe":  "Glass Condenser Pipe",
+    "block.outbreak.alcohol_cauldron":  "Alcohol Cauldron",
     "item.outbreak.willow_bark":  "Willow Bark",
     "item.outbreak.willow_bark_pieces":  "Willow Bark Pieces",
     "item.outbreak.raw_willow_bark_soup_bottle":  "Raw Willow Bark Soup",
@@ -54,6 +57,8 @@
     "item.outbreak.mandrake_seeds":  "Mandrake Seeds",
     "item.outbreak.gymnopilus":  "Gymnopilus",
     "item.outbreak.cooked_gymnopilus":  "Cooked Gymnopilus",
+    "item.outbreak.brewer_yeast":  "Brewer\u0027s Yeast",
+    "item.outbreak.wine":  "Wine",
     "item.outbreak.willow_boat":  "Willow Boat",
     "entity.outbreak.willow_boat":  "Willow Boat",
     "item.outbreak.willow_chest_boat":  "Willow Boat with Chest",
@@ -72,5 +77,6 @@
     "advancements.outbreak.psychedelic_world.title":  "Psychedelic World",
     "advancements.outbreak.psychedelic_world.description":  "Eat a bite of Gymnopilus",
     "advancements.outbreak.extreme_fever.title":  "Hyperpyrexia",
-    "advancements.outbreak.extreme_fever.description":  "Core body temperature exceeds 40 C"
+    "advancements.outbreak.extreme_fever.description":  "Core body temperature exceeds 40 C",
+    "tooltip.outbreak.wine.concentration":  "Ethanol: %s"
 }

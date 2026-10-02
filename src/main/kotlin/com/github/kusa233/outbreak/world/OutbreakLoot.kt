@@ -39,6 +39,8 @@ object OutbreakLoot {
     internal val ADDITIONS: List<ChestAddition> = listOf(
         ChestAddition(OutbreakItems.DEXAMETHASONE_INJECTION, 0.03f),
         ChestAddition(OutbreakItems.WILLOW_BARK_SOUP_BOWL, 0.35f),
+        ChestAddition(OutbreakItems.WINE, 0.35f),
+        ChestAddition(OutbreakItems.BREWER_YEAST, 0.40f),
     )
 
     /** One item this mod adds to a chest, with the chance that a given chest contains it. */

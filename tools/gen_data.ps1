@@ -379,6 +379,9 @@ $blockEntries = [ordered]@{
     'brine_cauldron'          = 'Brine Cauldron'
     'mandrake'                = 'Mandrake'
     'gymnopilus'              = 'Gymnopilus'
+    'fermentation_tank'       = 'Glass Fermentation Tank'
+    'condenser_pipe'          = 'Glass Condenser Pipe'
+    'alcohol_cauldron'        = 'Alcohol Cauldron'
 }
 
 $itemEntries = [ordered]@{
@@ -411,6 +414,8 @@ $itemEntries = [ordered]@{
     'mandrake_seeds'               = 'Mandrake Seeds'
     'gymnopilus'                   = 'Gymnopilus'
     'cooked_gymnopilus'            = 'Cooked Gymnopilus'
+    'brewer_yeast'                 = "Brewer's Yeast"
+    'wine'                         = 'Wine'
 }
 
 # the two boats are plain items that also have entity names, like vanilla's
@@ -495,6 +500,9 @@ foreach ($adv in $advancements) {
     $zh[$titleKey] = $zhNames[$titleKey]
     $zh[$descKey]  = $zhNames[$descKey]
 }
+
+$en["tooltip.$ns.wine.concentration"] = 'Ethanol: %s'
+$zh["tooltip.$ns.wine.concentration"] = $zhNames['tooltip.outbreak.wine.concentration']
 
 Write-Json "assets/$ns/lang/en_us.json" ($en | ConvertTo-Json -Depth 4)
 Write-Json "assets/$ns/lang/zh_cn.json" ($zh | ConvertTo-Json -Depth 4)
@@ -1188,7 +1196,7 @@ Write-VanillaTag 'block' 'wall_signs.json'                @("$ns`:willow_wall_si
 Write-VanillaTag 'block' 'ceiling_hanging_signs.json'     @("$ns`:willow_hanging_sign")
 Write-VanillaTag 'block' 'wall_hanging_signs.json'        @("$ns`:willow_wall_hanging_sign")
 Write-VanillaTag 'block' 'mineable/axe.json'              @("$ns`:willow_vines", "$ns`:willow_vines_plant")
-Write-VanillaTag 'block' 'mineable/pickaxe.json'          @("$ns`:rock_salt_ore", "$ns`:willow_soup_cauldron", "$ns`:brine_cauldron")
+Write-VanillaTag 'block' 'mineable/pickaxe.json'          @("$ns`:rock_salt_ore", "$ns`:willow_soup_cauldron", "$ns`:brine_cauldron", "$ns`:alcohol_cauldron", "$ns`:fermentation_tank", "$ns`:condenser_pipe")
 Write-VanillaTag 'block' 'needs_stone_tool.json'          @("$ns`:rock_salt_ore")
 
 # items
@@ -1551,6 +1559,467 @@ foreach ($stage in $psilocinStages) {
 }
 "@
 }
+
+# ---------------------------------------------------------------------------- brewing & distillation
+
+# 1. Fermentation Tank
+# Empty model
+Write-Json "assets/$ns/models/block/fermentation_tank_0.json" @"
+{
+  "ambientocclusion": false,
+  "textures": {
+    "particle": "$ns`:block/fermentation_tank_glass",
+    "glass": "$ns`:block/fermentation_tank_glass",
+    "planks": "$ns`:block/willow_planks"
+  },
+  "elements": [
+    {
+      "from": [ 2, 0, 2 ],
+      "to": [ 14, 1.5, 14 ],
+      "faces": {
+        "down":  { "texture": "#planks", "cullface": "down" },
+        "north": { "texture": "#planks" },
+        "south": { "texture": "#planks" },
+        "west":  { "texture": "#planks" },
+        "east":  { "texture": "#planks" }
+      }
+    },
+    {
+      "from": [ 2, 1.5, 2 ],
+      "to": [ 14, 14, 14 ],
+      "faces": {
+        "down":  { "texture": "#glass" },
+        "up":    { "texture": "#glass" },
+        "north": { "texture": "#glass" },
+        "south": { "texture": "#glass" },
+        "west":  { "texture": "#glass" },
+        "east":  { "texture": "#glass" }
+      }
+    },
+    {
+      "from": [ 4, 14, 4 ],
+      "to": [ 12, 16, 12 ],
+      "faces": {
+        "up":    { "texture": "#planks" },
+        "north": { "texture": "#planks" },
+        "south": { "texture": "#planks" },
+        "west":  { "texture": "#planks" },
+        "east":  { "texture": "#planks" }
+      }
+    }
+  ]
+}
+"@
+
+# Models with liquids
+foreach ($lvl in 1..3) {
+    $h = 1 + $lvl * 4
+    foreach ($liquid in @('water', 'sugar', 'wine')) {
+        Write-Json "assets/$ns/models/block/fermentation_tank_${lvl}_${liquid}.json" @"
+{
+  "ambientocclusion": false,
+  "textures": {
+    "particle": "$ns`:block/fermentation_tank_glass",
+    "glass": "$ns`:block/fermentation_tank_glass",
+    "planks": "$ns`:block/willow_planks",
+    "content": "$ns`:block/tank_liquid_$liquid"
+  },
+  "elements": [
+    {
+      "from": [ 2, 0, 2 ],
+      "to": [ 14, 1.5, 14 ],
+      "faces": {
+        "down":  { "texture": "#planks", "cullface": "down" },
+        "north": { "texture": "#planks" },
+        "south": { "texture": "#planks" },
+        "west":  { "texture": "#planks" },
+        "east":  { "texture": "#planks" }
+      }
+    },
+    {
+      "from": [ 2, 1.5, 2 ],
+      "to": [ 14, 14, 14 ],
+      "faces": {
+        "down":  { "texture": "#glass" },
+        "up":    { "texture": "#glass" },
+        "north": { "texture": "#glass" },
+        "south": { "texture": "#glass" },
+        "west":  { "texture": "#glass" },
+        "east":  { "texture": "#glass" }
+      }
+    },
+    {
+      "from": [ 4, 14, 4 ],
+      "to": [ 12, 16, 12 ],
+      "faces": {
+        "up":    { "texture": "#planks" },
+        "north": { "texture": "#planks" },
+        "south": { "texture": "#planks" },
+        "west":  { "texture": "#planks" },
+        "east":  { "texture": "#planks" }
+      }
+    },
+    {
+      "from": [ 3, 1, 3 ],
+      "to": [ 13, $h, 13 ],
+      "faces": {
+        "down":  { "texture": "#content", "cullface": "down" },
+        "up":    { "texture": "#content" },
+        "north": { "texture": "#content" },
+        "south": { "texture": "#content" },
+        "west":  { "texture": "#content" },
+        "east":  { "texture": "#content" }
+      }
+    }
+  ]
+}
+"@
+    }
+}
+
+$tankVariants = @()
+foreach ($lvl in 0..3) {
+    foreach ($liquid in @('water', 'sugar', 'wine')) {
+        foreach ($fermenting in @('false', 'true')) {
+            $modelName = if ($lvl -eq 0) { "fermentation_tank_0" } else { "fermentation_tank_${lvl}_${liquid}" }
+            $tankVariants += @"
+    "fermenting=$fermenting,level=$lvl,liquid=$liquid": {
+      "model": "$ns`:block/$modelName"
+    }
+"@
+        }
+    }
+}
+Write-Json "assets/$ns/blockstates/fermentation_tank.json" ("{`n  `"variants`": {`n" + ($tankVariants -join ",`n") + "`n  }`n}")
+
+Write-Json "assets/$ns/models/item/fermentation_tank.json" @"
+{
+  "parent": "$ns`:block/fermentation_tank_0"
+}
+"@
+Write-Json "assets/$ns/items/fermentation_tank.json" @"
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "$ns`:item/fermentation_tank"
+  }
+}
+"@
+
+Write-Json "data/$ns/loot_table/blocks/fermentation_tank.json" @"
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "$ns`:fermentation_tank"
+        }
+      ],
+      "conditions": [
+        {
+          "condition": "minecraft:survives_explosion"
+        }
+      ]
+    }
+  ],
+  "random_sequence": "$ns`:blocks/fermentation_tank"
+}
+"@
+
+Write-Json "data/$ns/recipe/fermentation_tank.json" @"
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "GPG",
+    "G G",
+    "GGG"
+  ],
+  "key": {
+    "G": "minecraft:glass",
+    "P": "#minecraft:planks"
+  },
+  "result": {
+    "count": 1,
+    "id": "$ns`:fermentation_tank"
+  }
+}
+"@
+
+# 2. Condenser Pipe
+Write-Json "assets/$ns/models/block/condenser_pipe_up.json" @"
+{
+  "ambientocclusion": false,
+  "textures": {
+    "particle": "$ns`:block/condenser_pipe_glass",
+    "glass": "$ns`:block/condenser_pipe_glass"
+  },
+  "elements": [
+    {
+      "from": [ 5, 0, 5 ],
+      "to": [ 11, 16, 11 ],
+      "faces": {
+        "down":  { "texture": "#glass", "cullface": "down" },
+        "up":    { "texture": "#glass", "cullface": "up" },
+        "north": { "texture": "#glass" },
+        "south": { "texture": "#glass" },
+        "west":  { "texture": "#glass" },
+        "east":  { "texture": "#glass" }
+      }
+    }
+  ]
+}
+"@
+
+Write-Json "assets/$ns/models/block/condenser_pipe_down.json" @"
+{
+  "ambientocclusion": false,
+  "textures": {
+    "particle": "$ns`:block/condenser_pipe_glass",
+    "glass": "$ns`:block/condenser_pipe_glass"
+  },
+  "elements": [
+    {
+      "from": [ 5, 4, 5 ],
+      "to": [ 11, 12, 11 ],
+      "faces": {
+        "up":    { "texture": "#glass" },
+        "north": { "texture": "#glass" },
+        "south": { "texture": "#glass" },
+        "west":  { "texture": "#glass" },
+        "east":  { "texture": "#glass" }
+      }
+    },
+    {
+      "from": [ 5, 0, 5 ],
+      "to": [ 11, 4, 11 ],
+      "faces": {
+        "down":  { "texture": "#glass", "cullface": "down" },
+        "north": { "texture": "#glass" },
+        "south": { "texture": "#glass" },
+        "west":  { "texture": "#glass" },
+        "east":  { "texture": "#glass" }
+      }
+    }
+  ]
+}
+"@
+
+Write-Json "assets/$ns/models/block/condenser_pipe_side.json" @"
+{
+  "ambientocclusion": false,
+  "textures": {
+    "particle": "$ns`:block/condenser_pipe_glass",
+    "glass": "$ns`:block/condenser_pipe_glass"
+  },
+  "elements": [
+    {
+      "from": [ 5, 4, 0 ],
+      "to": [ 11, 12, 5 ],
+      "faces": {
+        "down":  { "texture": "#glass" },
+        "up":    { "texture": "#glass" },
+        "north": { "texture": "#glass", "cullface": "north" },
+        "south": { "texture": "#glass" },
+        "west":  { "texture": "#glass" },
+        "east":  { "texture": "#glass" }
+      }
+    }
+  ]
+}
+"@
+
+Write-Json "assets/$ns/blockstates/condenser_pipe.json" @"
+{
+  "multipart": [
+    {
+      "when": { "outlet_down": "false" },
+      "apply": { "model": "$ns`:block/condenser_pipe_up" }
+    },
+    {
+      "when": { "outlet_down": "true" },
+      "apply": { "model": "$ns`:block/condenser_pipe_down" }
+    },
+    {
+      "when": { "north": "true" },
+      "apply": { "model": "$ns`:block/condenser_pipe_side" }
+    },
+    {
+      "when": { "south": "true" },
+      "apply": { "model": "$ns`:block/condenser_pipe_side", "y": 180 }
+    },
+    {
+      "when": { "west": "true" },
+      "apply": { "model": "$ns`:block/condenser_pipe_side", "y": 270 }
+    },
+    {
+      "when": { "east": "true" },
+      "apply": { "model": "$ns`:block/condenser_pipe_side", "y": 90 }
+    }
+  ]
+}
+"@
+
+Write-Json "assets/$ns/models/item/condenser_pipe.json" @"
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "$ns`:item/condenser_pipe"
+  }
+}
+"@
+
+Write-Json "assets/$ns/items/condenser_pipe.json" @"
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "$ns`:item/condenser_pipe"
+  }
+}
+"@
+
+Write-Json "data/$ns/loot_table/blocks/condenser_pipe.json" @"
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "$ns`:condenser_pipe"
+        }
+      ],
+      "conditions": [
+        {
+          "condition": "minecraft:survives_explosion"
+        }
+      ]
+    }
+  ],
+  "random_sequence": "$ns`:blocks/condenser_pipe"
+}
+"@
+
+Write-Json "data/$ns/recipe/condenser_pipe.json" @"
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "GGG",
+    "   ",
+    "GGG"
+  ],
+  "key": {
+    "G": "minecraft:glass"
+  },
+  "result": {
+    "count": 1,
+    "id": "$ns`:condenser_pipe"
+  }
+}
+"@
+
+# 3. Alcohol Cauldron
+foreach ($lvl in 1..3) {
+    $parent = if ($lvl -eq 3) { 'template_cauldron_full' } else { "template_cauldron_level$lvl" }
+    Write-Json "assets/$ns/models/block/alcohol_cauldron_$lvl.json" @"
+{
+  "parent": "minecraft:block/$parent",
+  "textures": {
+    "content": "$ns`:block/alcohol_still"
+  }
+}
+"@
+}
+
+Write-Json "assets/$ns/blockstates/alcohol_cauldron.json" @"
+{
+  "variants": {
+    "level=1": { "model": "$ns`:block/alcohol_cauldron_1" },
+    "level=2": { "model": "$ns`:block/alcohol_cauldron_2" },
+    "level=3": { "model": "$ns`:block/alcohol_cauldron_3" }
+  }
+}
+"@
+
+Write-Json "data/$ns/loot_table/blocks/alcohol_cauldron.json" @"
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:cauldron"
+        }
+      ],
+      "conditions": [
+        {
+          "condition": "minecraft:survives_explosion"
+        }
+      ]
+    }
+  ],
+  "random_sequence": "$ns`:blocks/alcohol_cauldron"
+}
+"@
+
+# 4. Brewer's Yeast Item
+Write-Json "assets/$ns/models/item/brewer_yeast.json" @"
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "$ns`:item/brewer_yeast"
+  }
+}
+"@
+Write-Json "assets/$ns/items/brewer_yeast.json" @"
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "$ns`:item/brewer_yeast"
+  }
+}
+"@
+
+Write-Json "data/$ns/recipe/brewer_yeast.json" @"
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "minecraft:wheat",
+    "minecraft:sugar",
+    "minecraft:brown_mushroom"
+  ],
+  "result": {
+    "count": 1,
+    "id": "$ns`:brewer_yeast"
+  }
+}
+"@
+
+# 5. Wine Item
+Write-Json "assets/$ns/models/item/wine.json" @"
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "$ns`:item/wine"
+  }
+}
+"@
+Write-Json "assets/$ns/items/wine.json" @"
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "$ns`:item/wine"
+  }
+}
+"@
 
 # ---- advancements
 Write-Json "data/$ns/advancement/ancient_anti_inflammatory.json" @"

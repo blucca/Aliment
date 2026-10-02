@@ -1,0 +1,21 @@
+{
+  "ambientocclusion": false,
+  "textures": {
+    "particle": "outbreak:block/condenser_pipe_glass",
+    "glass": "outbreak:block/condenser_pipe_glass"
+  },
+  "elements": [
+    {
+      "from": [ 5, 0, 5 ],
+      "to": [ 11, 16, 11 ],
+      "faces": {
+        "down":  { "texture": "#glass", "cullface": "down" },
+        "up":    { "texture": "#glass", "cullface": "up" },
+        "north": { "texture": "#glass" },
+        "south": { "texture": "#glass" },
+        "west":  { "texture": "#glass" },
+        "east":  { "texture": "#glass" }
+      }
+    }
+  ]
+}

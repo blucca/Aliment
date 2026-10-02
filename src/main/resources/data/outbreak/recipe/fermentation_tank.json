@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "GPG",
+    "G G",
+    "GGG"
+  ],
+  "key": {
+    "G": "minecraft:glass",
+    "P": "#minecraft:planks"
+  },
+  "result": {
+    "count": 1,
+    "id": "outbreak:fermentation_tank"
+  }
+}

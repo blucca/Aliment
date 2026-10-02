@@ -79,7 +79,7 @@ when ripe and nothing at all before that, the seeds recipe being in the recipe m
 patches being attached to the plains and the swamps and to nothing else, the gymnopilus' three
 cooking recipes loading with the same timings raw beef has, and its patches being attached to the dark
 forest and the taiga and to nothing else. It reads the worldgen answer out of the biome registry
-rather than by scanning a world, which is what the patches are actually decided by, and verifies the advancement tree and triggers. 55 checks.
+rather than by scanning a world, which is what the patches are actually decided by, and verifies the advancement tree and triggers, and the fermentation tank and condenser pipe distillation machinery. 85 checks.
 
 ### `dev/OutbreakPhysiologySelfTest.kt` - physiology
 
@@ -107,7 +107,7 @@ mixins applied, rolls the chest-loot pool
 the mod actually adds, freezes a creative player and respawns a dead one, and checks the exhaustion
 multiplier, the mining penalty and the synced client state. It also enumerates every item and entity
 type the mod registers and fails, naming the key, if any of them has no name in `en_us.json` or
-`zh_cn.json`. 361 checks.
+`zh_cn.json`. 367 checks.
 
 ### Running either one
 

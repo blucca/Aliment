@@ -2,6 +2,9 @@
   "values": [
     "outbreak:rock_salt_ore",
     "outbreak:willow_soup_cauldron",
-    "outbreak:brine_cauldron"
+    "outbreak:brine_cauldron",
+    "outbreak:alcohol_cauldron",
+    "outbreak:fermentation_tank",
+    "outbreak:condenser_pipe"
   ]
 }

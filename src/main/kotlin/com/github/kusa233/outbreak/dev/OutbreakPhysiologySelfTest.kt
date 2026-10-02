@@ -1313,11 +1313,15 @@ class OutbreakPhysiologySelfTest : ModInitializer {
     private fun chestLoot(level: ServerLevel) {
         val additions = OutbreakLoot.ADDITIONS
         logger.info("PHYS chest additions: {}", additions.map { "${it.item} at ${it.chance}" })
-        check("two items go into chests", additions.size == 2)
+        check("four items go into chests", additions.size == 4)
         check("the first is a dexamethasone injection", additions[0].item == OutbreakItems.DEXAMETHASONE_INJECTION)
         check("and it is a 3% find", additions[0].chance == 0.03f)
         check("the second is a bowl of willow bark soup", additions[1].item == OutbreakItems.WILLOW_BARK_SOUP_BOWL)
         check("and it is a 35% find", additions[1].chance == 0.35f)
+        check("the third is wine", additions[2].item == OutbreakItems.WINE)
+        check("and it is a 35% find", additions[2].chance == 0.35f)
+        check("the fourth is brewer's yeast", additions[3].item == OutbreakItems.BREWER_YEAST)
+        check("and it is a 40% find", additions[3].chance == 0.40f)
 
         check("a plains village chest is a target", OutbreakLoot.targets(vanilla("chests/village/village_plains_house")))
         check("so is a snowy one", OutbreakLoot.targets(vanilla("chests/village/village_snowy_house")))

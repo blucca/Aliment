@@ -1,6 +1,9 @@
 package com.github.kusa233.outbreak.registry
 
+import com.github.kusa233.outbreak.world.block.AlcoholCauldronBlock
 import com.github.kusa233.outbreak.world.block.BrineCauldronBlock
+import com.github.kusa233.outbreak.world.block.CondenserPipeBlock
+import com.github.kusa233.outbreak.world.block.FermentationTankBlock
 import com.github.kusa233.outbreak.world.block.GymnopilusBlock
 import com.github.kusa233.outbreak.world.block.MandrakeBlock
 import com.github.kusa233.outbreak.world.block.WillowSoupCauldronBlock
@@ -347,6 +350,45 @@ object OutbreakBlocks {
             .pushReaction(PushReaction.POPPED),
     ) { GymnopilusBlock(it) }
 
+    // ---------------------------------------------------------------- brewing & distillation
+
+    /**
+     * Glass Fermentation Tank for brewing wine from water, sugar, and yeast.
+     */
+    val FERMENTATION_TANK: Block = Registration.registerBlockWithItem(
+        "fermentation_tank",
+        BlockBehaviour.Properties.of()
+            .mapColor(MapColor.NONE)
+            .strength(0.3F)
+            .sound(SoundType.GLASS)
+            .noOcclusion(),
+    ) { FermentationTankBlock(it) }
+
+    /**
+     * Glass Condenser Pipe for distilling alcohol above a fermentation tank.
+     */
+    val CONDENSER_PIPE: Block = Registration.registerBlockWithItem(
+        "condenser_pipe",
+        BlockBehaviour.Properties.of()
+            .mapColor(MapColor.NONE)
+            .strength(0.3F)
+            .sound(SoundType.GLASS)
+            .noOcclusion(),
+    ) { CondenserPipeBlock(it) }
+
+    /**
+     * Distilled Alcohol Cauldron to collect condensed alcohol from a condenser pipe.
+     */
+    val ALCOHOL_CAULDRON: Block = Registration.registerBlock(
+        "alcohol_cauldron",
+        BlockBehaviour.Properties.of()
+            .mapColor(MapColor.STONE)
+            .requiresCorrectToolForDrops()
+            .strength(2.0F)
+            .noOcclusion(),
+    ) { AlcoholCauldronBlock(it) }
+
     /** Touching this forces the whole object graph to be built. */
     fun initialize() {
-    }}
+    }
+}

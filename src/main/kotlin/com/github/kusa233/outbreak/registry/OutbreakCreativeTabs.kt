@@ -89,6 +89,11 @@ object OutbreakCreativeTabs {
         // gymnopilus: raw and cooked, the second one only food
         OutbreakItems.GYMNOPILUS,
         OutbreakItems.COOKED_GYMNOPILUS,
+        // brewing & distillation
+        OutbreakBlocks.FERMENTATION_TANK,
+        OutbreakBlocks.CONDENSER_PIPE,
+        OutbreakItems.BREWER_YEAST,
+        OutbreakItems.WINE,
     )
 
     /**

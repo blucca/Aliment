@@ -1,6 +1,7 @@
 package com.github.kusa233.outbreak.registry
 
 import com.github.kusa233.outbreak.Outbreak
+import com.github.kusa233.outbreak.world.item.WineItem
 import net.minecraft.core.Direction
 import net.minecraft.world.effect.MobEffectInstance
 import net.minecraft.world.effect.MobEffects
@@ -9,6 +10,7 @@ import net.minecraft.world.item.BlockItem
 import net.minecraft.world.item.BoatItem
 import net.minecraft.world.item.HangingSignItem
 import net.minecraft.world.item.Item
+import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraft.world.item.StandingAndWallBlockItem
 import net.minecraft.world.item.component.Consumable
@@ -315,6 +317,23 @@ object OutbreakItems {
         "cooked_gymnopilus",
         Item.Properties().food(mushroomFood(4, 5f)),
     ) { Item(it) }
+
+    /** Brewer's yeast for the fermentation tank. */
+    val BREWER_YEAST: Item = Registration.registerItem(
+        "brewer_yeast",
+        Item.Properties(),
+    ) { Item(it) }
+
+    /** Wine / Booze with ethanol concentration recorded in NBT. */
+    val WINE: Item = Registration.registerItem(
+        "wine",
+        Item.Properties()
+            .food(buildFood(1, 0.5f, alwaysEdible = true), Consumables.defaultDrink().build())
+            .usingConvertsTo(Items.GLASS_BOTTLE)
+            .stacksTo(16),
+    ) { WineItem(it) }
+
+    fun createWine(concentration: Float): ItemStack = WineItem.createStack(WINE, concentration)
 
     /**
      * Food written the way a player reads it off the tooltip: hunger first, saturation points second.
