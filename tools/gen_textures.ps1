@@ -2014,6 +2014,32 @@ $cMkThroat='#C9BE7A'
 $cMkFruitD='#2F4C1C'; $cMkFruit ='#4F7A34'; $cMkFruitL='#79A94E'
 $cMkSeedD ='#5A3F1E'; $cMkSeed  ='#8A6A3C'; $cMkSeedL ='#B08A5A'
 
+# A one pixel gap between two parts of one sprite is invisible while writing the code and glaring in
+# the inventory - the fruit shipped once with its brown stalk stopping at y=3 while the green capsule
+# starts at y=5. So the silhouette is proved to be one piece here, with a flood fill over the opaque
+# pixels. Throw rather than warn: art that is in two pieces is not worth writing out.
+function Assert-ConnectedArt($g,[string]$what,[int]$fromX,[int]$fromY,[int]$toX,[int]$toY){
+    $seen = New-Object 'bool[,]' 16,16
+    $queue = New-Object System.Collections.Generic.Queue[int[]]
+    $queue.Enqueue(@($fromX,$fromY))
+    $seen[$fromX,$fromY] = $true
+    while($queue.Count -gt 0){
+        $here = $queue.Dequeue()
+        foreach($step in @(@(1,0),@(-1,0),@(0,1),@(0,-1))){
+            $nx = $here[0] + $step[0]
+            $ny = $here[1] + $step[1]
+            if($nx -lt 0 -or $ny -lt 0 -or $nx -gt 15 -or $ny -gt 15){ continue }
+            if($seen[$nx,$ny]){ continue }
+            if($g[$nx,$ny] -eq $cClear){ continue }
+            $seen[$nx,$ny] = $true
+            $queue.Enqueue(@($nx,$ny))
+        }
+    }
+    if(-not $seen[$toX,$toY]){
+        throw "$what is in two pieces: ($fromX,$fromY) cannot reach ($toX,$toY)"
+    }
+}
+
 # stage 0: a seedling - one short stem and a pair of seed leaves
 $g = New-Grid 16 16
 GridRect $g 7 11 2 5 $cMkStemD
@@ -2061,23 +2087,23 @@ GridRect $g 9 9 5 1 $cMkLeafL
 GridRect $g 9 10 5 1 $cMkLeaf
 GridRect $g 4 10 3 1 $cMkLeaf
 GridRect $g 9 8 3 1 $cMkLeafD
-# the trumpet: a bell that flares at the mouth and tapers into the stem, throat showing inside
-GridPx  $g 5 2 $cMkPetalL
-GridRect $g 6 2 5 1 $cMkPetalL
-GridPx  $g 11 2 $cMkPetalL
-GridRect $g 5 3 1 2 $cMkPetalD
-GridPx  $g 6 3 $cMkPetal
-GridPx  $g 7 3 $cMkThroat
-GridPx  $g 8 3 $cMkThroat
-GridPx  $g 9 3 $cMkPetal
-GridPx  $g 10 3 $cMkPetalD
+# the trumpet: a rounded bell sitting one pixel lower than it used to, widening to a full-width rim
+# two thirds of the way down and then narrowing into the stem, with the throat showing inside
+GridPx  $g 7 3 $cMkPetalL
+GridPx  $g 8 3 $cMkPetalL
 GridPx  $g 6 4 $cMkPetal
-GridPx  $g 7 4 $cMkThroat
-GridPx  $g 8 4 $cMkThroat
+GridPx  $g 7 4 $cMkPetalL
+GridPx  $g 8 4 $cMkPetalL
 GridPx  $g 9 4 $cMkPetal
-GridRect $g 7 5 2 3 $cMkPetal
+GridRect $g 5 5 6 1 $cMkPetalL
+GridPx  $g 5 5 $cMkPetalD
+GridPx  $g 10 5 $cMkPetalD
+GridPx  $g 6 6 $cMkPetal
+GridPx  $g 7 6 $cMkThroat
+GridPx  $g 8 6 $cMkThroat
+GridPx  $g 9 6 $cMkPetal
+GridRect $g 7 7 2 1 $cMkPetal
 GridPx  $g 7 7 $cMkPetalD
-GridPx  $g 8 7 $cMkPetalD
 # the capsule, knobbly and darker underneath
 foreach($fy in 12..15){ foreach($fx in 10..13){
     $dx = $fx - 11.5; $dy = $fy - 13.5
@@ -2092,6 +2118,9 @@ foreach($pt in @(@(10,12),@(13,12),@(10,15),@(13,15),@(11,11),@(12,11))){
     if($g[$pt[0],$pt[1]] -eq '#00000000'){ GridPx $g $pt[0] $pt[1] $cMkFruitD }
 }
 Save-Png (Join-Path $bdir 'mandrake_stage3.png') $g 16 16
+# The whole plant, one piece: the flower on top has to reach the fruit hanging below it, which only
+# holds if the flower meets the stem, the leaves meet the stem and the fruit meets a leaf.
+Assert-ConnectedArt $g 'block/mandrake_stage3.png' 7 3 11 13
 
 # the fruit on its own: the same capsule, seen up close, with the stalk still on it
 $g = New-Grid 16 16
@@ -2111,12 +2140,13 @@ foreach($y in 0..15){ foreach($x in 0..15){
 foreach($pt in @(@(2,7),@(3,5),@(13,7),@(12,5),@(3,12),@(4,13),@(12,12),@(11,13),@(7,14),@(8,14))){
     GridPx $g $pt[0] $pt[1] $cMkFruitD
 }
-GridRect $g 7 1 2 3 $cMkSeedD
+GridRect $g 7 1 2 4 $cMkSeedD
 GridPx  $g 7 1 $cMkSeed
 GridPx  $g 6 6 $cMkFruitL
 GridPx  $g 5 6 $cMkFruitL
 GridPx  $g 6 7 $cMkFruitL
 Save-Png (Join-Path $idir 'mandrake_fruit.png') $g 16 16
+Assert-ConnectedArt $g 'item/mandrake_fruit.png' 7 1 7 10
 
 # the seeds: a scatter of little brown pips
 $g = New-Grid 16 16

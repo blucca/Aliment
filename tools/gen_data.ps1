@@ -1252,8 +1252,9 @@ Write-Json "data/$ns/recipe/mandrake_seeds.json" @"
 }
 "@
 
-# Wild mandrakes. The patch is placed on grass and left at full age, exactly like vanilla's berry
-# bush patches: a plant the player walks up to and picks, rather than one that has to be waited for.
+# Wild mandrakes, deliberately sparse: two attempts per chunk on grass, left at full age like
+# vanilla's berry bush patches, so a plant the player walks up to and picks - rather than one that has
+# to be waited for - is still worth the walk.
 Write-Json "data/$ns/worldgen/feature/mandrake.json" @"
 {
   "type": "minecraft:simple_block",
@@ -1272,7 +1273,7 @@ Write-Json "data/$ns/worldgen/placed_feature/mandrake_patch.json" @"
   "placement": [
     {
       "type": "minecraft:count",
-      "count": 6
+      "count": 2
     },
     {
       "type": "minecraft:in_square"
