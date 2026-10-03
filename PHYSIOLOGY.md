@@ -769,6 +769,7 @@ Kotlin **从不提到 Scala 的类型**：两者之间隔着 `OutbreakModelBridg
 | `ModelMediators` | `MediatorLevels`（权重、`MAX`、`CALM`、`RESTING`） | `Mediators` |
 | `ModelElectrolytes` | `ElectrolyteDefaults`（`MINERALS`、`HEALTHY`） | `Electrolytes` |
 | `ModelTraceElements` | `TraceElementDefaults`（`HEALTHY`） | `TraceElements` |
+| `ModelDrugs` | `DrugDefaults`（`CLEAN`） | `OutbreakData`（体内药物各字段与 `Compounds`） |
 | `ModelState` | `ModelConstants`（全部标量常数） | `OutbreakData` |
 
 | 文件 | 内容 |

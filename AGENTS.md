@@ -28,8 +28,8 @@ workable:
   `OutbreakData`/`Mediators`/`Electrolytes`/`TraceElements`/`Mineral`, and why every call crosses
   through `OutbreakModelBridge`. The grep that checks it: any hit for `physiology.model` under
   `src/main/kotlin`, or for one of the model's names (`ModelState`, `ModelConstants`, `ModelMineral`,
-  `ModelMediators`, `ModelElectrolytes`, `ModelTraceElements`, `MineralRanges`, `MediatorLevels`,
-  `ElectrolyteDefaults`, `TraceElementDefaults`, `Physiology.`), is a bug.
+  `ModelMediators`, `ModelElectrolytes`, `ModelTraceElements`, `ModelDrugs`, `MineralRanges`, `MediatorLevels`,
+  `ElectrolyteDefaults`, `TraceElementDefaults`, `DrugDefaults`, `Physiology.`), is a bug.
 * `OutbreakModelBridge` must not put a Scala type in a **public** field, parameter or return type
   either: Kotlin resolves those eagerly, even though it resolves the Java file's private fields and
   method bodies lazily (verified: a private field of a nonexistent type does not break
@@ -55,9 +55,9 @@ workable:
 * If a Scala type needs a `@BeanProperty` getter for Java to read a field, it needs one - the bridge
   reads `state.getBacteria()`, not `state.bacteria()`.
 * **The model's names never collide with Kotlin's.** Its case classes are `ModelMineral`,
-  `ModelMediators`, `ModelElectrolytes`, `ModelTraceElements` and `ModelState`, and its constants
+  `ModelMediators`, `ModelElectrolytes`, `ModelTraceElements`, `ModelDrugs` and `ModelState`, and its constants
   live in *separately named* objects rather than in companions - `MineralRanges`, `MediatorLevels`,
-  `ElectrolyteDefaults`, `TraceElementDefaults`, `ModelConstants` - so that a Java file can
+  `ElectrolyteDefaults`, `TraceElementDefaults`, `DrugDefaults`, `ModelConstants` - so that a Java file can
   `import ...physiology.model.*` and refer to every one of them by its short name. That is also why
   there is no `@static` anywhere: it is only legal in a companion object, and the constants reach Java
   through the static forwarders Scala generates for a plain object (`ModelConstants.WATER_MAX()`,

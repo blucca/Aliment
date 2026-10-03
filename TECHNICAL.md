@@ -29,9 +29,9 @@
 ```
 
 ### 1.1 Scala 3 模型层 (`src/main/scala/.../physiology/model`)
-- **职责**：承载全部微分方程、生理稳态、电解质参考范围、免疫钟形曲线以及每 tick 的数值演化。
-- **纯函数约束**：该层严禁导入任何 Minecraft、Kotlin、Fabric 的类库。输入输出均为纯数值与标准不可变 Case Class（`ModelState`, `ModelMineral`, `ModelMediators`, `ModelElectrolytes`, `ModelTraceElements`）。
-- **无状态计算**：`Physiology.tick(...)` 接受当前状态与环境输入，纯函数式返回演化后的下一状态。
+- **职责**：承载全部微分方程、生理稳态、电解质参考范围、免疫钟形曲线、体内药物动力学以及每 tick 的数值演化。
+- **纯函数约束**：该层严禁导入任何 Minecraft、Kotlin、Fabric 的类库。输入输出均为纯数值与标准不可变 Case Class（`ModelState`, `ModelMineral`, `ModelMediators`, `ModelElectrolytes`, `ModelTraceElements`, `ModelDrugs`）。
+- **无状态计算**：`Physiology.tick(...)` 接受当前状态与环境输入，纯函数式返回演化后的下一状态；体内 9 种药物与生物碱集中于 `ModelDrugs` 并由 `Physiology.stepDrugs` 统一推进代谢衰减。
 
 ### 1.2 Java 接缝层 (`src/main/java/.../physiology/OutbreakModelBridge.java`)
 - **存在的根本原因**：Kotlin K2 编译器在引用一个含有 Scala 类型的类时，会主动尝试解析其所有父接口（包括 `scala.Product`）。即使 classpath 正确配置，Kotlin 也会报错 `Cannot access 'scala.Product'`。
@@ -43,7 +43,7 @@
 
 ### 1.3 Kotlin 业务层 (`src/main/kotlin/...`)
 - **职责**：承载与 Minecraft 引擎对接的所有逻辑。
-  - **数据持久化**：通过 Fabric Data Attachment API 将 `OutbreakData` 绑定至 Player 实体，并通过 Mojang Codec 序列化至 NBT。
+  - **数据持久化与 Codec 突破**：通过 Fabric Data Attachment API 将 `OutbreakData` 绑定至 Player 实体。针对 Mojang DataFixerUpper `RecordCodecBuilder.instance.group(...)` 最大支持 16 个字段（`Products.P16`）的硬性限制，在内部构建扁平化辅助 `Compounds` 结构及其 `MapCodec`，内联平铺嵌入主 Codec，在不破坏 NBT 扁平向下兼容的前提下完美容纳扩展指标。
   - **生理症状**：`OutbreakSymptoms` 每 tick 驱动体温、脱水掉血、电解质失衡缓慢失明/反胃、麻黄碱速掘等效果。
   - **吃喝钩子**：`OutbreakIngestion` 统一处理食物/药剂下肚时的水分、电解质吸收与病原体摄入。
   - **方块与物品交互**：`OutbreakInteractions` 处理潜行研磨、炼药锅投料、注射剂使用等。
@@ -83,7 +83,7 @@ $$\text{compileJava} \rightarrow \text{compileKotlin} \rightarrow \text{compileS
 | --- | --- | --- |
 | `ItemMixin.java` | `net.minecraft.world.item.ItemStack` | 捕获物品被完整吃完/喝完的时刻，触发 `OutbreakIngestion` 吸收逻辑 |
 | `PlayerMixin.java` | `net.minecraft.world.entity.player.Player` | 动态干预饱食度消耗与极端失水脱水惩罚 |
-| `GrindstoneInputSlotMixin.java` | `net.minecraft.world.inventory.GrindstoneMenu` 输入槽 | 解除原版砂轮只允许放入损坏/附魔物品的限制，允许放入树皮、岩盐与麻黄 |
+| `GrindstoneInputSlotMixin.java` | `net.minecraft.world.inventory.GrindstoneMenu` 输入槽 | 解除原版砂轮只允许放入损坏/附魔物品的限制，允许放入树皮、岩盐、麻黄、黄连、黄柏与甘草 |
 | `GrindstoneMenuMixin.java` | `net.minecraft.world.inventory.GrindstoneMenu` | 接入 `OutbreakGrinding` 的研磨配方映射表，计算并输出研磨产物 |
 | `CameraMixin.java` (Client) | `net.minecraft.client.Camera` | 实现发冷/寒战时仅晃动镜头的衰减振荡体验，不干扰实际实体物理位置 |
 | `FogRendererMixin.java` (Client) | `net.minecraft.client.renderer.FogRenderer` | 曼陀罗中毒时将视野迷雾收缩至 8 格内 |
@@ -97,17 +97,17 @@ $$\text{compileJava} \rightarrow \text{compileKotlin} \rightarrow \text{compileS
 
 ### 4.1 数据生成器 (`tools/gen_data.ps1`)
 - 自动提取 Minecraft 26.3 客户端 Jar 中的最新数据结构标准。
-- 自动生成 360+ 份 JSON 文件：
-  - `blockstates/` 与 `models/block/`：柳木全套、生熟汤炼药锅、盐水炼药锅、发酵罐、冷凝管、麻黄 4 阶段植株。
-  - `items/` 与 `models/item/`：全部自定义物品的模型与物品定义。
-  - `recipes/`：柳木建材合成表、酿酒酵母、发酵罐、冷凝管、搅拌棒、剪刀剪碎麻黄（自定义配方）、麻黄碱药水。
+- 自动生成 400+ 份 JSON 文件：
+  - `blockstates/` 与 `models/block/`：柳木全套、生熟汤炼药锅、盐水炼药锅、发酵罐、冷凝管、麻黄 4 阶段植株，以及黄连、黄柏、甘草各自 4 阶段作物植株。
+  - `items/` 与 `models/item/`：全部自定义物品的模型与物品定义（包括原药材、碎药材与药水）。
+  - `recipes/`：柳木建材合成表、酿酒酵母、发酵罐、冷凝管、搅拌棒、剪刀剪碎麻黄（自定义配方）、麻黄碱药水、黄连/黄柏/甘草药水合成。
   - `loot_tables/`：方块破坏掉落表（时运加成、未成熟/成熟区分）。
   - `worldgen/`：柳树河流注入、岩盐矿脉地底生成、干旱群系麻黄植被生成。
   - `lang/`：双向对齐同步 `en_us.json`、`zh_cn.json` 与 `ja_jp.json`。
 
-### 4.2 贴图引擎 (`tools/gen_textures.ps1` & `tools/gen_ephedra_textures.ps1`)
+### 4.2 贴图引擎 (`tools/gen_textures.ps1`, `tools/gen_ephedra_textures.ps1`, `tools/gen_herbs_textures.ps1`)
 - 全量贴图通过脚本算法自动渲染，绝不依赖手工绘制。
-- **原版药水贴图复合算法**：自动提取原版 `potion.png` 玻璃瓶图层与 `potion_overlay.png` 液体遮罩，采用正片叠底根据指定色调矩阵（如麻黄碱药水的琥珀金黄色）即时合成，像素级百分之百与原版药水风格融合。
+- **原版药水贴图复合算法**：自动提取原版 `potion.png` 玻璃瓶图层与 `potion_overlay.png` 液体遮罩，采用正片叠底根据指定色调矩阵（如麻黄碱药水的琥珀金黄色、黄连药水的清亮苦黄色、黄柏药水的棕金色、甘草药水的深棕色）即时合成，像素级百分之百与原版药水风格融合。
 
 ---
 
@@ -117,12 +117,16 @@ $$\text{compileJava} \rightarrow \text{compileKotlin} \rightarrow \text{compileS
 
 ### 5.1 方块与交互测试 (`OutbreakSelfTest.kt`，107 项断言)
 - **树木生成与形态**：测试河流河岸检测、树干倾斜算法向水面弯曲、垂柳藤条生成。
-- **方块交互**：斧头剥皮掉落树皮、砂轮输入/产出槽研磨逻辑、剪刀合成耐久扣减 1 点、炼药锅 60 秒营火加热熬汤、蒸馏冷凝管方向判定。
+- **方块交互**：斧头剥皮掉落树皮、砂轮输入/产出槽研磨逻辑（树皮、岩盐、麻黄、黄连、黄柏、甘草）、剪刀合成耐久扣减 1 点、炼药锅 60 秒营火加热熬汤、蒸馏冷凝管方向判定。
 - **配方与战利品**：验证数据包加载后所有 RecipeSerializer 与 LootTable 的正确性。
 
-### 5.2 生理模型与本地化自检 (`OutbreakPhysiologySelfTest.kt`，381 项断言)
+### 5.2 生理模型与本地化自检 (`OutbreakPhysiologySelfTest.kt`，400+ 项断言)
 - **数值稳态**：验证健康状态各指标处于参考范围中心。
-- **免疫钟形曲线**：严格验证炎症在低区、中区（有效清除）、高区（细胞因子风暴）时的病原体增长速度。
+- **免疫钟形曲线**：严格验证炎症在低区、中区（有效清除）、高区（细胞因子风暴）时的病原体增长速度，以及载量突破 55 时的免疫应激风暴。
 - **电解质紊乱演化**：高钠血症、低钠血症、高钾血症对实体造成的负面状态与致死机制。
-- **药物动力学**：水杨苷退烧抗炎、地塞米松强效抑制、麻黄碱每 tick 衰减（1 游戏日完全代谢）及速掘状态激活。
+- **靶向药理动力学**：
+  - 水杨苷退烧抗炎、地塞米松强效平息风暴；
+  - 麻黄碱每 tick 衰减（1 游戏日完全代谢）及速掘状态激活；
+  - 黄连素对抗细菌：$\le 1.5$ 正常生长，$>1.5$ 减缓，$\ge 3.0$ 彻底阻断生长且始终向下压制，在 1.5 游戏日内将满额感染清零，体内 2.5 游戏日完全代谢；
+  - 甘草酸对抗病毒：$\le 1.5$ 正常生长，$>1.5$ 减缓，$\ge 3.0$ 彻底阻断生长且始终向下压制，在 1.5 游戏日内将满额感染清零，体内 2.0 游戏日完全代谢。
 - **本地化完整性**：自动反射所有已注册物品与方块，确保英、中、日三语翻译字典覆盖率 100%，无任何缺失未汉化键。
