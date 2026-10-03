@@ -38,6 +38,15 @@ object OutbreakWorldGen {
     val EPHEDRA_PATCH: ResourceKey<PlacedFeature> =
         ResourceKey.create(Registries.PLACED_FEATURE, Registration.id("ephedra_patch"))
 
+    val COPTIS_PATCH: ResourceKey<PlacedFeature> =
+        ResourceKey.create(Registries.PLACED_FEATURE, Registration.id("coptis_patch"))
+
+    val PHELLODENDRON_PATCH: ResourceKey<PlacedFeature> =
+        ResourceKey.create(Registries.PLACED_FEATURE, Registration.id("phellodendron_patch"))
+
+    val LICORICE_PATCH: ResourceKey<PlacedFeature> =
+        ResourceKey.create(Registries.PLACED_FEATURE, Registration.id("licorice_patch"))
+
     /**
      * Where a mandrake grows wild: both plains and both swamps, since a sunflower plain is still a
      * plain and a mangrove swamp is still a swamp.
@@ -101,6 +110,25 @@ object OutbreakWorldGen {
             BiomeSelectors.includeByKey(EPHEDRA_BIOMES),
             GenerationStep.Decoration.VEGETAL_DECORATION,
             EPHEDRA_PATCH,
+        )
+
+        val nonColdOverworld = BiomeSelectors.foundInOverworld().and { context ->
+            context.biome.baseTemperature >= 0.2f && !context.hasTag(BiomeTags.SPAWNS_COLD_VARIANT_FROGS)
+        }
+        BiomeModifications.addFeature(
+            nonColdOverworld,
+            GenerationStep.Decoration.VEGETAL_DECORATION,
+            COPTIS_PATCH,
+        )
+        BiomeModifications.addFeature(
+            nonColdOverworld,
+            GenerationStep.Decoration.VEGETAL_DECORATION,
+            PHELLODENDRON_PATCH,
+        )
+        BiomeModifications.addFeature(
+            nonColdOverworld,
+            GenerationStep.Decoration.VEGETAL_DECORATION,
+            LICORICE_PATCH,
         )
     }
 }

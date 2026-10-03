@@ -1,0 +1,9 @@
+{
+  "type": "minecraft:simple_block",
+  "to_place": {
+    "id": "outbreak:licorice",
+    "properties": {
+      "age": "3"
+    }
+  }
+}

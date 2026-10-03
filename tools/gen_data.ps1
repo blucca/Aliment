@@ -633,20 +633,8 @@ Write-Json "data/$ns/worldgen/placed_feature/willow_river.json" @"
   "feature": "$ns`:willow",
   "placement": [
     {
-      "type": "minecraft:count",
-      "count": {
-        "type": "minecraft:weighted_list",
-        "distribution": [
-          {
-            "data": 3,
-            "weight": 3
-          },
-          {
-            "data": 5,
-            "weight": 1
-          }
-        ]
-      }
+      "type": "minecraft:rarity_filter",
+      "chance": 2
     },
     {
       "type": "minecraft:in_square"
@@ -2670,5 +2658,64 @@ Write-Json "data/$ns/advancement/extreme_fever.json" @"
   ]
 }
 "@
+
+# ---------------------------------------------------------------------------- worldgen: medicinal herbs (coptis, phellodendron, licorice)
+
+foreach ($herb in @("coptis", "phellodendron", "licorice")) {
+  Write-Json "data/$ns/worldgen/feature/$herb.json" @"
+{
+  "type": "minecraft:simple_block",
+  "to_place": {
+    "id": "$ns`:$herb",
+    "properties": {
+      "age": "3"
+    }
+  }
+}
+"@
+
+  Write-Json "data/$ns/worldgen/placed_feature/${herb}_patch.json" @"
+{
+  "feature": "$ns`:$herb",
+  "placement": [
+    {
+      "type": "minecraft:rarity_filter",
+      "chance": 12
+    },
+    {
+      "type": "minecraft:in_square"
+    },
+    {
+      "type": "minecraft:heightmap",
+      "heightmap": "WORLD_SURFACE_WG"
+    },
+    {
+      "type": "minecraft:biome"
+    },
+    {
+      "type": "minecraft:block_predicate_filter",
+      "predicate": {
+        "type": "minecraft:all_of",
+        "predicates": [
+          {
+            "type": "minecraft:matching_block_tag",
+            "tag": "minecraft:air"
+          },
+          {
+            "type": "minecraft:matching_blocks",
+            "blocks": "minecraft:grass_block",
+            "offset": [
+              0,
+              -1,
+              0
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
+"@
+}
 
 Write-Host "gen_data.ps1 wrote $script:written JSON files into src/main/resources"
