@@ -243,6 +243,8 @@ object ModelConstants {
 
   val MAX_PATHOGEN: Float = 100f
   val SYMPTOM_THRESHOLD: Float = 8f
+  val IMMUNITY_ACTIVATION_LOAD: Float = 20f
+  val IMMUNE_STRESS_LOAD: Float = 40f
   val SEVERE_LOAD: Float = 60f
 
   val WATER_MIN: Float = 0f
@@ -259,7 +261,8 @@ object ModelConstants {
   val WATER_SEVERELY_DEHYDRATED: Float = 15f
   val THIRST_CELLS: Int = 10
   val WATER_PER_DRINK: Float = 15f
-  val WATER_DECAY_PER_TICK: Float = 89.5f / 24000f
+  /** Normal water loss: full water (100) is depleted in exactly 5 in-game days without sweating. */
+  val WATER_DECAY_PER_TICK: Float = 100f / (5f * 24000f)
 
   val SALICIN_EFFECTIVE: Float = 1f
   val SALICIN_CAP: Float = 3f
@@ -277,6 +280,7 @@ object ModelConstants {
   val COLD_MILD: Float = 36f
   val COLD_SEVERE: Float = 35f
   val FEVER_MILD: Float = 38.5f
+  val FEVER_NORMAL_IMMUNE_MAX: Float = 39.5f
   val FEVER_SEVERE: Float = 40f
 
   val PYROGEN_CAP: Float = 6f
@@ -394,6 +398,8 @@ final case class ModelState(
     @BeanProperty psilocin: Float,
     /** Ephedrine, the stimulant alkaloid, 0..[ModelConstants.EPHEDRINE_CAP]. */
     @BeanProperty ephedrine: Float,
+    /** Whether the active immune response has been triggered (once pathogen load > 20). */
+    @BeanProperty immuneActive: Boolean = false,
 ) {
   def withMediators(value: ModelMediators): ModelState = copy(mediators = value)
   def withBacteria(value: Float): ModelState = copy(bacteria = value)
@@ -410,4 +416,5 @@ final case class ModelState(
   def withPsilocybin(value: Float): ModelState = copy(psilocybin = value)
   def withPsilocin(value: Float): ModelState = copy(psilocin = value)
   def withEphedrine(value: Float): ModelState = copy(ephedrine = value)
+  def withImmuneActive(value: Boolean): ModelState = copy(immuneActive = value)
 }

@@ -217,6 +217,8 @@ data class OutbreakData(
     val psilocin: Float = 0f,
     /** Ephedrine, the stimulant alkaloid, 0..[EPHEDRINE_CAP]. */
     val ephedrine: Float = 0f,
+    /** Whether the active immune response has been triggered (once pathogen load > 20). */
+    val immuneActive: Boolean = false,
 ) {
 
     val inflammation: Float
@@ -357,6 +359,8 @@ data class OutbreakData(
 
     fun withEphedrine(value: Float): OutbreakData = this.copy(ephedrine = value)
 
+    fun withImmuneActive(value: Boolean): OutbreakData = this.copy(immuneActive = value)
+
     companion object {
 
         // ---------------------------------------------------------------- the numbers
@@ -386,8 +390,17 @@ data class OutbreakData(
         /** Load at which the player starts showing symptoms. */
         @JvmField val SYMPTOM_THRESHOLD: Float = OutbreakModelBridge.SYMPTOM_THRESHOLD
 
+        /** Pathogen load threshold above which immune response activates and starts suppression. */
+        @JvmField val IMMUNITY_ACTIVATION_LOAD: Float = OutbreakModelBridge.IMMUNITY_ACTIVATION_LOAD
+
+        /** Pathogen load threshold above which immune system enters stress and inflammation escalates. */
+        @JvmField val IMMUNE_STRESS_LOAD: Float = OutbreakModelBridge.IMMUNE_STRESS_LOAD
+
         /** Load at which the symptoms are at full strength and the infection starts doing damage. */
         @JvmField val SEVERE_LOAD: Float = OutbreakModelBridge.SEVERE_LOAD
+
+        /** Maximum core temperature under normal immune fever response before stress stage. */
+        @JvmField val FEVER_NORMAL_IMMUNE_MAX: Float = OutbreakModelBridge.FEVER_NORMAL_IMMUNE_MAX
 
         // ---------------------------------------------------------------- water
 
@@ -517,6 +530,7 @@ data class OutbreakData(
                 Codec.FLOAT.optionalFieldOf("psilocybin", 0f).forGetter { it.psilocybin },
                 Codec.FLOAT.optionalFieldOf("psilocin", 0f).forGetter { it.psilocin },
                 Codec.FLOAT.optionalFieldOf("ephedrine", 0f).forGetter { it.ephedrine },
+                Codec.BOOL.optionalFieldOf("immune_active", false).forGetter { it.immuneActive },
             ).apply(instance, ::OutbreakData)
         }
     }

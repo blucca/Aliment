@@ -95,13 +95,14 @@ class OutbreakPhysiologySelfTest : ModInitializer {
         homeostasis()
         mildInfectionResolves()
         untreatedInfectionRunsAway()
+        drugsSuppressImmunityNotDirectlyKill()
         salicinControlsInfection()
         dexamethasoneControlsInfection()
         overdoseLetsInfectionRun()
         drugMetabolism()
         immuneCompetenceCurve()
         mediatorBreakdown()
-        thirstDrainsInOneDay()
+        thirstDepletionRates()
         overhydration()
         drinkingDilutesElectrolytes()
         dehydrationStopsWhenDrinking()
@@ -145,51 +146,91 @@ class OutbreakPhysiologySelfTest : ModInitializer {
 
     private fun mildInfectionResolves() {
         var data = OutbreakPhysiology.seed(OutbreakData.HEALTHY, bacteria = 6f)
-        var peakInflammation = 0f
-        repeat(24_000) {
+        var peakInflammation = data.inflammation
+        var peakTemperature = data.temperature
+        var crossedActivation = false
+
+        // In the beginning (load <= 20), bacteria grows, inflammation remains at baseline (25f), temp is 37
+        val early = OutbreakPhysiology.tick(data)
+        check("infection <= 20 continues to grow", early.bacteria > data.bacteria)
+        check("infection <= 20 maintains baseline inflammation", abs(early.inflammation - OutbreakData.BASELINE_INFLAMMATION) < 0.01f)
+        check("infection <= 20 maintains normal temperature", abs(early.temperature - OutbreakData.TEMPERATURE_NORMAL) < 0.01f)
+
+        // Run across ~3 game days
+        repeat(72_000) {
             data = OutbreakPhysiology.tick(data)
             peakInflammation = maxOf(peakInflammation, data.inflammation)
+            peakTemperature = maxOf(peakTemperature, data.temperature)
+            if (data.bacteria >= OutbreakData.IMMUNITY_ACTIVATION_LOAD) {
+                crossedActivation = true
+            }
         }
-        logger.info("PHYS mild infection: peak inflammation {} final load {}", peakInflammation, data.bacteria)
-        check("a single 6 point infection is cleared", data.bacteria < 0.5f)
-        check("a mild infection does not cause a storm", peakInflammation < OutbreakData.IMMUNE_STORM_THRESHOLD)
+        logger.info(
+            "PHYS mild infection: peak inflammation {} peak temperature {} final load {}",
+            peakInflammation, peakTemperature, data.bacteria,
+        )
+        check("infection crossed the 20 point activation threshold", crossedActivation)
+        check("immune system starts intervention and inflammation rises above baseline", peakInflammation > OutbreakData.BASELINE_INFLAMMATION)
+        check("temperature rises during immune response but does not exceed 39.5 C", peakTemperature > 37.0f && peakTemperature <= OutbreakData.FEVER_NORMAL_IMMUNE_MAX + 0.01f)
+        check("normal immunity clears infection to 0 within 2 game days after activation", data.bacteria <= 0.01f)
+        check("a mild infection does not cause an immune storm", peakInflammation < OutbreakData.IMMUNE_STORM_THRESHOLD)
     }
 
     private fun untreatedInfectionRunsAway() {
-        var data = OutbreakPhysiology.seed(OutbreakData.HEALTHY, bacteria = 40f)
-        var peak = 0f
-        repeat(24_000) {
+        // When immunity is suppressed (e.g. dexamethasone overdose), bacteria continues growing to 40+
+        var data = OutbreakPhysiology.seed(OutbreakData.HEALTHY, bacteria = 6f)
+        data = OutbreakPhysiology.inject(data, 2.0f) // full dexamethasone to suppress immunity
+        var reachedForty = false
+        var peakInflammation = 0f
+        repeat(48_000) {
             data = OutbreakPhysiology.tick(data)
-            peak = maxOf(peak, data.inflammation)
+            if (data.bacteria >= OutbreakData.IMMUNE_STRESS_LOAD) {
+                reachedForty = true
+            }
+            peakInflammation = maxOf(peakInflammation, data.inflammation)
         }
-        logger.info("PHYS untreated infection: final load {} peak inflammation {}", data.bacteria, peak)
-        check("an untreated 40 point infection takes hold", data.bacteria > 50f)
-        check("an untreated infection ends in an immune storm", peak >= OutbreakData.IMMUNE_STORM_THRESHOLD)
+        logger.info("PHYS abnormal immunity: final load {} reachedForty {} peak inflammation {}", data.bacteria, reachedForty, peakInflammation)
+        check("abnormal immunity lets infection grow past 40", reachedForty)
+        check("past 40 immune system enters stress and inflammation escalates", peakInflammation >= OutbreakData.IMMUNE_STORM_THRESHOLD)
+    }
+
+    private fun drugsSuppressImmunityNotDirectlyKill() {
+        val seeded = OutbreakData.HEALTHY.copy(bacteria = 50f)
+        val withSalicin = OutbreakPhysiology.dose(seeded, 1.1f)
+        val withDex = OutbreakPhysiology.inject(seeded, 1.2f)
+        check("salicin does not directly reduce bacteria on ingestion", withSalicin.bacteria == seeded.bacteria)
+        check("dexamethasone does not directly reduce bacteria on injection", withDex.bacteria == seeded.bacteria)
+
+        val tickedNormal = OutbreakPhysiology.tick(seeded)
+        val tickedSalicin = OutbreakPhysiology.tick(withSalicin)
+        val tickedDex = OutbreakPhysiology.tick(withDex)
+
+        check("salicin suppresses prostaglandins compared to untreated", tickedSalicin.mediators.prostaglandin < tickedNormal.mediators.prostaglandin)
+        check("dexamethasone suppresses cytokines compared to untreated", tickedDex.mediators.cytokine < tickedNormal.mediators.cytokine)
+        check("drugs suppress inflammation index", tickedSalicin.inflammation < tickedNormal.inflammation && tickedDex.inflammation < tickedNormal.inflammation)
     }
 
     private fun salicinControlsInfection() {
-        var data = OutbreakPhysiology.seed(OutbreakData.HEALTHY, bacteria = 40f)
+        var data = OutbreakData.HEALTHY.copy(bacteria = 40f, immuneActive = true)
         data = OutbreakPhysiology.dose(data, 1.1f)
         var peak = 0f
-        repeat(24_000) {
+        repeat(48_000) {
             data = OutbreakPhysiology.tick(data)
             peak = maxOf(peak, data.inflammation)
         }
         logger.info("PHYS salicin treated: final load {} peak inflammation {}", data.bacteria, peak)
-        check("salicin clears the same infection", data.bacteria < 0.5f)
         check("salicin keeps inflammation out of the storm", peak < OutbreakData.IMMUNE_STORM_THRESHOLD)
     }
 
     private fun dexamethasoneControlsInfection() {
-        var data = OutbreakPhysiology.seed(OutbreakData.HEALTHY, bacteria = 40f)
+        var data = OutbreakData.HEALTHY.copy(bacteria = 40f, immuneActive = true)
         data = OutbreakPhysiology.inject(data, 1.2f)
         var peak = 0f
-        repeat(24_000) {
+        repeat(48_000) {
             data = OutbreakPhysiology.tick(data)
             peak = maxOf(peak, data.inflammation)
         }
         logger.info("PHYS dexamethasone treated: final load {} peak inflammation {}", data.bacteria, peak)
-        check("dexamethasone clears the same infection", data.bacteria < 0.5f)
         check("dexamethasone keeps inflammation out of the storm", peak < OutbreakData.IMMUNE_STORM_THRESHOLD)
 
         // Dexamethasone is the drug that actually shuts cytokines down; salicin is not.
@@ -266,12 +307,26 @@ class OutbreakPhysiologySelfTest : ModInitializer {
 
     // ================================================================== water
 
-    private fun thirstDrainsInOneDay() {
-        // Start from a healthy body so no electrolyte imbalance speeds the water loss up.
-        var data = OutbreakData.HEALTHY.copy(water = OutbreakData.WATER_NORMAL)
-        repeat(24_000) { data = OutbreakPhysiology.tick(data) }
-        logger.info("PHYS thirst after one game day: water {} cells {}", data.water, data.thirstCells)
-        check("a full bladder drains to one cell in one game day", data.thirstCells == 1)
+    private fun thirstDepletionRates() {
+        // 1. Normal temperature (37.0 C, no sweat): depleted in 5 game days (120,000 ticks)
+        var normal = OutbreakData.HEALTHY.copy(water = OutbreakData.WATER_NORMAL)
+        repeat(24_000) { normal = OutbreakPhysiology.tick(normal) }
+        logger.info("PHYS thirst after 1 day at 37 C: water {} cells {}", normal.water, normal.thirstCells)
+        check("after 1 day at 37 C water drops by 20 to 80 (8 cells)", normal.thirstCells == 8)
+        repeat(4 * 24_000) { normal = OutbreakPhysiology.tick(normal) }
+        check("after 5 days at 37 C water is completely depleted", normal.water <= 0.01f)
+
+        // 2. Fever at 39 C: depleted in 3.5 game days (84,000 ticks)
+        var fever39 = OutbreakData.HEALTHY.copy(water = OutbreakData.WATER_NORMAL, temperature = 39f)
+        repeat(84_000) { fever39 = OutbreakPhysiology.tick(fever39.copy(temperature = 39f)) }
+        logger.info("PHYS thirst after 3.5 days at 39 C: water {}", fever39.water)
+        check("fever at 39 C depletes water in 3.5 game days", fever39.water <= 0.01f)
+
+        // 3. Fever at 40 C: depleted in 2.0 game days (48,000 ticks)
+        var fever40 = OutbreakData.HEALTHY.copy(water = OutbreakData.WATER_NORMAL, temperature = 40f)
+        repeat(48_000) { fever40 = OutbreakPhysiology.tick(fever40.copy(temperature = 40f)) }
+        logger.info("PHYS thirst after 2 days at 40 C: water {}", fever40.water)
+        check("fever at 40 C depletes water in 2.0 game days", fever40.water <= 0.01f)
     }
 
     private fun overhydration() {

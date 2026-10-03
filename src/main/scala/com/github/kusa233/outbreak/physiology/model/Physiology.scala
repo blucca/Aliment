@@ -71,11 +71,10 @@ object Physiology {
   private final val GROWTH_RATE = 0.0004f
 
   /**
-   * Clearance rate at full immune competence. At competence 1 this beats `GROWTH_RATE` at every load,
-   * so a healthy player always wins; the infection only takes hold once inflammation has been pushed
-   * out of the safe band.
+   * Base clearance rate when active immunity is engaged.
+   * Clears 20 load to 0 in exactly 2 in-game days (48,000 ticks) under normal immune competence.
    */
-  private final val CLEARANCE_RATE = 0.0007f
+  private final val CLEARANCE_BASE_RATE = 20f / (2f * 24000f)
 
   private final val COMPETENCE_SIGMA = 15f
 
@@ -87,15 +86,18 @@ object Physiology {
   /**
    * How hard a full bladder flushes the electrolytes out, as a fraction of each mineral's normal
    * concentration per tick at the very top of the water scale.
-   *
-   * The worst case - drinking non-stop with the bladder pinned at the ceiling - settles sodium about
-   * 18% below normal, 140 -> 115 mmol/L. That is a real, uncomfortable dilutional hyponatraemia; the
-   * absolute flush this replaced would have driven sodium to about 28, which no person survives.
    */
   private final val OVERHYDRATION_FLUSH_FRACTION = 0.000009f
 
-  /** Sweat: water lost per tick per degree of core temperature above normal. */
-  private final val SWEAT_WATER_PER_DEGREE = 0.0015f
+  /**
+   * Fever sweat parameters:
+   * When deltaT > 1.25 C (core temperature above 38.25 C):
+   *   sweatLoss = SWEAT_A * deltaT + SWEAT_B * deltaT^2
+   * At 39 C (deltaT = 2): total loss is exactly 1/840 (3.5 game days to drain 100 water).
+   * At 40 C (deltaT = 3): total loss is exactly 1/480 (2.0 game days to drain 100 water).
+   */
+  private final val SWEAT_A = -1.0f / 3360.0f
+  private final val SWEAT_B = 1.0f / 4200.0f
 
   /** Sweat carries salt away too, as a fraction of normal per degree per tick. */
   private final val SWEAT_MINERAL_FRACTION_PER_DEGREE = 0.000002f
@@ -473,8 +475,15 @@ object Physiology {
 
     // 2. Pathogens grow logistically and are cleared in proportion to immune competence.
     val competence = immuneCompetence(state.mediators.getInflammation)
-    val bacteria = stepPathogen(state.bacteria, competence)
-    val virus = stepPathogen(state.virus, competence)
+    val bacteria = stepPathogen(state.bacteria, competence, state.immuneActive)
+    val virus = stepPathogen(state.virus, competence, state.immuneActive)
+
+    val currentLoad = pathogenLoad(bacteria, virus)
+    val nextImmuneActive = if (state.immuneActive) {
+      currentLoad > 0.0001f
+    } else {
+      currentLoad > ModelConstants.IMMUNITY_ACTIVATION_LOAD
+    }
 
     val next = state
       .withSalicin(salicin)
@@ -487,6 +496,7 @@ object Physiology {
       .withEphedrine(ephedrine)
       .withBacteria(bacteria)
       .withVirus(virus)
+      .withImmuneActive(nextImmuneActive)
 
     // 3. The immune response, mediator by mediator.
     val inflamed = next.withMediators(stepMediators(next))
@@ -507,7 +517,15 @@ object Physiology {
   // ------------------------------------------------------------------ mediators
 
   private def stepMediators(state: ModelState): ModelMediators = {
-    val stimulus = clamp(pathogenLoad(state.bacteria, state.virus) / ModelConstants.MAX_PATHOGEN, 0f, 1f)
+    val load = pathogenLoad(state.bacteria, state.virus)
+    val stimulus = if (!state.immuneActive && load <= ModelConstants.IMMUNITY_ACTIVATION_LOAD) {
+      0f
+    } else if (load <= ModelConstants.IMMUNE_STRESS_LOAD) {
+      clamp((load - ModelConstants.IMMUNITY_ACTIVATION_LOAD) / (ModelConstants.IMMUNE_STRESS_LOAD - ModelConstants.IMMUNITY_ACTIVATION_LOAD), 0f, 1f)
+    } else {
+      val stressRatio = (load - ModelConstants.IMMUNE_STRESS_LOAD) / (ModelConstants.MAX_PATHOGEN - ModelConstants.IMMUNE_STRESS_LOAD)
+      1.0f + 2.5f * clamp(stressRatio, 0f, 1f)
+    }
 
     val salicin = suppression(state.salicin, ModelConstants.SALICIN_EFFECTIVE)
     val dex = suppression(state.dexamethasone, ModelConstants.DEXAMETHASONE_EFFECTIVE)
@@ -556,12 +574,16 @@ object Physiology {
 
   // ------------------------------------------------------------------ pathogens
 
-  private def stepPathogen(load: Float, competence: Float): Float = {
+  private def stepPathogen(load: Float, competence: Float, immuneActive: Boolean): Float = {
     if (load <= 0f) {
       0f
     } else {
       val growth = GROWTH_RATE * load * (1f - load / ModelConstants.MAX_PATHOGEN)
-      val clearance = CLEARANCE_RATE * competence * load
+      val clearance = if (immuneActive || load > ModelConstants.IMMUNITY_ACTIVATION_LOAD) {
+        growth * competence + CLEARANCE_BASE_RATE * competence
+      } else {
+        0f
+      }
       clamp(load + growth - clearance, 0f, ModelConstants.MAX_PATHOGEN)
     }
   }
@@ -579,7 +601,13 @@ object Physiology {
 
   def targetTemperature(state: ModelState, ambient: Float): Float = {
     val prostaglandin = Math.max(state.mediators.prostaglandin - MediatorLevels.RESTING.prostaglandin, 0f)
-    val fever = Math.min(FEVER_PER_PROSTAGLANDIN * prostaglandin, FEVER_MAX)
+    val feverRaw = FEVER_PER_PROSTAGLANDIN * prostaglandin
+    val load = pathogenLoad(state.bacteria, state.virus)
+    val fever = if (load <= ModelConstants.IMMUNE_STRESS_LOAD) {
+      Math.min(feverRaw, ModelConstants.FEVER_NORMAL_IMMUNE_MAX - ModelConstants.TEMPERATURE_NORMAL)
+    } else {
+      Math.min(feverRaw, FEVER_MAX)
+    }
     val environmental = (ambient - ModelConstants.TEMPERATURE_NORMAL) * AMBIENT_COUPLING
     val target = ModelConstants.TEMPERATURE_NORMAL +
       fever + state.pyrogen + thyroidShift(state.traceElements.iodine) +
@@ -644,8 +672,15 @@ object Physiology {
     if (state.electrolytes.sodium > MineralRanges.SODIUM.safeHigh) loss *= 1.3f
     if (state.electrolytes.calcium > MineralRanges.CALCIUM.safeHigh) loss *= 1.2f
 
-    // A fever is a furnace: every degree above normal is paid for in sweat.
-    loss += heatStress(state) * SWEAT_WATER_PER_DEGREE
+    // Sweat water loss:
+    // When deltaT > 1.25 C (core temperature above 38.25 C):
+    //   sweatLoss = SWEAT_A * deltaT + SWEAT_B * deltaT^2
+    // At 39 C (deltaT = 2): total loss is exactly 1/840 (3.5 game days to drain 100 water).
+    // At 40 C (deltaT = 3): total loss is exactly 1/480 (2.0 game days to drain 100 water).
+    val deltaT = heatStress(state)
+    if (deltaT > 1.25f) {
+      loss += Math.max(SWEAT_A * deltaT + SWEAT_B * deltaT * deltaT, 0f)
+    }
 
     clamp(state.water - loss, ModelConstants.WATER_MIN, ModelConstants.WATER_MAX)
   }
@@ -663,8 +698,10 @@ object Physiology {
   }
 
   /** Sweat: the same, driven by how far the core temperature is above normal. */
-  private def mineralSweat(state: ModelState): Float =
-    heatStress(state) * SWEAT_MINERAL_FRACTION_PER_DEGREE
+  private def mineralSweat(state: ModelState): Float = {
+    val deltaT = heatStress(state)
+    if (deltaT > 1.25f) deltaT * SWEAT_MINERAL_FRACTION_PER_DEGREE else 0f
+  }
 
   private def stepMineral(value: Float, mineral: ModelMineral, loss: Float, excretion: Float): Float = {
     val homeostasis = (mineral.normal - value) * ELECTROLYTE_HOMEOSTASIS

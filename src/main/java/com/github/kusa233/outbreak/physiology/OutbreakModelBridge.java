@@ -75,8 +75,17 @@ public final class OutbreakModelBridge {
     /** Load at which the player starts showing symptoms. */
     public static final float SYMPTOM_THRESHOLD = ModelConstants.SYMPTOM_THRESHOLD();
 
+    /** Pathogen load threshold above which immune response activates and starts suppression. */
+    public static final float IMMUNITY_ACTIVATION_LOAD = ModelConstants.IMMUNITY_ACTIVATION_LOAD();
+
+    /** Pathogen load threshold above which immune system enters stress and inflammation escalates. */
+    public static final float IMMUNE_STRESS_LOAD = ModelConstants.IMMUNE_STRESS_LOAD();
+
     /** Load at which the symptoms are at full strength and the infection starts doing damage. */
     public static final float SEVERE_LOAD = ModelConstants.SEVERE_LOAD();
+
+    /** Maximum core temperature under normal immune fever response before stress stage. */
+    public static final float FEVER_NORMAL_IMMUNE_MAX = ModelConstants.FEVER_NORMAL_IMMUNE_MAX();
 
     // ---------------------------------------------------------------- mediators
 
@@ -339,7 +348,8 @@ public final class OutbreakModelBridge {
                 0f,
                 0f,
                 0f,
-                0f);
+                0f,
+                false);
     }
 
     // ================================================================== derived values
@@ -581,7 +591,8 @@ public final class OutbreakModelBridge {
                 data.getAtropine(),
                 data.getPsilocybin(),
                 data.getPsilocin(),
-                data.getEphedrine());
+                data.getEphedrine(),
+                data.getImmuneActive());
     }
 
     private static OutbreakData fromModel(ModelState state) {
@@ -600,7 +611,8 @@ public final class OutbreakModelBridge {
                 state.getAtropine(),
                 state.getPsilocybin(),
                 state.getPsilocin(),
-                state.getEphedrine());
+                state.getEphedrine(),
+                state.getImmuneActive());
     }
 
     private static ModelMediators toModel(Mediators mediators) {
