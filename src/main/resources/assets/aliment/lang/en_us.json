@@ -99,5 +99,6 @@
     "advancements.aliment.psychedelic_world.description":  "Eat a bite of Gymnopilus",
     "advancements.aliment.extreme_fever.title":  "Hyperpyrexia",
     "advancements.aliment.extreme_fever.description":  "Core body temperature exceeds 40 C",
-    "tooltip.aliment.wine.concentration":  "Ethanol: %s"
+    "tooltip.aliment.wine.concentration":  "Ethanol: %s",
+    "gui.aliment.jei.category.grindstone": "Grindstone Crushing"
 }

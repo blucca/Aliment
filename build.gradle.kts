@@ -48,6 +48,10 @@ repositories {
     //
     // Scala itself is not a Minecraft or Fabric artifact, so it needs the real Maven Central.
     mavenCentral()
+    maven {
+        name = "Jared's maven"
+        url = uri("https://maven.blamejared.com/")
+    }
 }
 
 /** The Scala runtime jars, merged into the mod jar. Declared before the dependencies that use it. */
@@ -77,6 +81,9 @@ dependencies {
     implementation("org.scala-lang:scala-library:${project.property("scala_version")}")
     add("scalaRuntime", "org.scala-lang:scala3-library_3:${project.property("scala_version")}")
     add("scalaRuntime", "org.scala-lang:scala-library:${project.property("scala_version")}")
+
+    // JEI (Just Enough Items) API integration
+    compileOnly("mezz.jei:jei-26.3-fabric-api:31.9.0.56")
 }
 
 tasks.processResources {

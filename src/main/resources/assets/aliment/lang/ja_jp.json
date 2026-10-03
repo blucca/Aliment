@@ -99,5 +99,6 @@
     "advancements.aliment.psychedelic_world.description":  "オオワライタケを一口食べる",
     "advancements.aliment.extreme_fever.title":  "超高熱",
     "advancements.aliment.extreme_fever.description":  "深部体温が40℃を超える",
-    "tooltip.aliment.wine.concentration":  "アルコール度数: %s"
+    "tooltip.aliment.wine.concentration":  "アルコール度数: %s",
+    "gui.aliment.jei.category.grindstone": "砥石粉砕"
 }

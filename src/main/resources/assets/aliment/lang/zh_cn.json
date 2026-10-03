@@ -99,5 +99,6 @@
     "advancements.aliment.psychedelic_world.description":  "吃下一口橘黄伞菇",
     "advancements.aliment.extreme_fever.title":  "超高热",
     "advancements.aliment.extreme_fever.description":  "核心体温超过40摄氏度",
-    "tooltip.aliment.wine.concentration":  "酒精浓度: %s"
+    "tooltip.aliment.wine.concentration":  "酒精浓度: %s",
+    "gui.aliment.jei.category.grindstone": "砂轮研磨"
 }

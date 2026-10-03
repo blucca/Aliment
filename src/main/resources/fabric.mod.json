@@ -21,6 +21,9 @@
     ],
     "main": [
       "com.github.kusa233.aliment.Aliment"
+    ],
+    "jei_mod_plugin": [
+      "com.github.kusa233.aliment.client.compat.jei.AlimentJeiPlugin"
     ]
   },
   "mixins": [

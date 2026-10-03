@@ -16,7 +16,7 @@ import net.minecraft.world.item.ItemStack
 object AlimentGrinding {
 
     /** One input item to (output item, how many it yields). */
-    private val RECIPES: Map<Item, Pair<Item, Int>> = mapOf(
+    val RECIPES: Map<Item, Pair<Item, Int>> = mapOf(
         AlimentItems.WILLOW_BARK to (AlimentItems.WILLOW_BARK_PIECES to 2),
         AlimentBlocks.ROCK_SALT_ORE.asItem() to (AlimentItems.CRUDE_SALT to 9),
         AlimentItems.CRUDE_SALT to (AlimentItems.CRUDE_SALT_POWDER to 1),
@@ -26,6 +26,9 @@ object AlimentGrinding {
         AlimentItems.LICORICE to (AlimentItems.CRUSHED_LICORICE to 1),
         AlimentItems.SEAWEED to (AlimentItems.CRUSHED_SEAWEED to 1),
     )
+
+    @JvmStatic
+    fun allRecipes(): Map<Item, Pair<Item, Int>> = RECIPES
 
     /** True when the grindstone has something to do with this item. */
     @JvmStatic
