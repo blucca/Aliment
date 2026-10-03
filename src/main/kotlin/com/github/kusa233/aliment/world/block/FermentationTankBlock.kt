@@ -34,7 +34,7 @@ import net.minecraft.world.phys.shapes.CollisionContext
 import net.minecraft.world.phys.shapes.VoxelShape
 
 /**
- * Glass Fermentation Tank, 玻璃发酵罐.
+ * Glass Fermentation Tank.
  *
  * Crafted from 7 glass blocks with 1 plank in the top-middle slot.
  * Holds up to 3 water levels, sugar, and brewer's yeast.

@@ -220,11 +220,11 @@ data class AlimentData(
     val ephedrine: Float = 0f,
     /** Whether the active immune response has been triggered (once pathogen load > 20). */
     val immuneActive: Boolean = false,
-    /** Berberine (黄连素), antimicrobial alkaloid targeting bacteria, 0..[BERBERINE_CAP]. */
+    /** Berberine, antimicrobial alkaloid targeting bacteria, 0..[BERBERINE_CAP]. */
     val berberine: Float = 0f,
-    /** Glycyrrhizin (甘草酸), antiviral saponin targeting viruses, 0..[GLYCYRRHIZIN_CAP]. */
+    /** Glycyrrhizin, antiviral saponin targeting viruses, 0..[GLYCYRRHIZIN_CAP]. */
     val glycyrrhizin: Float = 0f,
-    /** Ethanol (乙醇), alcohol index from drinking wine, 0..[ETHANOL_CAP]. */
+    /** Ethanol, alcohol index from drinking wine, 0..[ETHANOL_CAP]. */
     val ethanol: Float = 0f,
 ) {
 

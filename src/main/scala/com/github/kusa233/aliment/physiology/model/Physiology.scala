@@ -630,11 +630,11 @@ object Physiology {
       }
 
       if (drugConc >= suppressThreshold) {
-        // 完全不生长，持续向下抑制：药物指标越高下降速率越快，在1.5游戏日内降至0
+        // Complete suppression of pathogen replication; clearance rate scales with drug concentration.
         val drugClearance = DRUG_SUPPRESS_CLEARANCE_RATE * (drugConc / suppressThreshold)
         clamp(load - immuneClearance - drugClearance, 0f, ModelConstants.MAX_PATHOGEN)
       } else if (drugConc > slowThreshold) {
-        // 生长速度降低（配合免疫系统可以更快压制）
+        // Reduced pathogen replication rate allowing the immune system to overpower it.
         val slowRatio = clamp((drugConc - slowThreshold) / (suppressThreshold - slowThreshold), 0f, 1f)
         val reducedGrowth = baseGrowth * (1f - 0.75f * slowRatio)
         clamp(load + reducedGrowth - immuneClearance, 0f, ModelConstants.MAX_PATHOGEN)
@@ -879,15 +879,15 @@ object Physiology {
   def hasHasteFromEphedrine(state: ModelState): Boolean =
     state.ephedrine > ModelConstants.EPHEDRINE_HASTE_THRESHOLD
 
-  /** Adds berberine (黄连素), capped at [ModelConstants.BERBERINE_CAP]. */
+  /** Adds berberine, capped at [ModelConstants.BERBERINE_CAP]. */
   def addBerberine(state: ModelState, amount: Float): ModelState =
     state.withBerberine(clamp(state.berberine + amount, 0f, ModelConstants.BERBERINE_CAP))
 
-  /** Adds glycyrrhizin (甘草酸), capped at [ModelConstants.GLYCYRRHIZIN_CAP]. */
+  /** Adds glycyrrhizin, capped at [ModelConstants.GLYCYRRHIZIN_CAP]. */
   def addGlycyrrhizin(state: ModelState, amount: Float): ModelState =
     state.withGlycyrrhizin(clamp(state.glycyrrhizin + amount, 0f, ModelConstants.GLYCYRRHIZIN_CAP))
 
-  /** Adds ethanol (乙醇), capped at [ModelConstants.ETHANOL_CAP]. */
+  /** Adds ethanol, capped at [ModelConstants.ETHANOL_CAP]. */
   def addEthanol(state: ModelState, amount: Float): ModelState =
     state.withEthanol(clamp(state.ethanol + amount, 0f, ModelConstants.ETHANOL_CAP))
 

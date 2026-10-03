@@ -29,7 +29,7 @@ import net.minecraft.world.phys.shapes.CollisionContext
 import net.minecraft.world.phys.shapes.VoxelShape
 
 /**
- * Licorice (甘草): drought-tolerant medicinal herb containing glycyrrhizin (甘草酸).
+ * Licorice: drought-tolerant medicinal herb containing glycyrrhizin.
  */
 class LicoriceBlock(properties: BlockBehaviour.Properties) : BushBlock(properties), BonemealableBlock {
 

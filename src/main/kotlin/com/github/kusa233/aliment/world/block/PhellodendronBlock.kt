@@ -29,7 +29,7 @@ import net.minecraft.world.phys.shapes.CollisionContext
 import net.minecraft.world.phys.shapes.VoxelShape
 
 /**
- * Phellodendron (黄柏): medicinal shrub/bark source containing berberine (黄连素).
+ * Phellodendron: medicinal shrub/bark source containing berberine.
  */
 class PhellodendronBlock(properties: BlockBehaviour.Properties) : BushBlock(properties), BonemealableBlock {
 

@@ -25,10 +25,10 @@ import net.minecraft.world.level.gameevent.GameEvent
 import net.minecraft.world.phys.BlockHitResult
 
 /**
- * Distilled alcohol cauldron, 酒精炼药锅.
+ * Distilled alcohol cauldron.
  *
  * Placed beside the fermentation tank underneath the condenser pipe outlet to collect distilled alcohol.
- * Fills up to 3 levels. Using a glass bottle on it yields "酒" with distilled concentration (40%).
+ * Fills up to 3 levels. Using a glass bottle on it yields wine with distilled concentration (40%).
  */
 class AlcoholCauldronBlock(properties: BlockBehaviour.Properties) :
     AbstractCauldronBlock(properties, CauldronInteractions.EMPTY) {

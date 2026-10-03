@@ -204,7 +204,7 @@ public final class AlimentModelBridge {
 
     // ---------------------------------------------------------------- berberine & glycyrrhizin
 
-    /** The maximum berberine (黄连素) concentration (0..7). */
+    /** The maximum berberine concentration (0..7). */
     public static final float BERBERINE_CAP = ModelConstants.BERBERINE_CAP();
 
     /** Concentration threshold above which bacterial growth rate is reduced. */
@@ -216,7 +216,7 @@ public final class AlimentModelBridge {
     public static final int BERBERINE_METABOLISM_TICKS = ModelConstants.BERBERINE_METABOLISM_TICKS();
     public static final float BERBERINE_DECAY_PER_TICK = ModelConstants.BERBERINE_DECAY_PER_TICK();
 
-    /** The maximum glycyrrhizin (甘草酸) concentration (0..7). */
+    /** The maximum glycyrrhizin concentration (0..7). */
     public static final float GLYCYRRHIZIN_CAP = ModelConstants.GLYCYRRHIZIN_CAP();
 
     /** Concentration threshold above which viral growth rate is reduced. */
@@ -228,7 +228,7 @@ public final class AlimentModelBridge {
     public static final int GLYCYRRHIZIN_METABOLISM_TICKS = ModelConstants.GLYCYRRHIZIN_METABOLISM_TICKS();
     public static final float GLYCYRRHIZIN_DECAY_PER_TICK = ModelConstants.GLYCYRRHIZIN_DECAY_PER_TICK();
 
-    // ---------------------------------------------------------------- ethanol (乙醇)
+    // ---------------------------------------------------------------- ethanol
 
     /** The maximum ethanol index (0..1.0). */
     public static final float ETHANOL_CAP = ModelConstants.ETHANOL_CAP();

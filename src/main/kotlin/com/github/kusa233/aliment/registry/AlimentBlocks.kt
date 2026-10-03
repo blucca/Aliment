@@ -358,7 +358,7 @@ object AlimentBlocks {
     // ---------------------------------------------------------------- ephedra
 
     /**
-     * Ephedra (麻黄): an arid medicinal shrub in four growth stages.
+     * Ephedra: an arid medicinal shrub in four growth stages.
      */
     val EPHEDRA: Block = Registration.registerBlock(
         "ephedra",
@@ -375,7 +375,7 @@ object AlimentBlocks {
     // ---------------------------------------------------------------- traditional medicinal herbs
 
     /**
-     * Coptis (黄连): medicinal herb rich in berberine.
+     * Coptis: medicinal herb rich in berberine.
      */
     val COPTIS: Block = Registration.registerBlock(
         "coptis",
@@ -390,7 +390,7 @@ object AlimentBlocks {
     ) { CoptisBlock(it) }
 
     /**
-     * Phellodendron (黄柏): medicinal shrub/bark source rich in berberine.
+     * Phellodendron: medicinal shrub/bark source rich in berberine.
      */
     val PHELLODENDRON: Block = Registration.registerBlock(
         "phellodendron",
@@ -405,7 +405,7 @@ object AlimentBlocks {
     ) { PhellodendronBlock(it) }
 
     /**
-     * Licorice (甘草): medicinal herb rich in glycyrrhizin.
+     * Licorice: medicinal herb rich in glycyrrhizin.
      */
     val LICORICE: Block = Registration.registerBlock(
         "licorice",
@@ -420,7 +420,7 @@ object AlimentBlocks {
     ) { LicoriceBlock(it) }
 
     /**
-     * Seaweed (海藻): an underwater edible crop with 4 growth stages, yielding iodine.
+     * Seaweed: an underwater edible crop with 4 growth stages, yielding iodine.
      */
     val SEAWEED: Block = Registration.registerBlock(
         "seaweed",

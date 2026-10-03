@@ -29,7 +29,7 @@ import net.minecraft.world.phys.shapes.CollisionContext
 import net.minecraft.world.phys.shapes.VoxelShape
 
 /**
- * Coptis (黄连): a shade-loving medicinal herb containing berberine (黄连素).
+ * Coptis: a shade-loving medicinal herb containing berberine.
  */
 class CoptisBlock(properties: BlockBehaviour.Properties) : BushBlock(properties), BonemealableBlock {
 

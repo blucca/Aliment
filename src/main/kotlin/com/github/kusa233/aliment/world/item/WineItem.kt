@@ -12,7 +12,7 @@ import net.minecraft.world.item.component.TooltipDisplay
 import java.util.function.Consumer
 
 /**
- * Wine item, "酒".
+ * Wine item.
  *
  * Brewed in the glass fermentation tank (7% ethanol) or distilled through the glass
  * condenser pipe into a cauldron (40% ethanol). Uses NBT (`concentration` float) to record

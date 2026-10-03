@@ -29,7 +29,7 @@ import net.minecraft.world.phys.shapes.CollisionContext
 import net.minecraft.world.phys.shapes.VoxelShape
 
 /**
- * Ephedra (麻黄): an arid medicinal shrub growing in four stages.
+ * Ephedra: an arid medicinal shrub growing in four stages.
  *
  * Can grow on soil, sand, and terracotta, reflecting its arid habitat.
  * When fully grown (age=3), harvesting gives ephedra twigs ([AlimentItems.EPHEDRA]).

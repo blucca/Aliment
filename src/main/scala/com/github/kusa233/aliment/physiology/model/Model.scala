@@ -402,7 +402,7 @@ object ModelConstants {
 
   // ---------------------------------------------------------------- berberine & glycyrrhizin
 
-  /** The maximum berberine (黄连素) concentration, 0..7. */
+  /** The maximum berberine concentration, 0..7. */
   val BERBERINE_CAP: Float = 7.0f
 
   /** Concentration threshold above which bacterial growth rate is reduced. */
@@ -415,7 +415,7 @@ object ModelConstants {
   val BERBERINE_METABOLISM_TICKS: Int = 60000
   val BERBERINE_DECAY_PER_TICK: Float = BERBERINE_CAP / BERBERINE_METABOLISM_TICKS
 
-  /** The maximum glycyrrhizin (甘草酸) concentration, 0..7. */
+  /** The maximum glycyrrhizin concentration, 0..7. */
   val GLYCYRRHIZIN_CAP: Float = 7.0f
 
   /** Concentration threshold above which viral growth rate is reduced. */
@@ -428,7 +428,7 @@ object ModelConstants {
   val GLYCYRRHIZIN_METABOLISM_TICKS: Int = 48000
   val GLYCYRRHIZIN_DECAY_PER_TICK: Float = GLYCYRRHIZIN_CAP / GLYCYRRHIZIN_METABOLISM_TICKS
 
-  // ---------------------------------------------------------------- ethanol (乙醇)
+  // ---------------------------------------------------------------- ethanol
 
   /** The maximum ethanol index a body can carry, 0..1.0. */
   val ETHANOL_CAP: Float = 1.0f

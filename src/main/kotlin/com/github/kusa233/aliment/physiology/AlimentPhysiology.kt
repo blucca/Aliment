@@ -106,19 +106,19 @@ object AlimentPhysiology {
         AlimentModelBridge.addEphedrine(data, amount)
 
     /**
-     * Adds berberine (黄连素), capped at [AlimentData.BERBERINE_CAP].
+     * Adds berberine, capped at [AlimentData.BERBERINE_CAP].
      */
     fun addBerberine(data: AlimentData, amount: Float): AlimentData =
         AlimentModelBridge.addBerberine(data, amount)
 
     /**
-     * Adds glycyrrhizin (甘草酸), capped at [AlimentData.GLYCYRRHIZIN_CAP].
+     * Adds glycyrrhizin, capped at [AlimentData.GLYCYRRHIZIN_CAP].
      */
     fun addGlycyrrhizin(data: AlimentData, amount: Float): AlimentData =
         AlimentModelBridge.addGlycyrrhizin(data, amount)
 
     /**
-     * Adds ethanol (乙醇), capped at [AlimentData.ETHANOL_CAP].
+     * Adds ethanol, capped at [AlimentData.ETHANOL_CAP].
      */
     fun addEthanol(data: AlimentData, amount: Float): AlimentData =
         AlimentModelBridge.addEthanol(data, amount)

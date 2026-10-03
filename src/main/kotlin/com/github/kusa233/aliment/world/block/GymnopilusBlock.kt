@@ -11,7 +11,7 @@ import net.minecraft.world.phys.shapes.CollisionContext
 import net.minecraft.world.phys.shapes.VoxelShape
 
 /**
- * The gymnopilus, 橘黄裸伞: a rustgill mushroom, and the mod's other drug.
+ * The gymnopilus: a rustgill mushroom, and the mod's other drug.
  *
  * It is a plain plant with no growth of its own - it does not ripen, spread or answer to bone meal -
  * because what it is for is being eaten raw or cooked. `BushBlock` gives it the shape, the instant

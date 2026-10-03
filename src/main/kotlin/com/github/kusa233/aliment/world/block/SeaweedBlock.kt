@@ -38,7 +38,7 @@ import net.minecraft.world.phys.shapes.CollisionContext
 import net.minecraft.world.phys.shapes.VoxelShape
 
 /**
- * Seaweed (海藻): an underwater edible crop with 4 growth stages, yielding iodine.
+ * Seaweed: an underwater edible crop with 4 growth stages, yielding iodine.
  * Harvested at stage 3 by right-clicking. Bonemealable in water.
  */
 class SeaweedBlock(properties: BlockBehaviour.Properties) : Block(properties), SimpleWaterloggedBlock, BonemealableBlock {

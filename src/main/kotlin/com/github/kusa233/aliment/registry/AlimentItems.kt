@@ -335,19 +335,19 @@ object AlimentItems {
 
     // ---------------------------------------------------------------- ephedra & ephedrine
 
-    /** Ephedra (麻黄): herbal twigs, edible or plantable into soil/sand. */
+    /** Ephedra: herbal twigs, edible or plantable into soil/sand. */
     val EPHEDRA: Item = Registration.registerItem(
         "ephedra",
         Item.Properties().food(ephedraFood()),
     ) { BlockItem(AlimentBlocks.EPHEDRA, it) }
 
-    /** Crushed Ephedra (碎麻黄): chopped/crushed ephedra herb flakes obtained by shears or grindstone. */
+    /** Crushed Ephedra: chopped/crushed ephedra herb flakes obtained by shears or grindstone. */
     val CRUSHED_EPHEDRA: Item = Registration.registerItem(
         "crushed_ephedra",
         Item.Properties(),
     ) { Item(it) }
 
-    /** Ephedrine Potion (麻黄碱药水): herbal stimulant medicine brewed from crushed ephedra in a glass bottle. */
+    /** Ephedrine Potion: herbal stimulant medicine brewed from crushed ephedra in a glass bottle. */
     val EPHEDRINE: Item = Registration.registerItem(
         "ephedrine",
         Item.Properties()
@@ -356,21 +356,21 @@ object AlimentItems {
             .stacksTo(16),
     ) { Item(it) }
 
-    // ---------------------------------------------------------------- coptis (黄连)
+    // ---------------------------------------------------------------- coptis
 
-    /** Coptis (黄连): medicinal herb containing berberine (+1.1), edible or plantable. */
+    /** Coptis: medicinal herb containing berberine (+1.1), edible or plantable. */
     val COPTIS: Item = Registration.registerItem(
         "coptis",
         Item.Properties().food(herbFood()),
     ) { BlockItem(AlimentBlocks.COPTIS, it) }
 
-    /** Crushed Coptis (碎黄连): ground coptis herb flakes. */
+    /** Crushed Coptis: ground coptis herb flakes. */
     val CRUSHED_COPTIS: Item = Registration.registerItem(
         "crushed_coptis",
         Item.Properties(),
     ) { Item(it) }
 
-    /** Coptis Potion (黄连药水): concentrated berberine potion brewed with crushed coptis. */
+    /** Coptis Potion: concentrated berberine potion brewed with crushed coptis. */
     val COPTIS_POTION: Item = Registration.registerItem(
         "coptis_potion",
         Item.Properties()
@@ -379,21 +379,21 @@ object AlimentItems {
             .stacksTo(16),
     ) { Item(it) }
 
-    // ---------------------------------------------------------------- phellodendron (黄柏)
+    // ---------------------------------------------------------------- phellodendron
 
-    /** Phellodendron (黄柏): medicinal bark/shrub containing berberine (+0.6), edible or plantable. */
+    /** Phellodendron: medicinal bark/shrub containing berberine (+0.6), edible or plantable. */
     val PHELLODENDRON: Item = Registration.registerItem(
         "phellodendron",
         Item.Properties().food(herbFood()),
     ) { BlockItem(AlimentBlocks.PHELLODENDRON, it) }
 
-    /** Crushed Phellodendron (碎黄柏): ground phellodendron herb flakes. */
+    /** Crushed Phellodendron: ground phellodendron herb flakes. */
     val CRUSHED_PHELLODENDRON: Item = Registration.registerItem(
         "crushed_phellodendron",
         Item.Properties(),
     ) { Item(it) }
 
-    /** Phellodendron Potion (黄柏药水): berberine potion brewed with crushed phellodendron. */
+    /** Phellodendron Potion: berberine potion brewed with crushed phellodendron. */
     val PHELLODENDRON_POTION: Item = Registration.registerItem(
         "phellodendron_potion",
         Item.Properties()
@@ -402,21 +402,21 @@ object AlimentItems {
             .stacksTo(16),
     ) { Item(it) }
 
-    // ---------------------------------------------------------------- licorice (甘草)
+    // ---------------------------------------------------------------- licorice
 
-    /** Licorice (甘草): medicinal herb containing glycyrrhizin (+1.1), edible or plantable. */
+    /** Licorice: medicinal herb containing glycyrrhizin (+1.1), edible or plantable. */
     val LICORICE: Item = Registration.registerItem(
         "licorice",
         Item.Properties().food(herbFood()),
     ) { BlockItem(AlimentBlocks.LICORICE, it) }
 
-    /** Crushed Licorice (碎甘草): ground licorice herb flakes. */
+    /** Crushed Licorice: ground licorice herb flakes. */
     val CRUSHED_LICORICE: Item = Registration.registerItem(
         "crushed_licorice",
         Item.Properties(),
     ) { Item(it) }
 
-    /** Licorice Potion (甘草药水): concentrated glycyrrhizin potion brewed with crushed licorice. */
+    /** Licorice Potion: concentrated glycyrrhizin potion brewed with crushed licorice. */
     val LICORICE_POTION: Item = Registration.registerItem(
         "licorice_potion",
         Item.Properties()
@@ -425,27 +425,27 @@ object AlimentItems {
             .stacksTo(16),
     ) { Item(it) }
 
-    // ---------------------------------------------------------------- seaweed (海藻)
+    // ---------------------------------------------------------------- seaweed
 
-    /** Seaweed (海藻): underwater edible crop (+0.2 iodine), plantable or raw food. */
+    /** Seaweed: underwater edible crop (+0.2 iodine), plantable or raw food. */
     val SEAWEED: Item = Registration.registerItem(
         "seaweed",
         Item.Properties().food(seaweedFood()),
     ) { BlockItem(AlimentBlocks.SEAWEED, it) }
 
-    /** Cooked Seaweed (熟海藻): cooked food (+0.25 iodine) from furnace, smoker or campfire. */
+    /** Cooked Seaweed: cooked food (+0.25 iodine) from furnace, smoker or campfire. */
     val COOKED_SEAWEED: Item = Registration.registerItem(
         "cooked_seaweed",
         Item.Properties().food(cookedSeaweedFood()),
     ) { Item(it) }
 
-    /** Crushed Seaweed (碎海藻): ground seaweed obtained from grindstone. */
+    /** Crushed Seaweed: ground seaweed obtained from grindstone. */
     val CRUSHED_SEAWEED: Item = Registration.registerItem(
         "crushed_seaweed",
         Item.Properties(),
     ) { Item(it) }
 
-    /** Seaweed Iodized Salt (海藻碘盐): table salt enriched with crushed seaweed (+0.40 iodine, +1.5 Na/Cl). */
+    /** Seaweed Iodized Salt: table salt enriched with crushed seaweed (+0.40 iodine, +1.5 Na/Cl). */
     val SEAWEED_IODIZED_SALT: Item = Registration.registerItem(
         "seaweed_iodized_salt",
         Item.Properties().food(iodizedSaltFood()),

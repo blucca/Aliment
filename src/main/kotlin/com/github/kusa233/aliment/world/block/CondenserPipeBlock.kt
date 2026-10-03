@@ -17,7 +17,7 @@ import net.minecraft.world.phys.shapes.Shapes
 import net.minecraft.world.phys.shapes.VoxelShape
 
 /**
- * Glass Condenser Pipe, 玻璃冷凝管.
+ * Glass Condenser Pipe.
  *
  * When placed as a single pipe above a fermentation tank, its outlet faces UP.
  * When connected to a horizontal neighboring condenser pipe, its outlet faces DOWN towards
