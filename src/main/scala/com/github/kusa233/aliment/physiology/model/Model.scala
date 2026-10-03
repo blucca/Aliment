@@ -242,6 +242,7 @@ final case class ModelDrugs(
     @BeanProperty ephedrine: Float = 0f,
     @BeanProperty berberine: Float = 0f,
     @BeanProperty glycyrrhizin: Float = 0f,
+    @BeanProperty ethanol: Float = 0f,
 ) {
   def withSalicin(value: Float): ModelDrugs = copy(salicin = value)
   def withDexamethasone(value: Float): ModelDrugs = copy(dexamethasone = value)
@@ -252,11 +253,12 @@ final case class ModelDrugs(
   def withEphedrine(value: Float): ModelDrugs = copy(ephedrine = value)
   def withBerberine(value: Float): ModelDrugs = copy(berberine = value)
   def withGlycyrrhizin(value: Float): ModelDrugs = copy(glycyrrhizin = value)
+  def withEthanol(value: Float): ModelDrugs = copy(ethanol = value)
 }
 
 /** The default clean drug state with zero concentration for all substances. */
 object DrugDefaults {
-  val CLEAN: ModelDrugs = new ModelDrugs(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f)
+  val CLEAN: ModelDrugs = new ModelDrugs(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f)
 }
 
 /**
@@ -425,6 +427,15 @@ object ModelConstants {
   /** Glycyrrhizin is completely metabolised within 2 in-game days (48000 ticks) from cap. */
   val GLYCYRRHIZIN_METABOLISM_TICKS: Int = 48000
   val GLYCYRRHIZIN_DECAY_PER_TICK: Float = GLYCYRRHIZIN_CAP / GLYCYRRHIZIN_METABOLISM_TICKS
+
+  // ---------------------------------------------------------------- ethanol (乙醇)
+
+  /** The maximum ethanol index a body can carry, 0..1.0. */
+  val ETHANOL_CAP: Float = 1.0f
+
+  /** Ethanol is metabolised over one in-game day (24000 ticks) from cap. */
+  val ETHANOL_METABOLISM_TICKS: Int = 24000
+  val ETHANOL_DECAY_PER_TICK: Float = ETHANOL_CAP / ETHANOL_METABOLISM_TICKS
 }
 
 /**
@@ -473,6 +484,7 @@ final case class ModelState(
   def ephedrine: Float = drugs.ephedrine
   def berberine: Float = drugs.berberine
   def glycyrrhizin: Float = drugs.glycyrrhizin
+  def ethanol: Float = drugs.ethanol
 
   def withSalicin(value: Float): ModelState = copy(drugs = drugs.withSalicin(value))
   def withDexamethasone(value: Float): ModelState = copy(drugs = drugs.withDexamethasone(value))
@@ -483,4 +495,5 @@ final case class ModelState(
   def withEphedrine(value: Float): ModelState = copy(drugs = drugs.withEphedrine(value))
   def withBerberine(value: Float): ModelState = copy(drugs = drugs.withBerberine(value))
   def withGlycyrrhizin(value: Float): ModelState = copy(drugs = drugs.withGlycyrrhizin(value))
+  def withEthanol(value: Float): ModelState = copy(drugs = drugs.withEthanol(value))
 }

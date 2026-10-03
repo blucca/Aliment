@@ -111,6 +111,8 @@ object AlimentCreativeTabs {
         // seaweed
         AlimentItems.SEAWEED,
         AlimentItems.COOKED_SEAWEED,
+        AlimentItems.CRUSHED_SEAWEED,
+        AlimentItems.SEAWEED_IODIZED_SALT,
     )
 
     /**

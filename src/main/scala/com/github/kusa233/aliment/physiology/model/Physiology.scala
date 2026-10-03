@@ -465,6 +465,7 @@ object Physiology {
     val ephedrine = Math.max(drugs.ephedrine - ModelConstants.EPHEDRINE_DECAY_PER_TICK, 0f)
     val berberine = Math.max(drugs.berberine - ModelConstants.BERBERINE_DECAY_PER_TICK, 0f)
     val glycyrrhizin = Math.max(drugs.glycyrrhizin - ModelConstants.GLYCYRRHIZIN_DECAY_PER_TICK, 0f)
+    val ethanol = Math.max(drugs.ethanol - ModelConstants.ETHANOL_DECAY_PER_TICK, 0f)
 
     new ModelDrugs(
       salicin,
@@ -476,6 +477,7 @@ object Physiology {
       ephedrine,
       berberine,
       glycyrrhizin,
+      ethanol,
     )
   }
 
@@ -884,6 +886,10 @@ object Physiology {
   /** Adds glycyrrhizin (甘草酸), capped at [ModelConstants.GLYCYRRHIZIN_CAP]. */
   def addGlycyrrhizin(state: ModelState, amount: Float): ModelState =
     state.withGlycyrrhizin(clamp(state.glycyrrhizin + amount, 0f, ModelConstants.GLYCYRRHIZIN_CAP))
+
+  /** Adds ethanol (乙醇), capped at [ModelConstants.ETHANOL_CAP]. */
+  def addEthanol(state: ModelState, amount: Float): ModelState =
+    state.withEthanol(clamp(state.ethanol + amount, 0f, ModelConstants.ETHANOL_CAP))
 
   /**
    * Raises or lowers the fever so that the body *peaks* at `degrees` Celsius.

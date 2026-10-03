@@ -116,4 +116,10 @@ object AlimentPhysiology {
      */
     fun addGlycyrrhizin(data: AlimentData, amount: Float): AlimentData =
         AlimentModelBridge.addGlycyrrhizin(data, amount)
+
+    /**
+     * Adds ethanol (乙醇), capped at [AlimentData.ETHANOL_CAP].
+     */
+    fun addEthanol(data: AlimentData, amount: Float): AlimentData =
+        AlimentModelBridge.addEthanol(data, amount)
 }

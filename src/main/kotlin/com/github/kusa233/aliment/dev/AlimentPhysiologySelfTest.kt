@@ -17,6 +17,7 @@ import com.github.kusa233.aliment.registry.AlimentBlocks
 import com.github.kusa233.aliment.registry.AlimentItems
 import com.github.kusa233.aliment.world.AlimentGrinding
 import com.github.kusa233.aliment.world.AlimentLoot
+import com.github.kusa233.aliment.world.item.WineItem
 import com.google.gson.JsonParser
 import net.fabricmc.api.ModInitializer
 import net.fabricmc.fabric.api.entity.FakePlayer
@@ -1650,8 +1651,12 @@ class AlimentPhysiologySelfTest : ModInitializer {
         ItemStack(AlimentItems.COOKED_SEAWEED, 1).finishUsingItem(level, player)
         val afterCookedSeaweed = player.getAttachedOrCreate(AlimentAttachments.DATA).traceElements.iodine
         logger.info("PHYS iodine from seaweed {} / cooked seaweed {}", afterSeaweed, afterCookedSeaweed)
-        check("raw seaweed adds 1.0 umol/L of iodine", abs(afterSeaweed - 1.30f) < 0.001f)
-        check("cooked seaweed adds 1.5 umol/L of iodine", abs(afterCookedSeaweed - 1.80f) < 0.001f)
+        check("raw seaweed adds 0.20 umol/L of iodine", abs(afterSeaweed - 0.50f) < 0.001f)
+        check("cooked seaweed adds 0.25 umol/L of iodine", abs(afterCookedSeaweed - 0.55f) < 0.001f)
+        player.setAttached(AlimentAttachments.DATA, deficient)
+        ItemStack(AlimentItems.SEAWEED_IODIZED_SALT, 1).finishUsingItem(level, player)
+        val afterSalt = player.getAttachedOrCreate(AlimentAttachments.DATA)
+        check("seaweed iodized salt adds 0.40 umol/L of iodine", abs(afterSalt.traceElements.iodine - 0.70f) < 0.001f)
 
         // The mandrake, eaten: the fruit and the seeds both carry the two alkaloids.
         player.setAttached(AlimentAttachments.DATA, AlimentData.HEALTHY)
@@ -1929,6 +1934,33 @@ class AlimentPhysiologySelfTest : ModInitializer {
         check("grindstone accepts phellodendron", grindPhel != null && grindPhel.first == AlimentItems.CRUSHED_PHELLODENDRON && grindPhel.second == 1)
         val grindLic = AlimentGrinding.outputFor(ItemStack(AlimentItems.LICORICE))
         check("grindstone accepts licorice", grindLic != null && grindLic.first == AlimentItems.CRUSHED_LICORICE && grindLic.second == 1)
+        val grindSeaweed = AlimentGrinding.outputFor(ItemStack(AlimentItems.SEAWEED))
+        check("grindstone accepts seaweed", grindSeaweed != null && grindSeaweed.first == AlimentItems.CRUSHED_SEAWEED && grindSeaweed.second == 1)
+
+        // Wine, ethanol index and water hydration:
+        // Healthy player starts with 0 ethanol and 80 water.
+        player.setAttached(AlimentAttachments.DATA, AlimentData.HEALTHY)
+        val defaultWine = ItemStack(AlimentItems.WINE, 1) // default 7% wine
+        defaultWine.finishUsingItem(level, player)
+        val afterWine = player.getAttachedOrCreate(AlimentAttachments.DATA)
+        logger.info("PHYS wine drunk: ethanol {} water {}", afterWine.ethanol, afterWine.water)
+        check("drinking 7% wine adds 0.07 ethanol", abs(afterWine.ethanol - 0.07f) < 0.001f)
+        check("drinking wine adds 10 water (80 -> 90)", abs(afterWine.water - 90f) < 0.001f)
+
+        // Distilled wine (40% ethanol)
+        val distilledWine = WineItem.createStack(AlimentItems.WINE, 0.40f)
+        distilledWine.finishUsingItem(level, player)
+        val afterDistilled = player.getAttachedOrCreate(AlimentAttachments.DATA)
+        logger.info("PHYS distilled wine drunk: ethanol {} water {}", afterDistilled.ethanol, afterDistilled.water)
+        check("drinking distilled wine adds 0.40 ethanol (0.07 -> 0.47)", abs(afterDistilled.ethanol - 0.47f) < 0.001f)
+        check("drinking distilled wine adds 10 water (90 -> 100)", abs(afterDistilled.water - 100f) < 0.001f)
+
+        // Ethanol decay: cleared over 1 game day (24000 ticks) from 1.0 to 0
+        var decayEthSim = AlimentData.HEALTHY.copy(ethanol = 1.0f)
+        repeat(12000) { decayEthSim = AlimentPhysiology.tick(decayEthSim) }
+        check("ethanol at 12000 ticks is halfway (0.50)", abs(decayEthSim.ethanol - 0.50f) < 0.01f)
+        repeat(12000) { decayEthSim = AlimentPhysiology.tick(decayEthSim) }
+        check("ethanol at 24000 ticks is cleared to 0", decayEthSim.ethanol == 0f)
 
         // PlayerMixin scales food exhaustion.
         player.setAttached(AlimentAttachments.DATA, AlimentData.HEALTHY)

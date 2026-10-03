@@ -427,16 +427,28 @@ object AlimentItems {
 
     // ---------------------------------------------------------------- seaweed (海藻)
 
-    /** Seaweed (海藻): underwater edible crop (+1.0 iodine), plantable or raw food. */
+    /** Seaweed (海藻): underwater edible crop (+0.2 iodine), plantable or raw food. */
     val SEAWEED: Item = Registration.registerItem(
         "seaweed",
         Item.Properties().food(seaweedFood()),
     ) { BlockItem(AlimentBlocks.SEAWEED, it) }
 
-    /** Cooked Seaweed (熟海藻): cooked food (+1.5 iodine) from furnace, smoker or campfire. */
+    /** Cooked Seaweed (熟海藻): cooked food (+0.25 iodine) from furnace, smoker or campfire. */
     val COOKED_SEAWEED: Item = Registration.registerItem(
         "cooked_seaweed",
         Item.Properties().food(cookedSeaweedFood()),
+    ) { Item(it) }
+
+    /** Crushed Seaweed (碎海藻): ground seaweed obtained from grindstone. */
+    val CRUSHED_SEAWEED: Item = Registration.registerItem(
+        "crushed_seaweed",
+        Item.Properties(),
+    ) { Item(it) }
+
+    /** Seaweed Iodized Salt (海藻碘盐): table salt enriched with crushed seaweed (+0.40 iodine, +1.5 Na/Cl). */
+    val SEAWEED_IODIZED_SALT: Item = Registration.registerItem(
+        "seaweed_iodized_salt",
+        Item.Properties().food(iodizedSaltFood()),
     ) { Item(it) }
 
     fun createWine(concentration: Float): ItemStack = WineItem.createStack(WINE, concentration)
@@ -444,6 +456,8 @@ object AlimentItems {
     private fun seaweedFood(): FoodProperties = buildFood(1, 0.2f, alwaysEdible = true)
 
     private fun cookedSeaweedFood(): FoodProperties = buildFood(3, 0.6f, alwaysEdible = true)
+
+    private fun iodizedSaltFood(): FoodProperties = buildFood(0, 0f, alwaysEdible = true)
 
     private fun ephedraFood(): FoodProperties = buildFood(1, 0.2f, alwaysEdible = true)
 

@@ -228,6 +228,14 @@ public final class AlimentModelBridge {
     public static final int GLYCYRRHIZIN_METABOLISM_TICKS = ModelConstants.GLYCYRRHIZIN_METABOLISM_TICKS();
     public static final float GLYCYRRHIZIN_DECAY_PER_TICK = ModelConstants.GLYCYRRHIZIN_DECAY_PER_TICK();
 
+    // ---------------------------------------------------------------- ethanol (乙醇)
+
+    /** The maximum ethanol index (0..1.0). */
+    public static final float ETHANOL_CAP = ModelConstants.ETHANOL_CAP();
+
+    public static final int ETHANOL_METABOLISM_TICKS = ModelConstants.ETHANOL_METABOLISM_TICKS();
+    public static final float ETHANOL_DECAY_PER_TICK = ModelConstants.ETHANOL_DECAY_PER_TICK();
+
     // ================================================================== the reference ranges
 
     /**
@@ -377,6 +385,7 @@ public final class AlimentModelBridge {
                 0f,
                 0f,
                 false,
+                0f,
                 0f,
                 0f);
     }
@@ -608,6 +617,11 @@ public final class AlimentModelBridge {
         return fromModel(Physiology.addGlycyrrhizin(toModel(data), amount));
     }
 
+    /** Adds ethanol, capped. */
+    public static AlimentData addEthanol(AlimentData data, float amount) {
+        return fromModel(Physiology.addEthanol(toModel(data), amount));
+    }
+
     // ================================================================== the conversion
     //
     // The only place a Kotlin `AlimentData` becomes the model's `ModelState` or back. Everything
@@ -624,7 +638,8 @@ public final class AlimentModelBridge {
                 data.getPsilocin(),
                 data.getEphedrine(),
                 data.getBerberine(),
-                data.getGlycyrrhizin());
+                data.getGlycyrrhizin(),
+                data.getEthanol());
 
         return new ModelState(
                 toModel(data.getMediators()),
@@ -659,7 +674,8 @@ public final class AlimentModelBridge {
                 drugs.getEphedrine(),
                 state.getImmuneActive(),
                 drugs.getBerberine(),
-                drugs.getGlycyrrhizin());
+                drugs.getGlycyrrhizin(),
+                drugs.getEthanol());
     }
 
     private static ModelMediators toModel(Mediators mediators) {

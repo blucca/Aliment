@@ -34,7 +34,8 @@ object AlimentCommand {
         "salicin", "dexamethasone",
         "scopolamine", "atropine",
         "psilocybin", "psilocin",
-        "ephedrine",
+        "ephedrine", "berberine", "glycyrrhizin",
+        "ethanol",
         "temperature", "pyrogen",
     )
 
@@ -141,6 +142,14 @@ object AlimentCommand {
                 data.ephedrine,
                 if (data.hasHasteFromEphedrine) "  [haste I]" else "",
             ),
+            "  herbs  berberine %.2f  glycyrrhizin %.2f".format(
+                data.berberine, data.glycyrrhizin,
+            ),
+            "  wine  ethanol %.2f (%.0f%%)%s".format(
+                data.ethanol,
+                data.ethanol * 100f,
+                if (data.ethanol >= 0.70f) "  [severe drunkenness]" else if (data.ethanol >= 0.35f) "  [drunkenness]" else "",
+            ),
         )
         for (line in lines) {
             context.source.sendSuccess({ Component.literal(line) }, false)
@@ -196,6 +205,9 @@ object AlimentCommand {
             "psilocybin" -> data.withPsilocybin(clamp(value, AlimentData.PSILOCYBIN_CAP))
             "psilocin" -> data.withPsilocin(clamp(value, AlimentData.PSILOCIN_CAP))
             "ephedrine" -> data.withEphedrine(clamp(value, AlimentData.EPHEDRINE_CAP))
+            "berberine" -> data.withBerberine(clamp(value, AlimentData.BERBERINE_CAP))
+            "glycyrrhizin" -> data.withGlycyrrhizin(clamp(value, AlimentData.GLYCYRRHIZIN_CAP))
+            "ethanol" -> data.withEthanol(clamp(value, AlimentData.ETHANOL_CAP))
             // Setting the temperature moves the body itself; setting the pyrogen moves the target
             // it is walking towards, which is what makes a fever persist.
             "temperature" -> data.copy(

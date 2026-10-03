@@ -78,6 +78,8 @@
     "block.aliment.seaweed":  "海藻",
     "item.aliment.seaweed":  "海藻",
     "item.aliment.cooked_seaweed":  "焼き海藻",
+    "item.aliment.crushed_seaweed":  "砕いた海藻",
+    "item.aliment.seaweed_iodized_salt":  "海藻ヨウ素塩",
     "item.aliment.willow_boat":  "ヤナギのボート",
     "entity.aliment.willow_boat":  "ヤナギのボート",
     "item.aliment.willow_chest_boat":  "チェスト付きのヤナギのボート",

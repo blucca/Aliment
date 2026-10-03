@@ -224,6 +224,8 @@ data class AlimentData(
     val berberine: Float = 0f,
     /** Glycyrrhizin (甘草酸), antiviral saponin targeting viruses, 0..[GLYCYRRHIZIN_CAP]. */
     val glycyrrhizin: Float = 0f,
+    /** Ethanol (乙醇), alcohol index from drinking wine, 0..[ETHANOL_CAP]. */
+    val ethanol: Float = 0f,
 ) {
 
     val inflammation: Float
@@ -369,6 +371,8 @@ data class AlimentData(
     fun withBerberine(value: Float): AlimentData = this.copy(berberine = value)
 
     fun withGlycyrrhizin(value: Float): AlimentData = this.copy(glycyrrhizin = value)
+
+    fun withEthanol(value: Float): AlimentData = this.copy(ethanol = value)
 
     companion object {
 
@@ -533,6 +537,11 @@ data class AlimentData(
         @JvmField val GLYCYRRHIZIN_METABOLISM_TICKS: Int = AlimentModelBridge.GLYCYRRHIZIN_METABOLISM_TICKS
         @JvmField val GLYCYRRHIZIN_DECAY_PER_TICK: Float = AlimentModelBridge.GLYCYRRHIZIN_DECAY_PER_TICK
 
+        /** The most ethanol a body can carry, 0..1.0. */
+        @JvmField val ETHANOL_CAP: Float = AlimentModelBridge.ETHANOL_CAP
+        @JvmField val ETHANOL_METABOLISM_TICKS: Int = AlimentModelBridge.ETHANOL_METABOLISM_TICKS
+        @JvmField val ETHANOL_DECAY_PER_TICK: Float = AlimentModelBridge.ETHANOL_DECAY_PER_TICK
+
         /** What a healthy player looks like. */
         @JvmField val HEALTHY: AlimentData = AlimentModelBridge.healthy()
 
@@ -546,6 +555,7 @@ data class AlimentData(
             val ephedrine: Float,
             val berberine: Float,
             val glycyrrhizin: Float,
+            val ethanol: Float,
         ) {
             companion object {
                 val MAP_CODEC: MapCodec<Compounds> = RecordCodecBuilder.mapCodec { instance ->
@@ -559,6 +569,7 @@ data class AlimentData(
                         Codec.FLOAT.optionalFieldOf("ephedrine", 0f).forGetter { it.ephedrine },
                         Codec.FLOAT.optionalFieldOf("berberine", 0f).forGetter { it.berberine },
                         Codec.FLOAT.optionalFieldOf("glycyrrhizin", 0f).forGetter { it.glycyrrhizin },
+                        Codec.FLOAT.optionalFieldOf("ethanol", 0f).forGetter { it.ethanol },
                     ).apply(instance, ::Compounds)
                 }
             }
@@ -586,6 +597,7 @@ data class AlimentData(
                         it.ephedrine,
                         it.berberine,
                         it.glycyrrhizin,
+                        it.ethanol,
                     )
                 },
             ).apply(instance) { mediators, bacteria, virus, water, electrolytes, traceElements, temperature, pyrogen, immuneActive, compounds ->
@@ -608,6 +620,7 @@ data class AlimentData(
                     immuneActive = immuneActive,
                     berberine = compounds.berberine,
                     glycyrrhizin = compounds.glycyrrhizin,
+                    ethanol = compounds.ethanol,
                 )
             }
         }

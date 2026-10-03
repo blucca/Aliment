@@ -435,6 +435,8 @@ $itemEntries = [ordered]@{
     'licorice_potion'              = 'Licorice Potion'
     'seaweed'                      = 'Seaweed'
     'cooked_seaweed'               = 'Cooked Seaweed'
+    'crushed_seaweed'              = 'Crushed Seaweed'
+    'seaweed_iodized_salt'         = 'Seaweed Iodized Salt'
 }
 
 # the two boats are plain items that also have entity names, like vanilla's

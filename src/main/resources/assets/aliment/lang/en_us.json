@@ -78,6 +78,8 @@
     "block.aliment.seaweed":  "Seaweed",
     "item.aliment.seaweed":  "Seaweed",
     "item.aliment.cooked_seaweed":  "Cooked Seaweed",
+    "item.aliment.crushed_seaweed":  "Crushed Seaweed",
+    "item.aliment.seaweed_iodized_salt":  "Seaweed Iodized Salt",
     "item.aliment.willow_boat":  "Willow Boat",
     "entity.aliment.willow_boat":  "Willow Boat",
     "item.aliment.willow_chest_boat":  "Willow Boat with Chest",

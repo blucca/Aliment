@@ -239,6 +239,15 @@ object AlimentSymptoms {
             player.addEffect(MobEffectInstance(MobEffects.HASTE, ticks, 0))
         }
 
+        // --- ethanol: intoxication / drunkenness
+        if (data.ethanol >= 0.70f) {
+            player.addEffect(MobEffectInstance(MobEffects.NAUSEA, ticks, 1))
+            player.addEffect(MobEffectInstance(MobEffects.SLOWNESS, ticks, 1))
+        } else if (data.ethanol >= 0.35f) {
+            player.addEffect(MobEffectInstance(MobEffects.NAUSEA, ticks, 0))
+            player.addEffect(MobEffectInstance(MobEffects.SLOWNESS, ticks, 0))
+        }
+
         // --- body temperature
         applyThermalEffects(player, data, ticks)
     }

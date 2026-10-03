@@ -24,6 +24,7 @@ object AlimentGrinding {
         AlimentItems.COPTIS to (AlimentItems.CRUSHED_COPTIS to 1),
         AlimentItems.PHELLODENDRON to (AlimentItems.CRUSHED_PHELLODENDRON to 1),
         AlimentItems.LICORICE to (AlimentItems.CRUSHED_LICORICE to 1),
+        AlimentItems.SEAWEED to (AlimentItems.CRUSHED_SEAWEED to 1),
     )
 
     /** True when the grindstone has something to do with this item. */

@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "aliment:crushed_seaweed",
+    "aliment:salt_powder"
+  ],
+  "result": {
+    "count": 1,
+    "id": "aliment:seaweed_iodized_salt"
+  }
+}

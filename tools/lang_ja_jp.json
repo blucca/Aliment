@@ -75,6 +75,8 @@
   "licorice_potion": "甘草水薬",
   "seaweed": "海藻",
   "cooked_seaweed": "焼き海藻",
+  "crushed_seaweed": "砕いた海藻",
+  "seaweed_iodized_salt": "海藻ヨウ素塩",
   "tooltip.aliment.wine.concentration": "アルコール度数: %s",
   "advancements.aliment.ancient_anti_inflammatory.title": "古代の抗炎症",
   "advancements.aliment.ancient_anti_inflammatory.description": "ヤナギの樹皮を入手する",
