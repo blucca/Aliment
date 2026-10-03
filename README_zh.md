@@ -74,3 +74,7 @@ tools\gen_textures.cmd
 ## 许可
 
 本项目采用开源许可发布，详见 [LICENSE](LICENSE.txt)。
+
+## Loli count
+
+![](https://count.getloli.com/@@cao-awa.aliment?name=%40cao-awa.aliment&padding=7&offset=0&align=top&scale=1&pixelated=1&darkmode=auto)

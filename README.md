@@ -70,3 +70,6 @@ tools\gen_textures.cmd
 ## License
 
 This project is released under an open-source license. See [LICENSE](LICENSE.txt) for details.
+
+## Loli count
+![](https://count.getloli.com/@@cao-awa.aliment?name=%40cao-awa.aliment&padding=7&offset=0&align=top&scale=1&pixelated=1&darkmode=auto)
