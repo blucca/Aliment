@@ -1,0 +1,21 @@
+{
+  "ambientocclusion": false,
+  "textures": {
+    "particle": "aliment:block/condenser_pipe_glass",
+    "glass": "aliment:block/condenser_pipe_glass"
+  },
+  "elements": [
+    {
+      "from": [ 5, 4, 0 ],
+      "to": [ 11, 12, 5 ],
+      "faces": {
+        "down":  { "texture": "#glass" },
+        "up":    { "texture": "#glass" },
+        "north": { "texture": "#glass", "cullface": "north" },
+        "south": { "texture": "#glass" },
+        "west":  { "texture": "#glass" },
+        "east":  { "texture": "#glass" }
+      }
+    }
+  ]
+}

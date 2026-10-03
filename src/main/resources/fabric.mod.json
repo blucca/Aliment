@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "id": "outbreak",
+  "id": "aliment",
   "version": "${version}",
-  "name": "Outbreak",
+  "name": "Aliment",
   "description": "A mod about physiology, disease, drugs and contagion.",
   "authors": [
     "Kusa233"
@@ -13,20 +13,20 @@
   ],
   "contact": {},
   "license": "GPL-3.0",
-  "icon": "assets/outbreak/icon.png",
+  "icon": "assets/aliment/icon.png",
   "environment": "*",
   "entrypoints": {
     "client": [
-      "com.github.kusa233.outbreak.client.OutbreakClient"
+      "com.github.kusa233.aliment.client.AlimentClient"
     ],
     "main": [
-      "com.github.kusa233.outbreak.Outbreak"
+      "com.github.kusa233.aliment.Aliment"
     ]
   },
   "mixins": [
-    "outbreak.mixins.json",
+    "aliment.mixins.json",
     {
-      "config": "outbreak.client.mixins.json",
+      "config": "aliment.client.mixins.json",
       "environment": "client"
     }
   ],

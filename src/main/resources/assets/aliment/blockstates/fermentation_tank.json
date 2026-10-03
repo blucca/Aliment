@@ -1,0 +1,76 @@
+{
+  "variants": {
+    "fermenting=false,level=0,liquid=water": {
+      "model": "aliment:block/fermentation_tank_0"
+    },
+    "fermenting=true,level=0,liquid=water": {
+      "model": "aliment:block/fermentation_tank_0"
+    },
+    "fermenting=false,level=0,liquid=sugar": {
+      "model": "aliment:block/fermentation_tank_0"
+    },
+    "fermenting=true,level=0,liquid=sugar": {
+      "model": "aliment:block/fermentation_tank_0"
+    },
+    "fermenting=false,level=0,liquid=wine": {
+      "model": "aliment:block/fermentation_tank_0"
+    },
+    "fermenting=true,level=0,liquid=wine": {
+      "model": "aliment:block/fermentation_tank_0"
+    },
+    "fermenting=false,level=1,liquid=water": {
+      "model": "aliment:block/fermentation_tank_1_water"
+    },
+    "fermenting=true,level=1,liquid=water": {
+      "model": "aliment:block/fermentation_tank_1_water"
+    },
+    "fermenting=false,level=1,liquid=sugar": {
+      "model": "aliment:block/fermentation_tank_1_sugar"
+    },
+    "fermenting=true,level=1,liquid=sugar": {
+      "model": "aliment:block/fermentation_tank_1_sugar"
+    },
+    "fermenting=false,level=1,liquid=wine": {
+      "model": "aliment:block/fermentation_tank_1_wine"
+    },
+    "fermenting=true,level=1,liquid=wine": {
+      "model": "aliment:block/fermentation_tank_1_wine"
+    },
+    "fermenting=false,level=2,liquid=water": {
+      "model": "aliment:block/fermentation_tank_2_water"
+    },
+    "fermenting=true,level=2,liquid=water": {
+      "model": "aliment:block/fermentation_tank_2_water"
+    },
+    "fermenting=false,level=2,liquid=sugar": {
+      "model": "aliment:block/fermentation_tank_2_sugar"
+    },
+    "fermenting=true,level=2,liquid=sugar": {
+      "model": "aliment:block/fermentation_tank_2_sugar"
+    },
+    "fermenting=false,level=2,liquid=wine": {
+      "model": "aliment:block/fermentation_tank_2_wine"
+    },
+    "fermenting=true,level=2,liquid=wine": {
+      "model": "aliment:block/fermentation_tank_2_wine"
+    },
+    "fermenting=false,level=3,liquid=water": {
+      "model": "aliment:block/fermentation_tank_3_water"
+    },
+    "fermenting=true,level=3,liquid=water": {
+      "model": "aliment:block/fermentation_tank_3_water"
+    },
+    "fermenting=false,level=3,liquid=sugar": {
+      "model": "aliment:block/fermentation_tank_3_sugar"
+    },
+    "fermenting=true,level=3,liquid=sugar": {
+      "model": "aliment:block/fermentation_tank_3_sugar"
+    },
+    "fermenting=false,level=3,liquid=wine": {
+      "model": "aliment:block/fermentation_tank_3_wine"
+    },
+    "fermenting=true,level=3,liquid=wine": {
+      "model": "aliment:block/fermentation_tank_3_wine"
+    }
+  }
+}

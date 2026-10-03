@@ -1,5 +1,5 @@
 <#
-    gen_data.ps1 - regenerates every data / asset JSON file of the Outbreak willow set.
+    gen_data.ps1 - regenerates every data / asset JSON file of the Aliment willow set.
 
     The vanilla JSON that ships inside the Minecraft jar is used as the template for all the
     blockstate / model / item-definition boilerplate, so the generated files always match the
@@ -17,7 +17,7 @@ $ErrorActionPreference = "Stop"
 # to the current directory (which must then be the repository root).
 $root = if ($PSScriptRoot) { Split-Path -Parent $PSScriptRoot } else { (Get-Location).Path }
 $res = Join-Path $root "src\main\resources"
-$ns = "outbreak"
+$ns = "aliment"
 
 # ---------------------------------------------------------------------------- vanilla source
 
@@ -475,9 +475,9 @@ foreach ($k in $boatEntries.Keys) {
 }
 
 # The mod's own creative tab. Its Chinese name is "Bao Fa" (see tools/lang_zh_cn.json).
-$en["itemGroup.$ns.main"] = 'Outbreak'
-$zh["itemGroup.$ns.main"] = $zhNames['itemGroup.outbreak.main']
-$ja["itemGroup.$ns.main"] = $jaNames['itemGroup.outbreak.main']
+$en["itemGroup.$ns.main"] = 'Aliment'
+$zh["itemGroup.$ns.main"] = $zhNames['itemGroup.aliment.main']
+$ja["itemGroup.$ns.main"] = $jaNames['itemGroup.aliment.main']
 
 $advancements = @(
     @{
@@ -533,8 +533,8 @@ foreach ($adv in $advancements) {
 }
 
 $en["tooltip.$ns.wine.concentration"] = 'Ethanol: %s'
-$zh["tooltip.$ns.wine.concentration"] = $zhNames['tooltip.outbreak.wine.concentration']
-$ja["tooltip.$ns.wine.concentration"] = $jaNames['tooltip.outbreak.wine.concentration']
+$zh["tooltip.$ns.wine.concentration"] = $zhNames['tooltip.aliment.wine.concentration']
+$ja["tooltip.$ns.wine.concentration"] = $jaNames['tooltip.aliment.wine.concentration']
 
 Write-Json "assets/$ns/lang/en_us.json" ($en | ConvertTo-Json -Depth 4)
 Write-Json "assets/$ns/lang/zh_cn.json" ($zh | ConvertTo-Json -Depth 4)
@@ -724,7 +724,7 @@ Write-Json "data/$ns/worldgen/placed_feature/rock_salt_ore.json" @"
 }
 "@
 
-# NOTE: the ore is injected into the overworld from OutbreakWorldGen.kt, not from a data file -
+# NOTE: the ore is injected into the overworld from AlimentWorldGen.kt, not from a data file -
 # Fabric's biome modification API is code-only, so a worldgen/biome_modification JSON would be
 # silently ignored.
 

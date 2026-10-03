@@ -1,0 +1,28 @@
+{
+  "parent": "aliment:just_crude_salt",
+  "display": {
+    "icon": {
+      "count": 1,
+      "id": "aliment:crude_salt_powder"
+    },
+    "title": {
+      "translate": "advancements.aliment.crushed_again.title"
+    },
+    "description": {
+      "translate": "advancements.aliment.crushed_again.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true
+  },
+  "criteria": {
+    "crushed": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "crushed"
+    ]
+  ]
+}

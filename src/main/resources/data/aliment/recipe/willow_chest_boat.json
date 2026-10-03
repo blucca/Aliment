@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "group": "chest_boat",
+  "ingredients": [
+    "minecraft:chest",
+    "aliment:willow_boat"
+  ],
+  "result": {
+    "id": "aliment:willow_chest_boat"
+  }
+}

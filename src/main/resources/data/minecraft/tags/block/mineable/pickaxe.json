@@ -1,10 +1,10 @@
 {
   "values": [
-    "outbreak:rock_salt_ore",
-    "outbreak:willow_soup_cauldron",
-    "outbreak:brine_cauldron",
-    "outbreak:alcohol_cauldron",
-    "outbreak:fermentation_tank",
-    "outbreak:condenser_pipe"
+    "aliment:rock_salt_ore",
+    "aliment:willow_soup_cauldron",
+    "aliment:brine_cauldron",
+    "aliment:alcohol_cauldron",
+    "aliment:fermentation_tank",
+    "aliment:condenser_pipe"
   ]
 }

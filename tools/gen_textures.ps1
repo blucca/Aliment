@@ -1,8 +1,8 @@
-# =====================================================================
+﻿# =====================================================================
 #  Outbreak - Willow wood set texture generator
 #  Regenerates every PNG used by the willow wood set from scratch.
 #  Idempotent: deletes and recreates all target files.
-#  Writes ONLY inside src/main/resources/assets/outbreak/.
+#  Writes ONLY inside src/main/resources/assets/aliment/.
 # =====================================================================
 
 $ErrorActionPreference = 'Stop'
@@ -10,7 +10,7 @@ Add-Type -AssemblyName System.Drawing
 
 $magick = "D:\Codes\Kotlin\Outbreak\.tools\imagemagick\magick.exe"
 $root   = "D:\Codes\Kotlin\Outbreak"
-$assets = Join-Path $root "src\main\resources\assets\outbreak"
+$assets = Join-Path $root "src\main\resources\assets/aliment"
 $bdir   = Join-Path $assets "textures\block"
 $idir   = Join-Path $assets "textures\item"
 $edir   = Join-Path $assets "textures\entity\boat"

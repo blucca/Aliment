@@ -1,0 +1,42 @@
+{
+  "parent": "aliment:ancient_anti_inflammatory",
+  "display": {
+    "icon": {
+      "count": 1,
+      "id": "aliment:mandrake_fruit"
+    },
+    "title": {
+      "translate": "advancements.aliment.even_if_dangerous.title"
+    },
+    "description": {
+      "translate": "advancements.aliment.even_if_dangerous.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true
+  },
+  "criteria": {
+    "mandrake_fruit": {
+      "trigger": "minecraft:consume_item",
+      "conditions": {
+        "item": {
+          "items": "aliment:mandrake_fruit"
+        }
+      }
+    },
+    "mandrake_seeds": {
+      "trigger": "minecraft:consume_item",
+      "conditions": {
+        "item": {
+          "items": "aliment:mandrake_seeds"
+        }
+      }
+    }
+  },
+  "requirements": [
+    [
+      "mandrake_fruit",
+      "mandrake_seeds"
+    ]
+  ]
+}

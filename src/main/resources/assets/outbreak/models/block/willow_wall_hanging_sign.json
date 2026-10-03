@@ -1,7 +1,0 @@
-{
-  "parent": "minecraft:block/template_wall_hanging_sign",
-  "textures": {
-    "all": "outbreak:block/willow_hanging_sign",
-    "particle": "outbreak:block/stripped_willow_log"
-  }
-}

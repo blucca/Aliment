@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "aliment:salt_powder",
+    "minecraft:mushroom_stew"
+  ],
+  "result": {
+    "count": 1,
+    "id": "aliment:salt_mushroom_stew"
+  }
+}

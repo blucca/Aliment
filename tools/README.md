@@ -1,6 +1,6 @@
-# tools
+﻿# tools
 
-Helper scripts used while developing the Outbreak willow (柳树) content. None of them are part
+Helper scripts used while developing the Aliment willow (柳树) content. None of them are part
 of the built mod — they only regenerate files under `src/main/resources`.
 
 | script | what it does |
@@ -41,9 +41,9 @@ was verified end to end.
 
 To use it:
 
-1. Copy it into a test world: `run/world/datapacks/outbreak-verify/`.
+1. Copy it into a test world: `run/world/datapacks/aliment-verify/`.
 2. Start the dev server with a superflat **river** world so every generated chunk goes through
-   the river biome that Outbreak injects the willow feature into. In `run/server.properties`:
+   the river biome that Aliment injects the willow feature into. In `run/server.properties`:
 
    ```
    level-type=minecraft:flat
@@ -53,9 +53,9 @@ To use it:
 3. Run `gradlew runServer`. After a few seconds the log should contain:
 
    ```
-   [Server] OUTBREAK_RIVERWORLD_VINES_OK
-   [Server] OUTBREAK_RIVERWORLD_TREES_OK
-   [Server] OUTBREAK_RIVERWORLD_LEAVES_OK
+   [Server] Aliment_RIVERWORLD_VINES_OK
+   [Server] Aliment_RIVERWORLD_TREES_OK
+   [Server] Aliment_RIVERWORLD_LEAVES_OK
    ```
 
 Delete the world afterwards — the data pack clears the blocks it inspects.
@@ -68,7 +68,7 @@ dedicated server stops ticking after 60 s with no players, and any tick-driven t
 There are two development-only entrypoints. Neither is referenced by `fabric.mod.json`, so both
 are dead code in the shipped jar.
 
-### `dev/OutbreakSelfTest.kt` - content
+### `dev/AlimentSelfTest.kt` - content
 
 Drives the player-facing willow features with Fabric's `FakePlayer` on a headless server: axe
 stripping, grindstone grinding, filling the cauldron, the 60 second campfire cook, taking a serving
@@ -81,7 +81,7 @@ cooking recipes loading with the same timings raw beef has, and its patches bein
 forest and the taiga and to nothing else. It reads the worldgen answer out of the biome registry
 rather than by scanning a world, which is what the patches are actually decided by, and verifies the advancement tree and triggers, and the fermentation tank and condenser pipe distillation machinery. 85 checks.
 
-### `dev/OutbreakPhysiologySelfTest.kt` - physiology
+### `dev/AlimentPhysiologySelfTest.kt` - physiology
 
 Runs the whole model headlessly in a few milliseconds: homeostasis, infection clearance,
 untreated immune storm, salicin and dexamethasone control, overdose, drug metabolism, the immune
@@ -118,8 +118,8 @@ Temporarily add it to the `main` entrypoint in `src/main/resources/fabric.mod.js
 
 ```json
 "main": [
-  "com.github.kusa233.outbreak.Outbreak",
-  "com.github.kusa233.outbreak.dev.OutbreakPhysiologySelfTest"
+  "com.github.kusa233.aliment.Aliment",
+  "com.github.kusa233.aliment.dev.AlimentPhysiologySelfTest"
 ]
 ```
 

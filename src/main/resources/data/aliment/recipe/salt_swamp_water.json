@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "aliment:salt_powder",
+    "aliment:swamp_water_bottle"
+  ],
+  "result": {
+    "count": 1,
+    "id": "aliment:salt_swamp_water"
+  }
+}

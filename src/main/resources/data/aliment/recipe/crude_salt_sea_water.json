@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "aliment:crude_salt",
+    "aliment:sea_water_bottle"
+  ],
+  "result": {
+    "count": 1,
+    "id": "aliment:crude_salt_sea_water"
+  }
+}

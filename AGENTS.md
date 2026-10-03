@@ -1,4 +1,4 @@
-# Outbreak
+# Aliment
 
 Fabric mod for Minecraft 26.3 (Scala 3.9 / Kotlin 2.4 / Java 25). See `SPOILER.md`, `PHYSIOLOGY.md`, and
 `TECHNICAL.md` for the content and architecture documentation, and `tools/README.md` for asset generators and dev self tests.
@@ -10,9 +10,9 @@ The mod is deliberately split by language, and the build enforces the direction
 
 | Language | Lives in | Owns |
 | --- | --- | --- |
-| **Scala 3** | `src/main/scala`, package `...outbreak.physiology.model` | **Every number and every calculation.** The per-tick model, the steady states, the mineral reference ranges, the derived symptom magnitudes. |
-| Kotlin | `src/main/kotlin` | Minecraft glue: Fabric attachments and codecs, mob effects, events, the command, the tick handler - and the storage value types (`OutbreakData`, `Mediators`, `Electrolytes`, `TraceElements`, `Mineral`). |
-| **Java** | `src/main/java/.../physiology/OutbreakModelBridge.java` | **The seam to the model.** The one file allowed to mention a Scala type: converts Kotlin state to and from `ModelState`, forwards every operation and magnitude, re-exports the numbers. |
+| **Scala 3** | `src/main/scala`, package `...aliment.physiology.model` | **Every number and every calculation.** The per-tick model, the steady states, the mineral reference ranges, the derived symptom magnitudes. |
+| Kotlin | `src/main/kotlin` | Minecraft glue: Fabric attachments and codecs, mob effects, events, the command, the tick handler - and the storage value types (`AlimentData`, `Mediators`, `Electrolytes`, `TraceElements`, `Mineral`). |
+| **Java** | `src/main/java/.../physiology/AlimentModelBridge.java` | **The seam to the model.** The one file allowed to mention a Scala type: converts Kotlin state to and from `ModelState`, forwards every operation and magnitude, re-exports the numbers. |
 | Java | `src/main/java`, `src/client/java` | Mixins, because Loom's annotation processor and the compiler check the targets. |
 | Kotlin | `src/client/kotlin` | Client-only rendering and HUD. |
 
@@ -25,17 +25,17 @@ workable:
   K2 resolves a Scala class by also loading its supertypes, so a Kotlin file that merely mentions
   `Mineral` drags in `scala.Product` and IntelliJ reports `Cannot access 'scala.Product' which is a
   supertype of 'Mineral'`, however the classpath is wired. That is why Kotlin has its own
-  `OutbreakData`/`Mediators`/`Electrolytes`/`TraceElements`/`Mineral`, and why every call crosses
-  through `OutbreakModelBridge`. The grep that checks it: any hit for `physiology.model` under
+  `AlimentData`/`Mediators`/`Electrolytes`/`TraceElements`/`Mineral`, and why every call crosses
+  through `AlimentModelBridge`. The grep that checks it: any hit for `physiology.model` under
   `src/main/kotlin`, or for one of the model's names (`ModelState`, `ModelConstants`, `ModelMineral`,
   `ModelMediators`, `ModelElectrolytes`, `ModelTraceElements`, `ModelDrugs`, `MineralRanges`, `MediatorLevels`,
   `ElectrolyteDefaults`, `TraceElementDefaults`, `DrugDefaults`, `Physiology.`), is a bug.
-* `OutbreakModelBridge` must not put a Scala type in a **public** field, parameter or return type
+* `AlimentModelBridge` must not put a Scala type in a **public** field, parameter or return type
   either: Kotlin resolves those eagerly, even though it resolves the Java file's private fields and
   method bodies lazily (verified: a private field of a nonexistent type does not break
   `compileKotlin`). Scala types are private fields and bodies only.
 * Nothing in the bridge may contain a number or a threshold. If a value is needed on both sides it
-  is added to the model and re-exported through `OutbreakModelBridge` under the name Kotlin uses.
+  is added to the model and re-exported through `AlimentModelBridge` under the name Kotlin uses.
 * The model compiles in its own task, `compileModelScala`, and **not** through the Scala plugin's
   `compileScala`. That task unconditionally depends on `compileJava` (joint Java/Scala compilation),
   which would close the cycle `compileJava -> compileKotlin -> compileScala -> compileJava`; the
@@ -50,7 +50,7 @@ workable:
   IntelliJ turns those into a dependency on another *module* and then resolves Scala types out of
   that module's sources as light classes.
 * Kotlin cannot use named arguments on Java methods, and Java has no default arguments, so
-  `OutbreakPhysiology` keeps the old call sites working: it is a thin Kotlin facade over the bridge
+  `AlimentPhysiology` keeps the old call sites working: it is a thin Kotlin facade over the bridge
   that restores the defaults (`tick(data)`, `drink(data)`, `seed(data, bacteria = 4f)`).
 * If a Scala type needs a `@BeanProperty` getter for Java to read a field, it needs one - the bridge
   reads `state.getBacteria()`, not `state.bacteria()`.
@@ -75,8 +75,8 @@ The seam, in one picture:
     src/main/scala/.../physiology/model   numbers, no Minecraft, no Kotlin
         ^  plain imports and private fields only
         |
-    src/main/java/.../physiology/OutbreakModelBridge.java    constants, conversion, forwarding
-        ^  OutbreakData and primitives only
+    src/main/java/.../physiology/AlimentModelBridge.java    constants, conversion, forwarding
+        ^  AlimentData and primitives only
         |
     src/main/kotlin/.../physiology       storage, codecs, symptoms, contagion, command
         ^

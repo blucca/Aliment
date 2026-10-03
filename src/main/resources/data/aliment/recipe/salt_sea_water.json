@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "aliment:salt_powder",
+    "aliment:sea_water_bottle"
+  ],
+  "result": {
+    "count": 1,
+    "id": "aliment:salt_sea_water"
+  }
+}

@@ -31,7 +31,7 @@ loom {
     splitEnvironmentSourceSets()
 
     mods {
-        register("outbreak") {
+        register("aliment") {
             sourceSet("main")
             sourceSet("client")
         }

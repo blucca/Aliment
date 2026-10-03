@@ -1,7 +1,0 @@
-{
-  "variants": {
-    "level=1": { "model": "outbreak:block/alcohol_cauldron_1" },
-    "level=2": { "model": "outbreak:block/alcohol_cauldron_2" },
-    "level=3": { "model": "outbreak:block/alcohol_cauldron_3" }
-  }
-}

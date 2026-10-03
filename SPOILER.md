@@ -1,6 +1,6 @@
-# 剧透 SPOILER
+﻿# 剧透 SPOILER
 
-**Outbreak（爆发）** 是一个关于生理、疾病、药物与传染的模组。
+**Aliment（爆发）** 是一个关于生理、疾病、药物与传染的模组。
 
 这份文件是**玩法剧透**：所有机制、隐藏的数值门槛、配方、画面效果和指令都在这里。
 喜欢自己摸索的玩家请就此打住——想自己发现"为什么喝完海水当场没事、后来却特别渴"、
@@ -35,36 +35,36 @@
 
 ## 2. 柳木方块与物品全清单
 
-模组拥有独立的创造模式物品栏分类 **「爆发 / Outbreak」**（`itemGroup.outbreak.main`），模组所有物品均收录在此。
+模组拥有独立的创造模式物品栏分类 **「爆发 / Aliment」**（`itemGroup.aliment.main`），模组所有物品均收录在此。
 
 | 物品 / 方块 ID | 中文名 | 详细说明 |
 | --- | --- | --- |
-| `outbreak:willow_log` | 柳木原木 | 带有 `axis` 属性，斧头右键剥皮掉落树皮 |
-| `outbreak:willow_wood` | 柳木 | 全面树皮原木 |
-| `outbreak:stripped_willow_log` | 去皮柳木原木 | 剥皮后生成 |
-| `outbreak:stripped_willow_wood` | 去皮柳木 | 六面去皮 |
-| `outbreak:willow_planks` | 柳木木板 | 基础建材，由柳木原木分解 |
-| `outbreak:willow_leaves` | 柳树树叶 | 根据所在生物群系草木颜色动态染色，不掉落苹果 |
-| `outbreak:willow_sapling` | 柳树树苗 | 可用骨粉催熟长成柳树 |
-| `outbreak:potted_willow_sapling` | 柳树树苗盆栽 | 盆栽装饰方块 |
-| `outbreak:willow_vines` | 垂柳 | 悬挂在树冠底部的柳条末端（可骨粉催长） |
-| `outbreak:willow_vines_plant` | 垂柳茎 | 柳条中段生长躯干 |
-| `outbreak:willow_stairs` / `_slab` | 柳木楼梯 / 柳木台阶 | 标配建筑方块 |
-| `outbreak:willow_fence` / `_fence_gate` | 柳木栅栏 / 柳木栅栏门 | 标配庭院建材 |
-| `outbreak:willow_door` / `_trapdoor` | 柳木门 / 柳木活板门 | 专属木套件类型 |
-| `outbreak:willow_pressure_plate` / `_button` | 柳木压力板 / 柳木按钮 | 红石触发元件 |
-| `outbreak:willow_shelf` | 柳木架子 | 陈列架方块，挂载原版 `SHELF` 方块实体 |
-| `outbreak:willow_sign` / `_wall_sign` | 柳木告示牌 / 墙上告示牌 | 木质标牌 |
-| `outbreak:willow_hanging_sign` / `_wall_hanging_sign` | 柳木悬挂告示牌 / 墙上悬挂告示牌 | 悬挂标牌 |
-| `outbreak:willow_boat` | 柳木船 | 柳木制轻型载具，具备独立模型实体 |
-| `outbreak:willow_chest_boat` | 柳木运输船 | 携带储物箱的柳木船 |
-| `outbreak:willow_bark` | 柳树树皮 | 斧头右键柳木剥皮时掉落 |
-| `outbreak:willow_bark_pieces` | 柳树皮碎片 | 柳树皮放入砂轮研磨得到 |
-| `outbreak:willow_soup_cauldron` | 柳树皮汤炼药锅 | 盛放柳树皮药汤的炼药锅（含 `level` 水位及 `cooked` 生熟状态） |
-| `outbreak:raw_willow_bark_soup_bottle` | 生柳树皮汤（瓶装） | 药汤未煮熟时用玻璃瓶打出，有感染风险 |
-| `outbreak:raw_willow_bark_soup_bowl` | 生柳树皮汤（碗装） | 药汤未煮熟时用碗打出 |
-| `outbreak:willow_bark_soup_bottle` | 柳树皮汤（瓶装） | 药汤熬煮熟透后装瓶，安全的水杨苷药剂 |
-| `outbreak:willow_bark_soup_bowl` | 柳树皮汤（碗装） | 药汤煮熟后用碗盛出，兼具饱食度与药效 |
+| `aliment:willow_log` | 柳木原木 | 带有 `axis` 属性，斧头右键剥皮掉落树皮 |
+| `aliment:willow_wood` | 柳木 | 全面树皮原木 |
+| `aliment:stripped_willow_log` | 去皮柳木原木 | 剥皮后生成 |
+| `aliment:stripped_willow_wood` | 去皮柳木 | 六面去皮 |
+| `aliment:willow_planks` | 柳木木板 | 基础建材，由柳木原木分解 |
+| `aliment:willow_leaves` | 柳树树叶 | 根据所在生物群系草木颜色动态染色，不掉落苹果 |
+| `aliment:willow_sapling` | 柳树树苗 | 可用骨粉催熟长成柳树 |
+| `aliment:potted_willow_sapling` | 柳树树苗盆栽 | 盆栽装饰方块 |
+| `aliment:willow_vines` | 垂柳 | 悬挂在树冠底部的柳条末端（可骨粉催长） |
+| `aliment:willow_vines_plant` | 垂柳茎 | 柳条中段生长躯干 |
+| `aliment:willow_stairs` / `_slab` | 柳木楼梯 / 柳木台阶 | 标配建筑方块 |
+| `aliment:willow_fence` / `_fence_gate` | 柳木栅栏 / 柳木栅栏门 | 标配庭院建材 |
+| `aliment:willow_door` / `_trapdoor` | 柳木门 / 柳木活板门 | 专属木套件类型 |
+| `aliment:willow_pressure_plate` / `_button` | 柳木压力板 / 柳木按钮 | 红石触发元件 |
+| `aliment:willow_shelf` | 柳木架子 | 陈列架方块，挂载原版 `SHELF` 方块实体 |
+| `aliment:willow_sign` / `_wall_sign` | 柳木告示牌 / 墙上告示牌 | 木质标牌 |
+| `aliment:willow_hanging_sign` / `_wall_hanging_sign` | 柳木悬挂告示牌 / 墙上悬挂告示牌 | 悬挂标牌 |
+| `aliment:willow_boat` | 柳木船 | 柳木制轻型载具，具备独立模型实体 |
+| `aliment:willow_chest_boat` | 柳木运输船 | 携带储物箱的柳木船 |
+| `aliment:willow_bark` | 柳树树皮 | 斧头右键柳木剥皮时掉落 |
+| `aliment:willow_bark_pieces` | 柳树皮碎片 | 柳树皮放入砂轮研磨得到 |
+| `aliment:willow_soup_cauldron` | 柳树皮汤炼药锅 | 盛放柳树皮药汤的炼药锅（含 `level` 水位及 `cooked` 生熟状态） |
+| `aliment:raw_willow_bark_soup_bottle` | 生柳树皮汤（瓶装） | 药汤未煮熟时用玻璃瓶打出，有感染风险 |
+| `aliment:raw_willow_bark_soup_bowl` | 生柳树皮汤（碗装） | 药汤未煮熟时用碗打出 |
+| `aliment:willow_bark_soup_bottle` | 柳树皮汤（瓶装） | 药汤熬煮熟透后装瓶，安全的水杨苷药剂 |
+| `aliment:willow_bark_soup_bowl` | 柳树皮汤（碗装） | 药汤煮熟后用碗盛出，兼具饱食度与药效 |
 
 ### 柳木相关合成表（16 个）
 柳木木板、柳木（四面原木）、去皮柳木、楼梯、台阶、栅栏、栅栏门、门、活板门、压力板、按钮、告示牌、悬挂告示牌、架子、船、运输船。所有合成比例与耗材均与原版标准木质套装完全一致。
@@ -317,21 +317,21 @@
 ## 14. 指令
 
 ```
-/outbreak status                 查看自己身上全部数据
-/outbreak fever [温度]           测试用：诱发发烧或低温（默认 39.5，范围 31–42），需要 OP
-/outbreak cure                   一键恢复健康并清掉画面效果，需要 OP
-/outbreak set <字段> <数值>      直接改数值，需要 OP（字段名用 Tab 补全）
+/aliment status                 查看自己身上全部数据
+/aliment fever [温度]           测试用：诱发发烧或低温（默认 39.5，范围 31–42），需要 OP
+/aliment cure                   一键恢复健康并清掉画面效果，需要 OP
+/aliment set <字段> <数值>      直接改数值，需要 OP（字段名用 Tab 补全）
 ```
 
-`/outbreak fever` **不直接改体温**：它给身体注入一份"热原"，让这次发烧的**峰值**正好落在
+`/aliment fever` **不直接改体温**：它给身体注入一份"热原"，让这次发烧的**峰值**正好落在
 你要的温度上，大约两分钟烧到位、一个游戏日内退干净。命令回显会告诉你这次会触发哪一层
 画面效果，以及怎么立刻停掉。
 
 ```mcfunction
-/outbreak fever          # 39.5 °C：画面边缘泛红 + 扭曲
-/outbreak fever 41       # 超高热：再加动态模糊
-/outbreak fever 34       # 低温症：冷颤 + 缓慢
-/outbreak cure           # 一切归零，画面效果当场消失
+/aliment fever          # 39.5 °C：画面边缘泛红 + 扭曲
+/aliment fever 41       # 超高热：再加动态模糊
+/aliment fever 34       # 低温症：冷颤 + 缓慢
+/aliment cure           # 一切归零，画面效果当场消失
 ```
 
 ## 15. 曼陀罗
@@ -371,7 +371,7 @@
 发烧的泛红扭曲和药物模糊会同时挂在屏幕上。
 
 所以一颗果实（1.1）几乎没事，两颗（2.1）开始烧、三颗（3.1）同时烧又瞎。
-想快点体验：`/outbreak set scopolamine 3`。
+想快点体验：`/aliment set scopolamine 3`。
 
 ## 16. 橘黄裸伞
 
@@ -398,7 +398,7 @@
 速度，所以两者抵消，只会维持在一个很低的水平。生蘑菇的"快感"来自它同时给的那份**直接的**
 裸盖菇素醇，而前药的作用是**把时长翻倍**。
 
-### 视觉四阶段（`/outbreak set psilocin 6` 可以直接看）
+### 视觉四阶段（`/aliment set psilocin 6` 可以直接看）
 
 | 裸盖菇素醇 | 屏幕 |
 | --- | --- |
@@ -503,8 +503,8 @@
 ### 4. 生理指标：麻黄碱（Ephedrine）
 - **指标范围**：`0.0 ~ 5.0`，基础健康状态下为 `0.0`。
 - **获取途径**：
-  - **口服生麻黄**：食用一根麻黄（`outbreak:ephedra`），体内麻黄碱指标增加 **0.5**。
-  - **饮用麻黄碱药水**：饮用一瓶麻黄碱药水（`outbreak:ephedrine`），体内麻黄碱指标增加 **2.5**。
+  - **口服生麻黄**：食用一根麻黄（`aliment:ephedra`），体内麻黄碱指标增加 **0.5**。
+  - **饮用麻黄碱药水**：饮用一瓶麻黄碱药水（`aliment:ephedrine`），体内麻黄碱指标增加 **2.5**。
 - **生理药效（急迫 / 速掘）**：
   - 当麻黄碱指标 **> 1.0** 时，神经受到兴奋刺激，持续提供一级急迫（速掘 I，Haste I）效果。
 - **体内代谢速率**：
@@ -515,13 +515,13 @@
 
 #### 药用植物
 1. **黄连（Coptis）**：
-   - 阴生草本，4阶段生长，成熟后右键采摘或采掘获得黄连（`outbreak:coptis`）。
+   - 阴生草本，4阶段生长，成熟后右键采摘或采掘获得黄连（`aliment:coptis`）。
    - **口服生品**：食用获得 **+1.1** 黄连素指标。
 2. **黄柏（Phellodendron）**：
-   - 灌木形态，4阶段生长，成熟后收获黄柏树皮（`outbreak:phellodendron`）。
+   - 灌木形态，4阶段生长，成熟后收获黄柏树皮（`aliment:phellodendron`）。
    - **口服生品**：食用获得 **+0.6** 黄连素指标。
 3. **甘草（Licorice）**：
-   - 耐旱草本，4阶段生长，成熟后收获甘草根条（`outbreak:licorice`）。
+   - 耐旱草本，4阶段生长，成熟后收获甘草根条（`aliment:licorice`）。
    - **口服生品**：食用获得 **+1.1** 甘草酸指标。
 
 - **生态与自然生成**：
@@ -529,13 +529,13 @@
 
 #### 加工工艺与制药
 - **砂轮研磨（Grinding）**：
-  - 黄连投入砂轮：磨制为 **碎黄连（`outbreak:crushed_coptis`）**。
-  - 黄柏投入砂轮：磨制为 **碎黄柏（`outbreak:crushed_phellodendron`）**。
-  - 甘草投入砂轮：磨制为 **碎甘草（`outbreak:crushed_licorice`）**。
+  - 黄连投入砂轮：磨制为 **碎黄连（`aliment:crushed_coptis`）**。
+  - 黄柏投入砂轮：磨制为 **碎黄柏（`aliment:crushed_phellodendron`）**。
+  - 甘草投入砂轮：磨制为 **碎甘草（`aliment:crushed_licorice`）**。
 - **药水煎煮与调配（Crafting）**：
-  - `碎黄连` + `水瓶` $\to$ **黄连药水（`outbreak:coptis_potion`）**（饮用补充水份、返还空瓶，提供 **+2.5** 黄连素）。
-  - `碎黄柏` + `水瓶` $\to$ **黄柏药水（`outbreak:phellodendron_potion`）**（饮用补充水份、返还空瓶，提供 **+1.5** 黄连素）。
-  - `碎甘草` + `水瓶` $\to$ **甘草药水（`outbreak:licorice_potion`）**（饮用补充水份、返还空瓶，提供 **+2.5** 甘草酸）。
+  - `碎黄连` + `水瓶` $\to$ **黄连药水（`aliment:coptis_potion`）**（饮用补充水份、返还空瓶，提供 **+2.5** 黄连素）。
+  - `碎黄柏` + `水瓶` $\to$ **黄柏药水（`aliment:phellodendron_potion`）**（饮用补充水份、返还空瓶，提供 **+1.5** 黄连素）。
+  - `碎甘草` + `水瓶` $\to$ **甘草药水（`aliment:licorice_potion`）**（饮用补充水份、返还空瓶，提供 **+2.5** 甘草酸）。
 
 #### 药理动力学与病原体抑制
 - **黄连素（Berberine，指标范围 0.0 ~ 7.0）**：特异性对抗**细菌感染**

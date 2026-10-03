@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "aliment:salt_powder",
+    "aliment:raw_willow_bark_soup_bowl"
+  ],
+  "result": {
+    "count": 1,
+    "id": "aliment:salt_raw_willow_bark_soup"
+  }
+}

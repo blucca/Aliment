@@ -1,6 +1,0 @@
-{
-  "parent": "minecraft:item/generated",
-  "textures": {
-    "layer0": "outbreak:item/salt_raw_willow_bark_soup"
-  }
-}

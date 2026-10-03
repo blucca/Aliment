@@ -1,0 +1,28 @@
+{
+  "parent": "aliment:ancient_anti_inflammatory",
+  "display": {
+    "icon": {
+      "count": 1,
+      "id": "aliment:crude_salt"
+    },
+    "title": {
+      "translate": "advancements.aliment.just_crude_salt.title"
+    },
+    "description": {
+      "translate": "advancements.aliment.just_crude_salt.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true
+  },
+  "criteria": {
+    "crushed": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "crushed"
+    ]
+  ]
+}

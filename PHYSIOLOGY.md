@@ -1,6 +1,6 @@
-# 生理系统 Physiology
+﻿# 生理系统 Physiology
 
-Outbreak（爆发）的核心系统：每个玩家体内持续演算的一套**炎症介质 / 电解质 / 碘 / 水量 /
+Aliment（爆发）的核心系统：每个玩家体内持续演算的一套**炎症介质 / 电解质 / 碘 / 水量 /
 体温 / 病原体 / 药物**模型。
 
 设计目标是让"感染"变成一件有过程的事——吃坏东西不会立刻掉血，而是让你的免疫系统慢慢失控，
@@ -12,7 +12,7 @@ Outbreak（爆发）的核心系统：每个玩家体内持续演算的一套**�
 
 ## 数据模型
 
-每个玩家身上挂着一份 `OutbreakData`，由这几部分组成：炎症介质、病原体、水量、电解质、
+每个玩家身上挂着一份 `AlimentData`，由这几部分组成：炎症介质、病原体、水量、电解质、
 微量元素（碘）、药物浓度，以及体温。
 
 ### 炎症介质 `Mediators`
@@ -145,7 +145,7 @@ Outbreak（爆发）的核心系统：每个玩家体内持续演算的一套**�
 
 > 实现上体温那部分是模型的（`Physiology.anticholinergicFever`，加进 `targetTemperature`），
 > 视觉那部分分两半：后处理效果由服务端像别的画面效果一样请求（`anticholinergic_blur`），
-> **雾是客户端渲染决定**，所以走同步标志 `OutbreakClientState.blurred` → `FogRendererMixin`
+> **雾是客户端渲染决定**，所以走同步标志 `AlimentClientState.blurred` → `FogRendererMixin`
 > 把 `FogData` 的环境雾与天空/云淡出收到 8 格（照原版失明效果的做法，渲染距离本身不动）。
 
 ### 裸盖菇素与裸盖菇素醇 `psilocybin` / `psilocin`
@@ -182,26 +182,26 @@ Outbreak（爆发）的核心系统：每个玩家体内持续演算的一套**�
 
 | Attachment | 持久化 | 同步 | 说明 |
 | --- | --- | --- | --- |
-| `outbreak:physiology` | ✅ **死亡重置** | ❌ | 完整数据，服务端权威。没有 `copyOnDeath()`：复活的是一个新身体，感染不会跟着走 |
-| `outbreak:client_state` | ✅ | ✅ 全客户端 | 抖动序号 + 幅度 + 水量整数，客户端用来画镜头抖动和口渴条 |
-| `outbreak:runtime` | ❌ | ❌ | 抖动计时、蝙蝠冷却、上次同步值 |
+| `aliment:physiology` | ✅ **死亡重置** | ❌ | 完整数据，服务端权威。没有 `copyOnDeath()`：复活的是一个新身体，感染不会跟着走 |
+| `aliment:client_state` | ✅ | ✅ 全客户端 | 抖动序号 + 幅度 + 水量整数，客户端用来画镜头抖动和口渴条 |
+| `aliment:runtime` | ❌ | ❌ | 抖动计时、蝙蝠冷却、上次同步值 |
 
 水量只在**整数位变化时**才重发，所以一条正在下降的口渴条大约每 270 tick 一个包，
 而不是每 tick 一个。
 
 ### 创造模式：整套系统停摆
 
-`OutbreakSymptoms.isFrozen(player)` 就是 `player.isCreative`，创造模式玩家身上：
+`AlimentSymptoms.isFrozen(player)` 就是 `player.isCreative`，创造模式玩家身上：
 
 * **模型不推进**：`tick` 直接返回，病原体不增长也不清除、体温不走、药物不代谢；
 * **不施加任何症状**：不挂效果、不扣血（重度感染伤害也在 tick 里）、不算挖掘惩罚、
   不给饱食度倍率（`PlayerMixin` 那条也返回 1.0）；
 * **屏幕清干净**：已经挂上的发热扭曲 / 动态模糊 / 冷抖动当 tick 就撤掉，抖动本身靠
   "服务端不再推序号"停住；
-* **吃喝注射都进不去**：`OutbreakIngestion` 的两个入口同样先看这个开关，
+* **吃喝注射都进不去**：`AlimentIngestion` 的两个入口同样先看这个开关，
   否则状态会从另一扇门继续变动。原版的食物 / 饱和度的部分不受影响。
 
-是**冻结**不是**重置**：带病进创造不会当场痊愈，回到生存就从原处继续。`/outbreak` 指令
+是**冻结**不是**重置**：带病进创造不会当场痊愈，回到生存就从原处继续。`/aliment` 指令
 仍然能改数据，但因为 tick 停着，改完也看不到效果。
 
 ---
@@ -227,7 +227,7 @@ Outbreak（爆发）的核心系统：每个玩家体内持续演算的一套**�
 
 ## 模型
 
-每 tick 演算一次，核心是纯数据运算（`OutbreakPhysiology.tick(data)`，不依赖任何 Minecraft 对象）。
+每 tick 演算一次，核心是纯数据运算（`AlimentPhysiology.tick(data)`，不依赖任何 Minecraft 对象）。
 
 ### 感染动力学与免疫分期
 
@@ -433,7 +433,7 @@ sweatLoss = (-1.0 / 3360.0) * deltaT + (1.0 / 4200.0) * (deltaT ^ 2)
 ### 矿物质紊乱（按现实，两侧都算）
 
 每一项用的是它自己的**参考范围**（见上面的表），只有症状各不相同。这张表就是
-`OutbreakSymptoms.MINERALS` 里的那张表：
+`AlimentSymptoms.MINERALS` 里的那张表：
 
 | 矿物质 | 重度不足 | 轻度不足 | 轻度过量 | 重度过量 |
 | --- | --- | --- | --- | --- |
@@ -451,9 +451,9 @@ sweatLoss = (-1.0 / 3360.0) * deltaT + (1.0 / 4200.0) * (deltaT ^ 2)
 
 | 状态 | 表现 |
 | --- | --- |
-| **发烧**（38.5 – 40.0） | **虚弱 + 挖掘疲劳**（等级随温度升高），画面边缘出现热的扭曲与泛红（`outbreak:heat_haze`） |
-| **超高热**（≥ 40.0） | 上面全部保留，**再加动态模糊滤镜**（`outbreak:heat_blur`） |
-| **失温**（≤ 36，≤ 35 加强） | **虚弱 + 挖掘疲劳 + 缓慢**，画面边缘出现冷的抖动与泛蓝（`outbreak:cold_shiver`） |
+| **发烧**（38.5 – 40.0） | **虚弱 + 挖掘疲劳**（等级随温度升高），画面边缘出现热的扭曲与泛红（`aliment:heat_haze`） |
+| **超高热**（≥ 40.0） | 上面全部保留，**再加动态模糊滤镜**（`aliment:heat_blur`） |
+| **失温**（≤ 36，≤ 35 加强） | **虚弱 + 挖掘疲劳 + 缓慢**，画面边缘出现冷的抖动与泛蓝（`aliment:cold_shiver`） |
 | 任一档 | 抖动概率每档 +15%，幅度 +0.4；食物消耗额外 +25% |
 
 **镜头抖动只有在玩家能看到别的问题时才可能出现。** 这是修掉那个
@@ -461,8 +461,8 @@ sweatLoss = (-1.0 / 3360.0) * deltaT + (1.0 / 4200.0) * (deltaT ^ 2)
 **效果图标**（虚弱 / 反胃 / 饥饿……），否则玩家没有线索知道自己在晃什么。
 38 度以下、以及只到"口渴条满"程度的过水，都不再满足这个条件。
 
-画面效果不是 HUD 贴图，而是**原版后处理链**（`assets/outbreak/post_effect/*.json` +
-`assets/outbreak/shaders/post/*.fsh`）：只在画面**边缘**（`smoothstep(0.45, 1.0, ...)`）
+画面效果不是 HUD 贴图，而是**原版后处理链**（`assets/aliment/post_effect/*.json` +
+`assets/aliment/shaders/post/*.fsh`）：只在画面**边缘**（`smoothstep(0.45, 1.0, ...)`）
 做 UV 位移和偏色，正中央——准星和玩家真正在看的东西——保持完全清晰。
 服务端只通过 `ServerPlayer.addPostEffect` 发一个 id，客户端自己去加载，
 加载失败只会在日志里报一行然后跳过，不会影响玩法。
@@ -488,7 +488,7 @@ sweatLoss = (-1.0 / 3360.0) * deltaT + (1.0 / 4200.0) * (deltaT ^ 2)
 > 只能用字符串 `@Mixin(targets = ...)` 指定，没法用编译期引用。
 >
 > 挖掘速度、感染判定、抖动计时、口渴条取值、体温画面效果**都不需要** mixin：
-> 分别用原版属性、事件、属性同步（`outbreak:client_state`）和原版后处理链实现。
+> 分别用原版属性、事件、属性同步（`aliment:client_state`）和原版后处理链实现。
 
 ---
 
@@ -524,7 +524,7 @@ sweatLoss = (-1.0 / 3360.0) * deltaT + (1.0 / 4200.0) * (deltaT ^ 2)
 水滴造型刻意做**细**：最宽处只有 5 像素（9×9 画布里），水滴外全部是**完全透明**
 （alpha 严格 0／255，没有半透明像素），所以 10 格排开也不会糊成一片。
 
-贴图在 `assets/outbreak/textures/gui/sprites/hud/thirst_{empty,half,full}.png`，
+贴图在 `assets/aliment/textures/gui/sprites/hud/thirst_{empty,half,full}.png`，
 走原版 GUI 图集（`assets/minecraft/atlases/gui.json` 的 `directory` 源会扫描所有命名空间，
 所以模组命名空间不需要额外的图集配置）。
 
@@ -573,10 +573,10 @@ sweatLoss = (-1.0 / 3360.0) * deltaT + (1.0 / 4200.0) * (deltaT ^ 2)
 ## 命令
 
 ```
-/outbreak status                              查看全部数据（介质、炎症、水量、电解质、体温、病原、药物）
-/outbreak fever [温度]                        测试用：诱发发烧（或低温），默认 39.5 °C，范围 31–42（需要 OP）
-/outbreak cure                                重置为健康并清掉画面效果（需要 OP）
-/outbreak set <field> <value>                 调数值（需要 OP）
+/aliment status                              查看全部数据（介质、炎症、水量、电解质、体温、病原、药物）
+/aliment fever [温度]                        测试用：诱发发烧（或低温），默认 39.5 °C，范围 31–42（需要 OP）
+/aliment cure                                重置为健康并清掉画面效果（需要 OP）
+/aliment set <field> <value>                 调数值（需要 OP）
        field = water | sodium | potassium | magnesium | chloride | calcium | iodine
              | histamine | prostaglandin | leukotriene | cytokine | bradykinin
              | bacteria | virus | salicin | dexamethasone
@@ -593,7 +593,7 @@ sweatLoss = (-1.0 / 3360.0) * deltaT + (1.0 / 4200.0) * (deltaT ^ 2)
 `set` 的每一个矿物字段都按它自己的范围夹取，回显打印的是**真正落进去的值**——
 比如 `set iodine 0.6` 会回显 `iodine = 0.60`，而 `set sodium 500` 回显 `sodium = 190.0`。
 
-**`/outbreak fever [温度]`** 是我专门为测试发烧加的：它**不直接改体温**，而是算出"要让这次
+**`/aliment fever [温度]`** 是我专门为测试发烧加的：它**不直接改体温**，而是算出"要让这次
 发烧**峰值**落在目标温度上需要多少热原"，然后把热原打进去。这样做的好处是
 
 * 已经感染的人也能精确落到目标温度（热原是补差价，不是覆盖）；
@@ -602,22 +602,22 @@ sweatLoss = (-1.0 / 3360.0) * deltaT + (1.0 / 4200.0) * (deltaT ^ 2)
 * 热原在发烧形成后**一个游戏日内清完**，整场发烧十五分钟左右结束——
   不会留下"一小时前开的命令，现在屏幕还在晃"。
 
-传一个低于 37 的温度就是低温症，比如 `/outbreak fever 34`。
+传一个低于 37 的温度就是低温症，比如 `/aliment fever 34`。
 命令回显会告诉你这次会触发哪一层画面效果，以及怎么立刻停掉。
 
 ```mcfunction
-/outbreak fever          # 39.5 °C，发烧：画面边缘泛红 + 扭曲
-/outbreak fever 38.5     # 刚好进入发烧档
-/outbreak fever 41       # 超高热：上面全部 + 动态模糊
-/outbreak fever 34       # 低温症：画面边缘冷抖动 + 缓慢
-/outbreak cure           # 一切归零，画面效果同 tick 消失
+/aliment fever          # 39.5 °C，发烧：画面边缘泛红 + 扭曲
+/aliment fever 38.5     # 刚好进入发烧档
+/aliment fever 41       # 超高热：上面全部 + 动态模糊
+/aliment fever 34       # 低温症：画面边缘冷抖动 + 缓慢
+/aliment cure           # 一切归零，画面效果同 tick 消失
 ```
 
 ---
 
 ## 验证
 
-`src/main/kotlin/.../dev/OutbreakPhysiologySelfTest.kt`（**默认不启用**，把它加进
+`src/main/kotlin/.../dev/AlimentPhysiologySelfTest.kt`（**默认不启用**，把它加进
 `fabric.mod.json` 的 `main` 入口点再 `gradle runServer` 就会在开服后 40 tick 自动跑完）
 跑出 **361/361 全过**：
 
@@ -644,13 +644,13 @@ a healthy player holds exactly 37.0 for a whole game day
 ambient: temperate 37.0 | snowy 36.4 | snowy+wet 33.9 | powder snow 30.0 | desert 37.4 | lava 41.0
   -> 12000 ticks in powder snow: 32.83 (tier -2), and back to 36.97 ten minutes after leaving
 untreated infection fever: peak 40.13 ; with salicin on board: 37.0
-/outbreak fever 39.5 -> peak 39.53, 18439 ticks (15 min) in the fever band
-/outbreak fever 40.5 -> peak 40.53 ; /outbreak fever 34 -> lowest 33.97
+/aliment fever 39.5 -> peak 39.53, 18439 ticks (15 min) in the fever band
+/aliment fever 40.5 -> peak 40.53 ; /aliment fever 34 -> lowest 33.97
 shake chance: healthy 0.00 | 38.0 C 0.00 | 38.5 C 0.15 | 40.0 C 0.30 | water 149 0.00 | water 151 0.10
 hottest a healthy body reaches (desert + hot thyroid): 37.40, tier 0, nothing on screen
 screen effects: 38.0 none | 39.0 haze | 40.5 haze + blur | dropping to 39.0 clears only the blur
 translations: [en_us, zh_cn] languages, missing item names [] missing entity names []
-  -> every outbreak item and entity is named, and the standing sign takes block.outbreak.willow_sign
+  -> every Aliment item and entity is named, and the standing sign takes block.aliment.willow_sign
 every mineral probed on both sides of both of its thresholds (36 cases) + the 14 named rows
 sepsis damage per two-second pass: load 60 -> 1.0  load 100 -> 2.0  (59 -> 0)
 contact dice: 20/400 came up (5%) ; the roll arms a one second cooldown and nothing nearby is safe
@@ -665,8 +665,8 @@ a real GrindstoneMenu slot accepts willow bark and produces willow_bark_pieces x
 exhaustion multiplier: healthy 1.0 vs ill 1.458
 mining speed: ill 0.945 | over-hydrated < 1.0 | healthy 1.0
 client state: synced water 55
-chest loot: a chest holds outbreak:dexamethasone_injection 254/8000 = 3.2%
-            and outbreak:willow_bark_soup_bowl 2854/8000 = 35.7%
+chest loot: a chest holds aliment:dexamethasone_injection 254/8000 = 3.2%
+            and aliment:willow_bark_soup_bowl 2854/8000 = 35.7%
 creative: a severe infection does not advance, damage or symptomise the body, and the shimmer
           comes off the screen; back in survival the same body carries on from where it stopped
 death:    the respawned body is bacteria 0.0 virus 0.0 temperature 37.0 water 80.0
@@ -710,7 +710,7 @@ PHYSIOLOGY SELFTEST DONE passed=361 failed=0
 > 7. 体温这一版：出汗原本挂在**本 tick 刚算出来的**新体温上，而其余步骤读的都是上一 tick
 >    的状态。改成出汗也读旧体温，否则"持续发烧"根本没法在纯模型里复现。
 > 8. 热原原本按 2 个游戏日代谢，而体温要 2500 tick 才走到设定点——结果是
->    `/outbreak fever 39.5` 只能烧到 38.8。先改成 5 个游戏日（准了，但一场测试发烧要挂一小时），
+>    `/aliment fever 39.5` 只能烧到 38.8。先改成 5 个游戏日（准了，但一场测试发烧要挂一小时），
 >    最后改成"**走到设定点之前不代谢**"：峰值精确到 0.03 °C，二十分钟内结束。
 > 9. 碘的平衡点原本定在 90，一份海带正好推到 115.3，**刚好过量**（吃一根海带就反胃）。
 >    把固定流失从 0.0004 提到 0.0006，平衡点落到 88，一份海带 113。
@@ -719,11 +719,11 @@ PHYSIOLOGY SELFTEST DONE passed=361 failed=0
 >    （炎热群系 + 甲状腺偏热），屏幕上却已经泛红扭曲加抖动了；另外过水到 100–149 之间
 >    口渴条全画成"满"，却能单独触发镜头抖动。现在发烧档从 38.5 起，**抖动的每一个来源
 >    都必须同时给一个效果图标**（自检里逐条断言了 shake chance）。
-> 11. **`item.outbreak.willow_sign` 没有翻译**：立式告示牌注册时漏了
+> 11. **`item.aliment.willow_sign` 没有翻译**：立式告示牌注册时漏了
 >    `useBlockDescriptionPrefix()`，而它的悬挂版有，于是物品栏里直接显示原始键名
->    （名字在 `block.outbreak.willow_sign` 下，原版告示牌也一样）。自检现在会枚举
+>    （名字在 `block.aliment.willow_sign` 下，原版告示牌也一样）。自检现在会枚举
 >    **所有**注册项、拿两种语言文件核对，缺一个就报出具体是哪个键——先故意把修复撤掉跑了一遍，
->    它确实红：`missing item names [item.outbreak.willow_sign (en_us), item.outbreak.willow_sign (zh_cn)]`。
+>    它确实红：`missing item names [item.aliment.willow_sign (en_us), item.aliment.willow_sign (zh_cn)]`。
 > 12. **换成 mmol/L 之后"猛喝水"把钠算到了 28**：旧的流失量是**绝对数值**，在 0–200 的刻度上
 >    占正常的 80%，换成真实单位就成了"血清钠 28 mmol/L"——人已经没了。现在流失一律表示成
 >    **正常值的比例**（出汗每度 2e-6、膀胱撑满 9e-6），最极端的情况落在 117 mmol/L，
@@ -754,10 +754,10 @@ PHYSIOLOGY SELFTEST DONE passed=361 failed=0
 
 ## 调参入口
 
-**所有数值和演算都在 Scala 里**：`src/main/scala/com/github/kusa233/outbreak/physiology/model/`。
+**所有数值和演算都在 Scala 里**：`src/main/scala/com/github/kusa233/aliment/physiology/model/`。
 Kotlin 只保留 Minecraft 那一侧的东西（attachment、编解码器、效果、事件、指令），
-`OutbreakPhysiology` 与 `OutbreakSymptoms` 里的同名函数只是转发，不再自带任何数字。
-Kotlin **从不提到 Scala 的类型**：两者之间隔着 `OutbreakModelBridge.java`
+`AlimentPhysiology` 与 `AlimentSymptoms` 里的同名函数只是转发，不再自带任何数字。
+Kotlin **从不提到 Scala 的类型**：两者之间隔着 `AlimentModelBridge.java`
 （见 `AGENTS.md` 的「Languages: where code goes」）。
 
 模型里的名字全部带 `Model` 前缀或放在单独命名的 object 里，和 Kotlin 侧永远不重名，
@@ -769,20 +769,20 @@ Kotlin **从不提到 Scala 的类型**：两者之间隔着 `OutbreakModelBridg
 | `ModelMediators` | `MediatorLevels`（权重、`MAX`、`CALM`、`RESTING`） | `Mediators` |
 | `ModelElectrolytes` | `ElectrolyteDefaults`（`MINERALS`、`HEALTHY`） | `Electrolytes` |
 | `ModelTraceElements` | `TraceElementDefaults`（`HEALTHY`） | `TraceElements` |
-| `ModelDrugs` | `DrugDefaults`（`CLEAN`） | `OutbreakData`（体内药物各字段与 `Compounds`） |
-| `ModelState` | `ModelConstants`（全部标量常数） | `OutbreakData` |
+| `ModelDrugs` | `DrugDefaults`（`CLEAN`） | `AlimentData`（体内药物各字段与 `Compounds`） |
+| `ModelState` | `ModelConstants`（全部标量常数） | `AlimentData` |
 
 | 文件 | 内容 |
 | --- | --- |
 | `.../physiology/model/Model.scala` | **矿物表**（单位 + 正常值 + 参考范围 + 重度线 + 上下限）、介质与电解质结构、`ModelConstants` 上的全部标量常数 |
 | `.../physiology/model/Physiology.scala` | 全部演算：介质动力学、病原体增长与清除、免疫力曲线、排水排电解质稳态、碘稳态、体温与热原、重度感染伤害、抖动概率、环境温度 |
-| `.../physiology/OutbreakModelBridge.java` | **唯一的接缝**：Kotlin ⇄ Scala 的互相转换、全部转发、把模型的常数改名导出给 Kotlin。项目里唯一允许出现 Scala 类型的文件 |
-| `physiology/OutbreakData.kt` | 只做存储与序列化：Kotlin 自己的数据类、编解码器、阈值常数的转发、attachment |
+| `.../physiology/AlimentModelBridge.java` | **唯一的接缝**：Kotlin ⇄ Scala 的互相转换、全部转发、把模型的常数改名导出给 Kotlin。项目里唯一允许出现 Scala 类型的文件 |
+| `physiology/AlimentData.kt` | 只做存储与序列化：Kotlin 自己的数据类、编解码器、阈值常数的转发、attachment |
 | `physiology/Mineral.kt` | Kotlin 侧的矿物枚举，每个 case 的参考范围都从模型取（这样 `when` 又是穷尽的） |
-| `physiology/OutbreakSymptoms.kt` | 症状的应用：挂效果、扣血、画面效果、抖动掷骰 |
-| `physiology/OutbreakInfection.kt` | 三条感染路径的概率、单次载量、接触范围、掷骰间隔 |
-| `physiology/OutbreakIngestion.kt` | 每杯补水、盐分摄入（mmol/L，含海水的钠镁钙）、碘摄入（µmol/L，海带 0.10 / 干海带 0.20）、每服汤的药量 |
-| `world/OutbreakLoot.kt` | 村庄（`chests/village/*`）与掠夺者前哨站箱子里的两件治疗品，以及各自的概率（注射液 3% / 汤 35%） |
-| `assets/outbreak/post_effect/*.json` + `assets/outbreak/shaders/post/*.fsh` | 边缘扭曲（`heat_haze`）、动态模糊（`heat_blur`）、冷抖动（`cold_shiver`），以及各自的强度、起始半径、频率、反馈系数 |
+| `physiology/AlimentSymptoms.kt` | 症状的应用：挂效果、扣血、画面效果、抖动掷骰 |
+| `physiology/AlimentInfection.kt` | 三条感染路径的概率、单次载量、接触范围、掷骰间隔 |
+| `physiology/AlimentIngestion.kt` | 每杯补水、盐分摄入（mmol/L，含海水的钠镁钙）、碘摄入（µmol/L，海带 0.10 / 干海带 0.20）、每服汤的药量 |
+| `world/AlimentLoot.kt` | 村庄（`chests/village/*`）与掠夺者前哨站箱子里的两件治疗品，以及各自的概率（注射液 3% / 汤 35%） |
+| `assets/aliment/post_effect/*.json` + `assets/aliment/shaders/post/*.fsh` | 边缘扭曲（`heat_haze`）、动态模糊（`heat_blur`）、冷抖动（`cold_shiver`），以及各自的强度、起始半径、频率、反馈系数 |
 
 > **以后新的数值 / 稳态代码写在 Scala 里**，见 `AGENTS.md` 的「Languages: where code goes」。

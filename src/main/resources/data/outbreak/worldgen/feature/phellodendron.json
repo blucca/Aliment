@@ -1,9 +1,0 @@
-{
-  "type": "minecraft:simple_block",
-  "to_place": {
-    "id": "outbreak:phellodendron",
-    "properties": {
-      "age": "3"
-    }
-  }
-}

@@ -1,0 +1,25 @@
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "condition": {
+        "type": "minecraft:survives_explosion"
+      },
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "condition": {
+            "type": "minecraft:match_block",
+            "blocks": "aliment:willow_door",
+            "state": {
+              "half": "lower"
+            }
+          },
+          "name": "aliment:willow_door"
+        }
+      ],
+      "rolls": 1
+    }
+  ],
+  "random_sequence": "aliment:blocks/willow_door"
+}

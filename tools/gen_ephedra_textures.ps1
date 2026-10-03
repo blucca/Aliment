@@ -1,6 +1,6 @@
-Add-Type -AssemblyName System.Drawing
+﻿Add-Type -AssemblyName System.Drawing
 
-$resDir = "src/main/resources/assets/outbreak/textures"
+$resDir = "src/main/resources/assets/aliment/textures"
 $blockDir = Join-Path $resDir "block"
 $itemDir = Join-Path $resDir "item"
 
