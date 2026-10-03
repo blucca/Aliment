@@ -387,12 +387,7 @@ $$\frac{dS_{\text{scop}}}{dt} = - \frac{5.0}{24000} \approx -2.083 \times 10^{-4
 | 曼陀罗种子 | **+0.75** | **+0.1** |
 
 两者之和 $\Sigma_{\text{alk}} = S_{\text{scop}} + A_{\text{atro}}$ 超过 **1.5** 就开始**体温升高**，分三档（这是设定点上移，不是前列腺素发烧，**水杨苷退不掉**）：
-$$\Delta T_{\text{anticholinergic}} = \begin{cases}
-0\ ^\circ\text{C}, & \Sigma_{\text{alk}} < 1.5 \\
-1.0\ ^\circ\text{C} \implies T \to 38.0\ ^\circ\text{C}, & 1.5 \le \Sigma_{\text{alk}} < 2.5 \\
-2.5\ ^\circ\text{C} \implies T \to 39.5\ ^\circ\text{C}, & 2.5 \le \Sigma_{\text{alk}} < 4.0 \\
-4.0\ ^\circ\text{C} \implies T \to 41.0\ ^\circ\text{C}, & \Sigma_{\text{alk}} \ge 4.0
-\end{cases}$$
+$$\Delta T_{\text{anticholinergic}} = \begin{cases} 0\ ^\circ\text{C}, & \Sigma_{\text{alk}} < 1.5 \\ 1.0\ ^\circ\text{C} \implies T \to 38.0\ ^\circ\text{C}, & 1.5 \le \Sigma_{\text{alk}} < 2.5 \\ 2.5\ ^\circ\text{C} \implies T \to 39.5\ ^\circ\text{C}, & 2.5 \le \Sigma_{\text{alk}} < 4.0 \\ 4.0\ ^\circ\text{C} \implies T \to 41.0\ ^\circ\text{C}, & \Sigma_{\text{alk}} \ge 4.0 \end{cases}$$
 
 另外，当满足 $S_{\text{scop}} \ge 2.3 \lor A_{\text{atro}} \ge 2.3 \lor \Sigma_{\text{alk}} \ge 2.7$ 时，触发**视觉模糊：雾收缩到 8 格**——
 屏幕整体发糊，八格之外的方块全部糊进雾里。它和高温症状**互相独立、可以叠加**：
@@ -604,11 +599,7 @@ $$\Delta T_{\text{anticholinergic}} = \begin{cases}
 
 #### 药理动力学与病原体抑制
 对于靶向药物浓度 $D \in [0.0, 7.0]$，减速阈值 $D_{\text{slow}} = 1.5$，抑制阈值 $D_{\text{suppress}} = 3.0$：
-$$\frac{dL}{dt} = \begin{cases}
-\dfrac{dL_{\text{base}}}{dt} - C_{\text{immune}}, & D \le 1.5 \\[8pt]
-\dfrac{dL_{\text{base}}}{dt} \cdot \left(1.0 - 0.75 \cdot \dfrac{D - 1.5}{1.5}\right) - C_{\text{immune}}, & 1.5 < D < 3.0 \\[8pt]
-- \left( C_{\text{immune}} + c_{\text{suppress}} \cdot \dfrac{D}{3.0} \right), & D \ge 3.0
-\end{cases}$$
+$$\frac{dL}{dt} = \begin{cases} \dfrac{dL_{\text{base}}}{dt} - C_{\text{immune}}, & D \le 1.5 \\[8pt] \dfrac{dL_{\text{base}}}{dt} \cdot \left(1.0 - 0.75 \cdot \dfrac{D - 1.5}{1.5}\right) - C_{\text{immune}}, & 1.5 < D < 3.0 \\[8pt] - \left( C_{\text{immune}} + c_{\text{suppress}} \cdot \dfrac{D}{3.0} \right), & D \ge 3.0 \end{cases}$$
 其中 $c_{\text{suppress}} = \frac{100.0}{1.5 \times 24000} \approx 2.778 \times 10^{-3}\text{ / tick}$。
 
 - **黄连素（Berberine，指标范围 0.0 ~ 7.0）**：特异性对抗**细菌感染**

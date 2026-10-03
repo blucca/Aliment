@@ -354,12 +354,7 @@ Edible when full. Fruits provide **+1.0 Scopolamine / +0.1 Atropine**; seeds pro
 $$\frac{dS_{\text{scop}}}{dt} = - \frac{5.0}{24000} \approx -2.083 \times 10^{-4}\text{ / tick}, \quad \frac{dA_{\text{atro}}}{dt} = - \frac{5.0}{24000} \approx -2.083 \times 10^{-4}\text{ / tick}$$
 
 Combined alkaloid load $\Sigma_{\text{alk}} = S_{\text{scop}} + A_{\text{atro}}$ elevates core body temperature independently of prostaglandins (**salicin cannot break mandrake fever**):
-$$\Delta T_{\text{anticholinergic}} = \begin{cases}
-0\ ^\circ\text{C}, & \Sigma_{\text{alk}} < 1.5 \\
-1.0\ ^\circ\text{C} \implies T \to 38.0\ ^\circ\text{C}, & 1.5 \le \Sigma_{\text{alk}} < 2.5 \\
-2.5\ ^\circ\text{C} \implies T \to 39.5\ ^\circ\text{C}, & 2.5 \le \Sigma_{\text{alk}} < 4.0 \\
-4.0\ ^\circ\text{C} \implies T \to 41.0\ ^\circ\text{C}, & \Sigma_{\text{alk}} \ge 4.0
-\end{cases}$$
+$$\Delta T_{\text{anticholinergic}} = \begin{cases} 0\ ^\circ\text{C}, & \Sigma_{\text{alk}} < 1.5 \\ 1.0\ ^\circ\text{C} \implies T \to 38.0\ ^\circ\text{C}, & 1.5 \le \Sigma_{\text{alk}} < 2.5 \\ 2.5\ ^\circ\text{C} \implies T \to 39.5\ ^\circ\text{C}, & 2.5 \le \Sigma_{\text{alk}} < 4.0 \\ 4.0\ ^\circ\text{C} \implies T \to 41.0\ ^\circ\text{C}, & \Sigma_{\text{alk}} \ge 4.0 \end{cases}$$
 * Visual blur contracts view fog to 8 blocks when $S_{\text{scop}} \ge 2.3 \lor A_{\text{atro}} \ge 2.3 \lor \Sigma_{\text{alk}} \ge 2.7$.
 
 ---
@@ -471,11 +466,7 @@ A rust-colored wood-decay mushroom flourishing in damp, shady, and wooded biomes
 
 ### Antimicrobial Actions
 For drug concentration $D \in [0.0, 7.0]$, deceleration threshold $D_{\text{slow}} = 1.5$, and suppression threshold $D_{\text{suppress}} = 3.0$:
-$$\frac{dL}{dt} = \begin{cases}
-\dfrac{dL_{\text{base}}}{dt} - C_{\text{immune}}, & D \le 1.5 \\[8pt]
-\dfrac{dL_{\text{base}}}{dt} \cdot \left(1.0 - 0.75 \cdot \dfrac{D - 1.5}{1.5}\right) - C_{\text{immune}}, & 1.5 < D < 3.0 \\[8pt]
-- \left( C_{\text{immune}} + c_{\text{suppress}} \cdot \dfrac{D}{3.0} \right), & D \ge 3.0
-\end{cases}$$
+$$\frac{dL}{dt} = \begin{cases} \dfrac{dL_{\text{base}}}{dt} - C_{\text{immune}}, & D \le 1.5 \\[8pt] \dfrac{dL_{\text{base}}}{dt} \cdot \left(1.0 - 0.75 \cdot \dfrac{D - 1.5}{1.5}\right) - C_{\text{immune}}, & 1.5 < D < 3.0 \\[8pt] - \left( C_{\text{immune}} + c_{\text{suppress}} \cdot \dfrac{D}{3.0} \right), & D \ge 3.0  \end{cases}$$
 where $c_{\text{suppress}} = \frac{100.0}{1.5 \times 24000} \approx 2.778 \times 10^{-3}\text{ / tick}$.
 
 * **Berberine (0.0 – 7.0, Antibacterial)**:

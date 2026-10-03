@@ -171,12 +171,7 @@ $$\frac{d S_{\text{scop}}}{dt} = - \frac{5.0}{24000} \approx -2.083 \times 10^{-
 | `mandrake_seeds` | **+0.75** | **+0.1** |
 
 Their combined load $\Sigma_{\text{alk}} = S_{\text{scop}} + A_{\text{atro}}$ modulates **temperature** (elevates hypothalamic set point independently of prostaglandins, meaning **salicin cannot reduce mandrake fever**):
-$$\Delta T_{\text{anticholinergic}} = \begin{cases}
-0\ ^\circ\text{C}, & \Sigma_{\text{alk}} < 1.5 \\
-1.0\ ^\circ\text{C} \implies T \to 38.0\ ^\circ\text{C}, & 1.5 \le \Sigma_{\text{alk}} < 2.5 \\
-2.5\ ^\circ\text{C} \implies T \to 39.5\ ^\circ\text{C}, & 2.5 \le \Sigma_{\text{alk}} < 4.0 \\
-4.0\ ^\circ\text{C} \implies T \to 41.0\ ^\circ\text{C}, & \Sigma_{\text{alk}} \ge 4.0
-\end{cases}$$
+$$\Delta T_{\text{anticholinergic}} = \begin{cases} 0\ ^\circ\text{C}, & \Sigma_{\text{alk}} < 1.5 \\ 1.0\ ^\circ\text{C} \implies T \to 38.0\ ^\circ\text{C}, & 1.5 \le \Sigma_{\text{alk}} < 2.5 \\ 2.5\ ^\circ\text{C} \implies T \to 39.5\ ^\circ\text{C}, & 2.5 \le \Sigma_{\text{alk}} < 4.0 \\ 4.0\ ^\circ\text{C} \implies T \to 41.0\ ^\circ\text{C}, & \Sigma_{\text{alk}} \ge 4.0 \end{cases}$$
 
 while individual and combined levels dictate **visual blur**:
 $$\text{Visual Blur Active} \iff S_{\text{scop}} \ge 2.3 \lor A_{\text{atro}} \ge 2.3 \lor \Sigma_{\text{alk}} \ge 2.7$$
@@ -261,10 +256,7 @@ $$\frac{dL_{\text{base}}}{dt} = r \cdot L \cdot \left(1 - \frac{L}{K}\right)$$
 where $r = 0.0004\text{ / tick}$ and carrying capacity $K = 100.0$.
 
 The active immune clearance rate:
-$$C_{\text{immune}} = \begin{cases} 
-0, & \text{if } \neg\text{immuneActive} \land L \le 20.0 \\ 
-\left(\dfrac{dL_{\text{base}}}{dt} + c_0\right) \cdot \eta(\mathcal{I}), & \text{otherwise} 
-\end{cases}$$
+$$C_{\text{immune}} = \begin{cases} 0, & \text{if } \neg\text{immuneActive} \land L \le 20.0 \\ \left(\dfrac{dL_{\text{base}}}{dt} + c_0\right) \cdot \eta(\mathcal{I}), & \text{otherwise} \end{cases}$$
 where $c_0 = \dfrac{20.0}{48000} \approx 4.1667 \times 10^{-4}\text{ / tick}$, and $\eta(\mathcal{I})$ is the immune competence function of composite inflammation $\mathcal{I}$.
 
 - **Covert Growth Phase ($L \le 20.0$)**:
@@ -282,10 +274,7 @@ where $c_0 = \dfrac{20.0}{48000} \approx 4.1667 \times 10^{-4}\text{ / tick}$, a
   - Temperature ceiling unlocks to $42.0\ ^\circ\text{C}$, and septic magic damage is inflicted directly on the player.
 
 The immune competence $\eta(\mathcal{I})$ follows an asymmetric Gaussian bell curve centered at $\mathcal{I}_{\text{optimal}} = 25.0$:
-$$\eta(\mathcal{I}) = \begin{cases}
-\exp\left(-\dfrac{(\mathcal{I} - 25.0)^2}{2 \cdot 10.0^2}\right), & \mathcal{I} < 25.0 \\[10pt]
-\exp\left(-\dfrac{(\mathcal{I} - 25.0)^2}{2 \cdot 15.0^2}\right), & \mathcal{I} \ge 25.0
-\end{cases}$$
+$$\eta(\mathcal{I}) = \begin{cases} \exp\left(-\dfrac{(\mathcal{I} - 25.0)^2}{2 \cdot 10.0^2}\right), & \mathcal{I} < 25.0 \\[8pt] \exp\left(-\dfrac{(\mathcal{I} - 25.0)^2}{2 \cdot 15.0^2}\right), & \mathcal{I} \ge 25.0 \end{cases}$$
 
 | Inflammation $\mathcal{I}$ | 0 | 6 | 12 | 25 | 40 | 50 | 75 | 100 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -296,11 +285,7 @@ $$\eta(\mathcal{I}) = \begin{cases}
 ### Mediator Kinetics
 
 Biological inflammatory stimulus $S(L)$ as a function of total pathogen load $L$:
-$$S(L) = \begin{cases}
-0, & \text{if } \neg\text{immuneActive} \land L \le 20.0 \\
-\dfrac{L - 20.0}{35.0}, & \text{if } 20.0 < L \le 55.0 \\
-1.0 + 2.5 \cdot \dfrac{L - 55.0}{45.0}, & \text{if } L > 55.0
-\end{cases}$$
+$$S(L) = \begin{cases} 0, & \text{if } \neg\text{immuneActive} \land L \le 20.0 \\ \dfrac{L - 20.0}{35.0}, & \text{if } 20.0 < L \le 55.0 \\ 1.0 + 2.5 \cdot \dfrac{L - 55.0}{45.0}, & \text{if } L > 55.0 \end{cases}$$
 
 Pharmacological suppression and damping (Salicin & Dexamethasone):
 Let $D_{\text{sal}}$ and $D_{\text{dex}}$ be current active concentrations ($D_{\text{sal,eff}} = 1.0, D_{\text{dex,eff}} = 1.0$):
@@ -311,13 +296,7 @@ $$\text{Overdose} = \max(s_{\text{sal}} - 1.0, 0) + \max(s_{\text{dex}} - 1.0, 0
 $$\beta_{\text{base}} = \max(1.0 - 0.5 \cdot \text{Overdose}, 0.0)$$
 
 Target mediator asymptotic values ($M_{i,\text{target}}$):
-$$\begin{aligned}
-C_{\text{target}} &= C_{\text{base}} \cdot \beta_{\text{base}} + 100.0 \cdot S(L) \cdot \delta_{\text{damp}} \cdot (1.0 - 0.4 \cdot f_{\text{dex}}) \\
-H_{\text{target}} &= H_{\text{base}} \cdot \beta_{\text{base}} + 45.0 \cdot S(L) \cdot \delta_{\text{damp}} \\
-B_{\text{target}} &= B_{\text{base}} \cdot \beta_{\text{base}} + 60.0 \cdot S(L) \cdot \delta_{\text{damp}} \\
-P_{\text{target}} &= P_{\text{base}} \cdot \beta_{\text{base}} + \left(0.5 \cdot C_{\text{target}} + 25.0 \cdot S(L)\right) \cdot \delta_{\text{damp}} \cdot (1.0 - 0.5 \cdot f_{\text{sal}}) \\
-L_{k,\text{target}} &= L_{k,\text{base}} \cdot \beta_{\text{base}} + \left(0.5 \cdot C_{\text{target}} + 20.0 \cdot S(L)\right) \cdot \delta_{\text{damp}} \cdot (1.0 - 0.4 \cdot f_{\text{dex}})
-\end{aligned}$$
+$$\begin{aligned} C_{\text{target}} &= C_{\text{base}} \cdot \beta_{\text{base}} + 100.0 \cdot S(L) \cdot \delta_{\text{damp}} \cdot (1.0 - 0.4 \cdot f_{\text{dex}}) \\ H_{\text{target}} &= H_{\text{base}} \cdot \beta_{\text{base}} + 45.0 \cdot S(L) \cdot \delta_{\text{damp}} \\ B_{\text{target}} &= B_{\text{base}} \cdot \beta_{\text{base}} + 60.0 \cdot S(L) \cdot \delta_{\text{damp}} \\ P_{\text{target}} &= P_{\text{base}} \cdot \beta_{\text{base}} + \left(0.5 \cdot C_{\text{target}} + 25.0 \cdot S(L)\right) \cdot \delta_{\text{damp}} \cdot (1.0 - 0.5 \cdot f_{\text{sal}}) \\ L_{k,\text{target}} &= L_{k,\text{base}} \cdot \beta_{\text{base}} + \left(0.5 \cdot C_{\text{target}} + 20.0 \cdot S(L)\right) \cdot \delta_{\text{damp}} \cdot (1.0 - 0.4 \cdot f_{\text{dex}}) \end{aligned}$$
 where resting baseline values are $(H_{\text{base}}, P_{\text{base}}, L_{k,\text{base}}, C_{\text{base}}, B_{\text{base}}) = (25.0, 30.0, 30.0, 20.0, 25.0)$.
 
 Each mediator approaches its target value via exponential relaxation:
@@ -330,11 +309,7 @@ Prostaglandins ($P$) and leukotrienes ($L_k$) are **downstream products induced 
 Unlike symptomatic anti-inflammatories, **Berberine** and **Glycyrrhizin** directly attack and clear pathogens:
 
 For targeted drug concentration $D \in [0.0, 7.0]$, with deceleration threshold $D_{\text{slow}} = 1.5$ and suppression threshold $D_{\text{suppress}} = 3.0$:
-$$\frac{dL}{dt} = \begin{cases}
-\dfrac{dL_{\text{base}}}{dt} - C_{\text{immune}}, & D \le 1.5 \\[10pt]
-\dfrac{dL_{\text{base}}}{dt} \cdot \left(1.0 - 0.75 \cdot \dfrac{D - 1.5}{1.5}\right) - C_{\text{immune}}, & 1.5 < D < 3.0 \\[10pt]
-- \left( C_{\text{immune}} + C_{\text{drug}} \right), & D \ge 3.0
-\end{cases}$$
+$$\frac{dL}{dt} = \begin{cases} \dfrac{dL_{\text{base}}}{dt} - C_{\text{immune}}, & D \le 1.5 \\[6pt] \dfrac{dL_{\text{base}}}{dt} \cdot \left(1.0 - 0.75 \cdot \dfrac{D - 1.5}{1.5}\right) - C_{\text{immune}}, & 1.5 < D < 3.0 \\[6pt] - \left( C_{\text{immune}} + C_{\text{drug}} \right), & D \ge 3.0 \end{cases}$$
 where:
 $$C_{\text{drug}} = c_{\text{suppress}} \cdot \frac{D}{D_{\text{suppress}}}, \quad c_{\text{suppress}} = \frac{100.0}{1.5 \times 24000} \approx 2.778 \times 10^{-3}\text{ / tick}$$
 
@@ -369,10 +344,7 @@ The dynamics of each serum electrolyte $E_i$:
 $$\frac{dE_i}{dt} = k_h \cdot (E_{i,\text{norm}} - E_i) - (\Lambda_{\text{flush}} + \Lambda_{\text{sweat}}) \cdot \xi_i \cdot E_{i,\text{norm}}$$
 where:
 $$\Lambda_{\text{flush}} = \text{clamp}\left(\frac{\max(W - 100.0, 0)}{100.0}, 0, 1\right) \cdot 9 \times 10^{-6}\text{ / tick}$$
-$$\Lambda_{\text{sweat}} = \begin{cases}
-\max(T - 37.0, 0) \cdot 2 \times 10^{-6}\text{ / tick}, & T > 38.25\ ^\circ\text{C} \\
-0, & T \le 38.25\ ^\circ\text{C}
-\end{cases}$$
+$$\Lambda_{\text{sweat}} = \begin{cases} \max(T - 37.0, 0) \cdot 2 \times 10^{-6}\text{ / tick}, & T > 38.25\ ^\circ\text{C} \\ 0, & T \le 38.25\ ^\circ\text{C} \end{cases}$$
 $$k_h = 0.00005\text{ / tick} \quad (\approx 20,000\text{ ticks restoration half-life})$$
 
 Relative clearance coefficients: $\xi = (\text{Na}: 1.0, \text{Cl}: 1.0, \text{K}: 0.7, \text{Mg}: 0.4, \text{Ca}: 0.4)$.
@@ -383,10 +355,7 @@ Sodium and chloride wash out fastest; over-drinking fresh water quickly triggers
 Target core temperature $T_{\text{target}}$:
 $$T_{\text{target}} = 37.0 + \Delta T_{\text{fever}} + P_{\text{pyrogen}} + \Delta T_{\text{thyroid}} + \Delta T_{\text{anticholinergic}} + \Delta T_{\text{psilocin}} + \Delta T_{\text{ambient}}$$
 where:
-$$\Delta T_{\text{fever}} = \begin{cases}
-\min\left(0.05 \cdot \max(P - 30.0, 0), 2.5\right), & L \le 55.0 \\
-\min\left(0.05 \cdot \max(P - 30.0, 0), 4.0\right), & L > 55.0
-\end{cases}$$
+$$\Delta T_{\text{fever}} = \begin{cases} \min\left(0.05 \cdot \max(P - 30.0, 0), 2.5\right), & L \le 55.0 \\ \min\left(0.05 \cdot \max(P - 30.0, 0), 4.0\right), & L > 55.0 \end{cases}$$
 $$\Delta T_{\text{thyroid}} = \text{clamp}\left(2.0 \cdot \frac{I - I_{\text{safe}}}{0.50}, -0.8, 0.8\right)$$
 $$\Delta T_{\text{ambient}} = 0.6 \cdot (T_{\text{ambient}} - 37.0)$$
 

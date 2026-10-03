@@ -186,12 +186,7 @@ $$\frac{d S_{\text{scop}}}{dt} = - \frac{5.0}{24000} \approx -2.083 \times 10^{-
 | `mandrake_seeds` | **+0.75** | **+0.1** |
 
 两者之和 $\Sigma_{\text{alk}} = S_{\text{scop}} + A_{\text{atro}}$ 决定**体温**（设定点上移，不走前列腺素，所以**水杨苷退不掉**）：
-$$\Delta T_{\text{anticholinergic}} = \begin{cases}
-0\ ^\circ\text{C}, & \Sigma_{\text{alk}} < 1.5 \\
-1.0\ ^\circ\text{C} \implies T \to 38.0\ ^\circ\text{C}, & 1.5 \le \Sigma_{\text{alk}} < 2.5 \\
-2.5\ ^\circ\text{C} \implies T \to 39.5\ ^\circ\text{C}, & 2.5 \le \Sigma_{\text{alk}} < 4.0 \\
-4.0\ ^\circ\text{C} \implies T \to 41.0\ ^\circ\text{C}, & \Sigma_{\text{alk}} \ge 4.0
-\end{cases}$$
+$$\Delta T_{\text{anticholinergic}} = \begin{cases} 0\ ^\circ\text{C}, & \Sigma_{\text{alk}} < 1.5 \\ 1.0\ ^\circ\text{C} \implies T \to 38.0\ ^\circ\text{C}, & 1.5 \le \Sigma_{\text{alk}} < 2.5 \\ 2.5\ ^\circ\text{C} \implies T \to 39.5\ ^\circ\text{C}, & 2.5 \le \Sigma_{\text{alk}} < 4.0 \\ 4.0\ ^\circ\text{C} \implies T \to 41.0\ ^\circ\text{C}, & \Sigma_{\text{alk}} \ge 4.0 \end{cases}$$
 
 单个或合计决定**视觉模糊**：
 $$\text{视觉模糊激活} \iff S_{\text{scop}} \ge 2.3 \lor A_{\text{atro}} \ge 2.3 \lor \Sigma_{\text{alk}} \ge 2.7$$
@@ -298,10 +293,7 @@ $$\frac{dL_{\text{base}}}{dt} = r \cdot L \cdot \left(1 - \frac{L}{K}\right)$$
 其中 $r = 0.0004\text{ / tick}$，环境容纳上限 $K = 100.0$。
 
 机体免疫系统主动清除速率：
-$$C_{\text{immune}} = \begin{cases} 
-0, & \text{if } \neg\text{immuneActive} \land L \le 20.0 \\ 
-\left(\dfrac{dL_{\text{base}}}{dt} + c_0\right) \cdot \eta(\mathcal{I}), & \text{otherwise} 
-\end{cases}$$
+$$C_{\text{immune}} = \begin{cases} 0, & \text{if } \neg\text{immuneActive} \land L \le 20.0 \\ \left(\dfrac{dL_{\text{base}}}{dt} + c_0\right) \cdot \eta(\mathcal{I}), & \text{otherwise} \end{cases}$$
 其中 $c_0 = \dfrac{20.0}{48000} \approx 4.1667 \times 10^{-4}\text{ / tick}$，$\eta(\mathcal{I})$ 为综合炎症效能函数。
 
 - **隐匿生长期（载量 $L \le 20.0$）**：
@@ -319,10 +311,7 @@ $$C_{\text{immune}} = \begin{cases}
   - 体温上限解锁至 42.0 °C 超高热，同时造成败血症魔法持续伤害。
 
 免疫效能 $\eta(\mathcal{I})$ 呈非对称高斯钟形曲线，在安全区（25.0）最高，两侧塌陷：
-$$\eta(\mathcal{I}) = \begin{cases}
-\exp\left(-\dfrac{(\mathcal{I} - 25.0)^2}{2 \cdot 10.0^2}\right), & \mathcal{I} < 25.0 \\[10pt]
-\exp\left(-\dfrac{(\mathcal{I} - 25.0)^2}{2 \cdot 15.0^2}\right), & \mathcal{I} \ge 25.0
-\end{cases}$$
+$$\eta(\mathcal{I}) = \begin{cases} \exp\left(-\dfrac{(\mathcal{I} - 25.0)^2}{2 \cdot 10.0^2}\right), & \mathcal{I} < 25.0 \\[8pt] \exp\left(-\dfrac{(\mathcal{I} - 25.0)^2}{2 \cdot 15.0^2}\right), & \mathcal{I} \ge 25.0 \end{cases}$$
 
 | 炎症 $\mathcal{I}$ | 0 | 6 | 12 | 25 | 40 | 50 | 75 | 100 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -333,11 +322,7 @@ $$\eta(\mathcal{I}) = \begin{cases}
 ### 介质动力学
 
 感染刺激强度分段函数 $S(L)$：
-$$S(L) = \begin{cases}
-0, & \text{if } \neg\text{immuneActive} \land L \le 20.0 \\
-\dfrac{L - 20.0}{35.0}, & \text{if } 20.0 < L \le 55.0 \\
-1.0 + 2.5 \cdot \dfrac{L - 55.0}{45.0}, & \text{if } L > 55.0
-\end{cases}$$
+$$S(L) = \begin{cases} 0, & \text{if } \neg\text{immuneActive} \land L \le 20.0 \\ \dfrac{L - 20.0}{35.0}, & \text{if } 20.0 < L \le 55.0 \\ 1.0 + 2.5 \cdot \dfrac{L - 55.0}{45.0}, & \text{if } L > 55.0 \end{cases}$$
 
 抗炎药物抑制与响应阻尼（水杨苷与地塞米松）：
 设 $D_{\text{sal}}$ 与 $D_{\text{dex}}$ 分别为水杨苷与地塞米松的当前体内有效浓度（起效基准 $D_{\text{sal,eff}} = 1.0, D_{\text{dex,eff}} = 1.0$）：
@@ -348,13 +333,7 @@ $$\text{Overdose} = \max(s_{\text{sal}} - 1.0, 0) + \max(s_{\text{dex}} - 1.0, 0
 $$\beta_{\text{base}} = \max(1.0 - 0.5 \cdot \text{Overdose}, 0.0)$$
 
 各介质的目标渐近值公式 ($M_{i,\text{target}}$)：
-$$\begin{aligned}
-C_{\text{target}} &= C_{\text{base}} \cdot \beta_{\text{base}} + 100.0 \cdot S(L) \cdot \delta_{\text{damp}} \cdot (1.0 - 0.4 \cdot f_{\text{dex}}) \\
-H_{\text{target}} &= H_{\text{base}} \cdot \beta_{\text{base}} + 45.0 \cdot S(L) \cdot \delta_{\text{damp}} \\
-B_{\text{target}} &= B_{\text{base}} \cdot \beta_{\text{base}} + 60.0 \cdot S(L) \cdot \delta_{\text{damp}} \\
-P_{\text{target}} &= P_{\text{base}} \cdot \beta_{\text{base}} + \left(0.5 \cdot C_{\text{target}} + 25.0 \cdot S(L)\right) \cdot \delta_{\text{damp}} \cdot (1.0 - 0.5 \cdot f_{\text{sal}}) \\
-L_{k,\text{target}} &= L_{k,\text{base}} \cdot \beta_{\text{base}} + \left(0.5 \cdot C_{\text{target}} + 20.0 \cdot S(L)\right) \cdot \delta_{\text{damp}} \cdot (1.0 - 0.4 \cdot f_{\text{dex}})
-\end{aligned}$$
+$$\begin{aligned} C_{\text{target}} &= C_{\text{base}} \cdot \beta_{\text{base}} + 100.0 \cdot S(L) \cdot \delta_{\text{damp}} \cdot (1.0 - 0.4 \cdot f_{\text{dex}}) \\ H_{\text{target}} &= H_{\text{base}} \cdot \beta_{\text{base}} + 45.0 \cdot S(L) \cdot \delta_{\text{damp}} \\ B_{\text{target}} &= B_{\text{base}} \cdot \beta_{\text{base}} + 60.0 \cdot S(L) \cdot \delta_{\text{damp}} \\ P_{\text{target}} &= P_{\text{base}} \cdot \beta_{\text{base}} + \left(0.5 \cdot C_{\text{target}} + 25.0 \cdot S(L)\right) \cdot \delta_{\text{damp}} \cdot (1.0 - 0.5 \cdot f_{\text{sal}}) \\ L_{k,\text{target}} &= L_{k,\text{base}} \cdot \beta_{\text{base}} + \left(0.5 \cdot C_{\text{target}} + 20.0 \cdot S(L)\right) \cdot \delta_{\text{damp}} \cdot (1.0 - 0.4 \cdot f_{\text{dex}}) \end{aligned}$$
 其中静息基准值为 $(H_{\text{base}}, P_{\text{base}}, L_{k,\text{base}}, C_{\text{base}}, B_{\text{base}}) = (25.0, 30.0, 30.0, 20.0, 25.0)$。
 
 每个介质以 $k_m = 0.002\text{ / tick}$（约 25 秒）逼近自己的目标：
@@ -369,11 +348,7 @@ $$\frac{dM_i}{dt} = k_m \cdot (M_{i,\text{target}} - M_i)$$
 与只平抑免疫反应的水杨苷/地塞米松不同，**黄连素（Berberine）**与**甘草酸（Glycyrrhizin）**直接针对病原体本身发挥抑菌与抑毒药效：
 
 对于靶向药物浓度 $D \in [0.0, 7.0]$，减速阈值为 $D_{\text{slow}} = 1.5$，抑制阈值为 $D_{\text{suppress}} = 3.0$：
-$$\frac{dL}{dt} = \begin{cases}
-\dfrac{dL_{\text{base}}}{dt} - C_{\text{immune}}, & D \le 1.5 \\[10pt]
-\dfrac{dL_{\text{base}}}{dt} \cdot \left(1.0 - 0.75 \cdot \dfrac{D - 1.5}{1.5}\right) - C_{\text{immune}}, & 1.5 < D < 3.0 \\[10pt]
-- \left( C_{\text{immune}} + C_{\text{drug}} \right), & D \ge 3.0
-\end{cases}$$
+$$\frac{dL}{dt} = \begin{cases} \dfrac{dL_{\text{base}}}{dt} - C_{\text{immune}}, & D \le 1.5 \\[6pt] \dfrac{dL_{\text{base}}}{dt} \cdot \left(1.0 - 0.75 \cdot \dfrac{D - 1.5}{1.5}\right) - C_{\text{immune}}, & 1.5 < D < 3.0 \\[6pt] - \left( C_{\text{immune}} + C_{\text{drug}} \right), & D \ge 3.0 \end{cases}$$
 其中靶向清除速率为：
 $$C_{\text{drug}} = c_{\text{suppress}} \cdot \frac{D}{D_{\text{suppress}}}, \quad c_{\text{suppress}} = \frac{100.0}{1.5 \times 24000} \approx 2.778 \times 10^{-3}\text{ / tick}$$
 
@@ -408,10 +383,7 @@ $$\Phi_{\text{sweat}} = a \cdot \Delta T + b \cdot (\Delta T)^2, \quad a = -\fra
 $$\frac{dE_i}{dt} = k_h \cdot (E_{i,\text{norm}} - E_i) - (\Lambda_{\text{flush}} + \Lambda_{\text{sweat}}) \cdot \xi_i \cdot E_{i,\text{norm}}$$
 其中：
 $$\Lambda_{\text{flush}} = \text{clamp}\left(\frac{\max(W - 100.0, 0)}{100.0}, 0, 1\right) \cdot 9 \times 10^{-6}\text{ / tick}$$
-$$\Lambda_{\text{sweat}} = \begin{cases}
-\max(T - 37.0, 0) \cdot 2 \times 10^{-6}\text{ / tick}, & T > 38.25\ ^\circ\text{C} \\
-0, & T \le 38.25\ ^\circ\text{C}
-\end{cases}$$
+$$\Lambda_{\text{sweat}} = \begin{cases} \max(T - 37.0, 0) \cdot 2 \times 10^{-6}\text{ / tick}, & T > 38.25\ ^\circ\text{C} \\ 0, & T \le 38.25\ ^\circ\text{C} \end{cases}$$
 $$k_h = 0.00005\text{ / tick} \quad (\approx 20,000\text{ ticks 半衰期})$$
 
 相对排出系数：$\xi = (\text{Na}: 1.0, \text{Cl}: 1.0, \text{K}: 0.7, \text{Mg}: 0.4, \text{Ca}: 0.4)$。
@@ -432,10 +404,7 @@ $$\frac{dC_{\text{vitC}}}{dt} = - k_{\text{vitC}} \cdot C_{\text{vitC}}, \quad k
 目标核心体温计算公式 $T_{\text{target}}$：
 $$T_{\text{target}} = 37.0 + \Delta T_{\text{fever}} + P_{\text{pyrogen}} + \Delta T_{\text{thyroid}} + \Delta T_{\text{anticholinergic}} + \Delta T_{\text{psilocin}} + \Delta T_{\text{ambient}}$$
 其中：
-$$\Delta T_{\text{fever}} = \begin{cases}
-\min\left(0.05 \cdot \max(P - 30.0, 0), 2.5\right), & L \le 55.0 \\
-\min\left(0.05 \cdot \max(P - 30.0, 0), 4.0\right), & L > 55.0
-\end{cases}$$
+$$\Delta T_{\text{fever}} = \begin{cases} \min\left(0.05 \cdot \max(P - 30.0, 0), 2.5\right), & L \le 55.0 \\ \min\left(0.05 \cdot \max(P - 30.0, 0), 4.0\right), & L > 55.0 \end{cases}$$
 $$\Delta T_{\text{thyroid}} = \text{clamp}\left(2.0 \cdot \frac{I - I_{\text{safe}}}{0.50}, -0.8, 0.8\right)$$
 $$\Delta T_{\text{ambient}} = 0.6 \cdot (T_{\text{ambient}} - 37.0)$$
 
