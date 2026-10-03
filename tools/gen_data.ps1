@@ -1333,7 +1333,7 @@ Write-Json "data/$ns/recipe/mandrake_seeds.json" @"
 }
 "@
 
-# Wild mandrakes, deliberately sparse: two attempts per chunk on grass, left at full age like
+# Wild mandrakes, deliberately sparse: one attempt per chunk on grass, left at full age like
 # vanilla's berry bush patches, so a plant the player walks up to and picks - rather than one that has
 # to be waited for - is still worth the walk.
 Write-Json "data/$ns/worldgen/feature/mandrake.json" @"
@@ -1354,7 +1354,7 @@ Write-Json "data/$ns/worldgen/placed_feature/mandrake_patch.json" @"
   "placement": [
     {
       "type": "minecraft:count",
-      "count": 2
+      "count": 1
     },
     {
       "type": "minecraft:in_square"
