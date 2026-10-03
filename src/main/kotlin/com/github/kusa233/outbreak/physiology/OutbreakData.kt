@@ -215,6 +215,8 @@ data class OutbreakData(
      */
     val psilocybin: Float = 0f,
     val psilocin: Float = 0f,
+    /** Ephedrine, the stimulant alkaloid, 0..[EPHEDRINE_CAP]. */
+    val ephedrine: Float = 0f,
 ) {
 
     val inflammation: Float
@@ -321,6 +323,10 @@ data class OutbreakData(
     val psilocinTier: Int
         get() = OutbreakModelBridge.psilocinTier(this)
 
+    /** True when ephedrine exceeds the threshold for Haste I. */
+    val hasHasteFromEphedrine: Boolean
+        get() = OutbreakModelBridge.hasHasteFromEphedrine(this)
+
     fun withMediators(value: Mediators): OutbreakData = this.copy(mediators = value)
 
     fun withElectrolytes(value: Electrolytes): OutbreakData = this.copy(electrolytes = value)
@@ -348,6 +354,8 @@ data class OutbreakData(
     fun withPsilocybin(value: Float): OutbreakData = this.copy(psilocybin = value)
 
     fun withPsilocin(value: Float): OutbreakData = this.copy(psilocin = value)
+
+    fun withEphedrine(value: Float): OutbreakData = this.copy(ephedrine = value)
 
     companion object {
 
@@ -479,6 +487,14 @@ data class OutbreakData(
         @JvmField val PSILOCYBIN_METABOLISM_TICKS: Int = OutbreakModelBridge.PSILOCYBIN_METABOLISM_TICKS
         @JvmField val PSILOCIN_METABOLISM_TICKS: Int = OutbreakModelBridge.PSILOCIN_METABOLISM_TICKS
 
+        // ---------------------------------------------------------------- ephedrine
+
+        /** The most ephedrine a body can carry, 0..5. */
+        @JvmField val EPHEDRINE_CAP: Float = OutbreakModelBridge.EPHEDRINE_CAP
+        @JvmField val EPHEDRINE_HASTE_THRESHOLD: Float = OutbreakModelBridge.EPHEDRINE_HASTE_THRESHOLD
+        @JvmField val EPHEDRINE_METABOLISM_TICKS: Int = OutbreakModelBridge.EPHEDRINE_METABOLISM_TICKS
+        @JvmField val EPHEDRINE_DECAY_PER_TICK: Float = OutbreakModelBridge.EPHEDRINE_DECAY_PER_TICK
+
         /** What a healthy player looks like. */
         @JvmField val HEALTHY: OutbreakData = OutbreakModelBridge.healthy()
 
@@ -500,6 +516,7 @@ data class OutbreakData(
                 Codec.FLOAT.optionalFieldOf("atropine", 0f).forGetter { it.atropine },
                 Codec.FLOAT.optionalFieldOf("psilocybin", 0f).forGetter { it.psilocybin },
                 Codec.FLOAT.optionalFieldOf("psilocin", 0f).forGetter { it.psilocin },
+                Codec.FLOAT.optionalFieldOf("ephedrine", 0f).forGetter { it.ephedrine },
             ).apply(instance, ::OutbreakData)
         }
     }

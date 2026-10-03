@@ -3,6 +3,7 @@ package com.github.kusa233.outbreak.registry
 import com.github.kusa233.outbreak.world.block.AlcoholCauldronBlock
 import com.github.kusa233.outbreak.world.block.BrineCauldronBlock
 import com.github.kusa233.outbreak.world.block.CondenserPipeBlock
+import com.github.kusa233.outbreak.world.block.EphedraBlock
 import com.github.kusa233.outbreak.world.block.FermentationTankBlock
 import com.github.kusa233.outbreak.world.block.GymnopilusBlock
 import com.github.kusa233.outbreak.world.block.MandrakeBlock
@@ -349,6 +350,23 @@ object OutbreakBlocks {
             .offsetType(BlockBehaviour.OffsetType.XZ)
             .pushReaction(PushReaction.POPPED),
     ) { GymnopilusBlock(it) }
+
+    // ---------------------------------------------------------------- ephedra
+
+    /**
+     * Ephedra (麻黄): an arid medicinal shrub in four growth stages.
+     */
+    val EPHEDRA: Block = Registration.registerBlock(
+        "ephedra",
+        BlockBehaviour.Properties.of()
+            .mapColor(MapColor.PLANT)
+            .noCollision()
+            .randomTicks()
+            .instabreak()
+            .sound(SoundType.GRASS)
+            .offsetType(BlockBehaviour.OffsetType.XZ)
+            .pushReaction(PushReaction.POPPED),
+    ) { EphedraBlock(it) }
 
     // ---------------------------------------------------------------- brewing & distillation
 

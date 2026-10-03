@@ -348,6 +348,18 @@ object ModelConstants {
   val PSILOCIN_FEVER_STEP: Float = 7f
   val PSILOCIN_FEVER_MILD: Float = 39f
   val PSILOCIN_FEVER_EXTREME: Float = 41f
+
+  // ---------------------------------------------------------------- ephedrine
+
+  /** The most ephedrine a body can carry (0..5). */
+  val EPHEDRINE_CAP: Float = 5f
+
+  /** Ephedrine threshold above which Haste I is granted. */
+  val EPHEDRINE_HASTE_THRESHOLD: Float = 1f
+
+  /** Ephedrine is completely metabolised within one in-game day (24000 ticks). */
+  val EPHEDRINE_METABOLISM_TICKS: Int = 24000
+  val EPHEDRINE_DECAY_PER_TICK: Float = EPHEDRINE_CAP / EPHEDRINE_METABOLISM_TICKS
 }
 
 /**
@@ -380,6 +392,8 @@ final case class ModelState(
     @BeanProperty psilocybin: Float,
     /** Psilocin, which is what the trip and the fever actually come from. 0..10. */
     @BeanProperty psilocin: Float,
+    /** Ephedrine, the stimulant alkaloid, 0..[ModelConstants.EPHEDRINE_CAP]. */
+    @BeanProperty ephedrine: Float,
 ) {
   def withMediators(value: ModelMediators): ModelState = copy(mediators = value)
   def withBacteria(value: Float): ModelState = copy(bacteria = value)
@@ -395,4 +409,5 @@ final case class ModelState(
   def withAtropine(value: Float): ModelState = copy(atropine = value)
   def withPsilocybin(value: Float): ModelState = copy(psilocybin = value)
   def withPsilocin(value: Float): ModelState = copy(psilocin = value)
+  def withEphedrine(value: Float): ModelState = copy(ephedrine = value)
 }

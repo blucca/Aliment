@@ -94,6 +94,10 @@ object OutbreakCreativeTabs {
         OutbreakBlocks.CONDENSER_PIPE,
         OutbreakItems.BREWER_YEAST,
         OutbreakItems.WINE,
+        // ephedra & ephedrine
+        OutbreakItems.EPHEDRA,
+        OutbreakItems.CRUSHED_EPHEDRA,
+        OutbreakItems.EPHEDRINE,
     )
 
     /**

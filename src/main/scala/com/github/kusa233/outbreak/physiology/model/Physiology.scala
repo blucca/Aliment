@@ -469,6 +469,7 @@ object Physiology {
       0f,
       ModelConstants.PSILOCIN_CAP,
     )
+    val ephedrine = Math.max(state.ephedrine - ModelConstants.EPHEDRINE_DECAY_PER_TICK, 0f)
 
     // 2. Pathogens grow logistically and are cleared in proportion to immune competence.
     val competence = immuneCompetence(state.mediators.getInflammation)
@@ -483,6 +484,7 @@ object Physiology {
       .withAtropine(atropine)
       .withPsilocybin(psilocybin)
       .withPsilocin(psilocin)
+      .withEphedrine(ephedrine)
       .withBacteria(bacteria)
       .withVirus(virus)
 
@@ -760,6 +762,15 @@ object Physiology {
     state
       .withPsilocybin(clamp(state.psilocybin + psilocybin, 0f, ModelConstants.PSILOCYBIN_CAP))
       .withPsilocin(clamp(state.psilocin + psilocin, 0f, ModelConstants.PSILOCIN_CAP))
+
+  /**
+   * Adds ephedrine, the stimulant alkaloid, capped at [ModelConstants.EPHEDRINE_CAP].
+   */
+  def addEphedrine(state: ModelState, amount: Float): ModelState =
+    state.withEphedrine(clamp(state.ephedrine + amount, 0f, ModelConstants.EPHEDRINE_CAP))
+
+  def hasHasteFromEphedrine(state: ModelState): Boolean =
+    state.ephedrine > ModelConstants.EPHEDRINE_HASTE_THRESHOLD
 
   /**
    * Raises or lowers the fever so that the body *peaks* at `degrees` Celsius.

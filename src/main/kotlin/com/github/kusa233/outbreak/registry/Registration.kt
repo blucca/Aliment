@@ -55,4 +55,8 @@ object Registration {
         registerItem(path, itemProperties.useBlockDescriptionPrefix()) { itemFactory(block, it) }
         return block
     }
+
+    fun <T : net.minecraft.world.item.crafting.RecipeSerializer<*>> registerRecipeSerializer(path: String, serializer: T): T {
+        return Registry.register(BuiltInRegistries.RECIPE_SERIALIZER, id(path), serializer)
+    }
 }

@@ -73,6 +73,12 @@ object OutbreakIngestion {
     private const val MUSHROOM_PSILOCYBIN = 1.3f
     private const val MUSHROOM_PSILOCIN = 1.3f
 
+    /** Ephedrine delivered by consuming raw ephedra herb twigs. */
+    private const val EPHEDRA_EPHEDRINE = 0.5f
+
+    /** Ephedrine delivered by consuming purified ephedrine extract. */
+    private const val EPHEDRINE_PURIFIED = 2.5f
+
     /** How much pathogen a single successful roll adds. */
     private const val BACTERIA_SEED = 6f
 
@@ -173,6 +179,13 @@ object OutbreakIngestion {
             }
             OutbreakItems.COOKED_GYMNOPILUS -> {
                 OutbreakAdvancements.award(player, OutbreakAdvancements.PSYCHEDELIC_WORLD)
+            }
+            // Ephedra & ephedrine: oral intake adds ephedrine to the body
+            OutbreakItems.EPHEDRA -> {
+                data = OutbreakPhysiology.addEphedrine(data, EPHEDRA_EPHEDRINE)
+            }
+            OutbreakItems.EPHEDRINE -> {
+                data = OutbreakPhysiology.addEphedrine(data, EPHEDRINE_PURIFIED)
             }
             else -> Unit
         }

@@ -180,6 +180,18 @@ public final class OutbreakModelBridge {
     public static final int PSILOCYBIN_METABOLISM_TICKS = ModelConstants.PSILOCYBIN_METABOLISM_TICKS();
     public static final int PSILOCIN_METABOLISM_TICKS = ModelConstants.PSILOCIN_METABOLISM_TICKS();
 
+    // ---------------------------------------------------------------- ephedrine
+
+    /** The most ephedrine a body can carry. */
+    public static final float EPHEDRINE_CAP = ModelConstants.EPHEDRINE_CAP();
+
+    /** Threshold for Haste I effect. */
+    public static final float EPHEDRINE_HASTE_THRESHOLD = ModelConstants.EPHEDRINE_HASTE_THRESHOLD();
+
+    /** Ephedrine is completely metabolised within one in-game day. */
+    public static final int EPHEDRINE_METABOLISM_TICKS = ModelConstants.EPHEDRINE_METABOLISM_TICKS();
+    public static final float EPHEDRINE_DECAY_PER_TICK = ModelConstants.EPHEDRINE_DECAY_PER_TICK();
+
     // ================================================================== the reference ranges
 
     /**
@@ -322,6 +334,7 @@ public final class OutbreakModelBridge {
                 0f,
                 0f,
                 TEMPERATURE_NORMAL,
+                0f,
                 0f,
                 0f,
                 0f,
@@ -536,6 +549,16 @@ public final class OutbreakModelBridge {
         return fromModel(Physiology.mushroom(toModel(data), psilocybin, psilocin));
     }
 
+    /** Adds ephedrine, capped. */
+    public static OutbreakData addEphedrine(OutbreakData data, float amount) {
+        return fromModel(Physiology.addEphedrine(toModel(data), amount));
+    }
+
+    /** True if ephedrine is above the threshold for Haste I. */
+    public static boolean hasHasteFromEphedrine(OutbreakData data) {
+        return Physiology.hasHasteFromEphedrine(toModel(data));
+    }
+
     // ================================================================== the conversion
     //
     // The only place a Kotlin `OutbreakData` becomes the model's `ModelState` or back. Everything
@@ -557,7 +580,8 @@ public final class OutbreakModelBridge {
                 data.getScopolamine(),
                 data.getAtropine(),
                 data.getPsilocybin(),
-                data.getPsilocin());
+                data.getPsilocin(),
+                data.getEphedrine());
     }
 
     private static OutbreakData fromModel(ModelState state) {
@@ -575,7 +599,8 @@ public final class OutbreakModelBridge {
                 state.getScopolamine(),
                 state.getAtropine(),
                 state.getPsilocybin(),
-                state.getPsilocin());
+                state.getPsilocin(),
+                state.getEphedrine());
     }
 
     private static ModelMediators toModel(Mediators mediators) {

@@ -234,6 +234,11 @@ object OutbreakSymptoms {
             rule.symptomFor(data)?.invoke(player, ticks)
         }
 
+        // --- ephedrine stimulant: provides Haste I when ephedrine > 1
+        if (data.ephedrine > OutbreakData.EPHEDRINE_HASTE_THRESHOLD) {
+            player.addEffect(MobEffectInstance(MobEffects.HASTE, ticks, 0))
+        }
+
         // --- body temperature
         applyThermalEffects(player, data, ticks)
     }

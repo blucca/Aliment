@@ -20,6 +20,7 @@ object OutbreakGrinding {
         OutbreakItems.WILLOW_BARK to (OutbreakItems.WILLOW_BARK_PIECES to 2),
         OutbreakBlocks.ROCK_SALT_ORE.asItem() to (OutbreakItems.CRUDE_SALT to 9),
         OutbreakItems.CRUDE_SALT to (OutbreakItems.CRUDE_SALT_POWDER to 1),
+        OutbreakItems.EPHEDRA to (OutbreakItems.CRUSHED_EPHEDRA to 1),
     )
 
     /** True when the grindstone has something to do with this item. */

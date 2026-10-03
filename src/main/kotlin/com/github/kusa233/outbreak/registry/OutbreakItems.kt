@@ -333,7 +333,34 @@ object OutbreakItems {
             .stacksTo(16),
     ) { WineItem(it) }
 
+    // ---------------------------------------------------------------- ephedra & ephedrine
+
+    /** Ephedra (麻黄): herbal twigs, edible or plantable into soil/sand. */
+    val EPHEDRA: Item = Registration.registerItem(
+        "ephedra",
+        Item.Properties().food(ephedraFood()),
+    ) { BlockItem(OutbreakBlocks.EPHEDRA, it) }
+
+    /** Crushed Ephedra (碎麻黄): chopped/crushed ephedra herb flakes obtained by shears or grindstone. */
+    val CRUSHED_EPHEDRA: Item = Registration.registerItem(
+        "crushed_ephedra",
+        Item.Properties(),
+    ) { Item(it) }
+
+    /** Ephedrine Potion (麻黄碱药水): herbal stimulant medicine brewed from crushed ephedra in a glass bottle. */
+    val EPHEDRINE: Item = Registration.registerItem(
+        "ephedrine",
+        Item.Properties()
+            .food(ephedrineFood(), Consumables.defaultDrink().build())
+            .usingConvertsTo(Items.GLASS_BOTTLE)
+            .stacksTo(16),
+    ) { Item(it) }
+
     fun createWine(concentration: Float): ItemStack = WineItem.createStack(WINE, concentration)
+
+    private fun ephedraFood(): FoodProperties = buildFood(1, 0.2f, alwaysEdible = true)
+
+    private fun ephedrineFood(): FoodProperties = buildFood(0, 0f, alwaysEdible = true)
 
     /**
      * Food written the way a player reads it off the tooltip: hunger first, saturation points second.

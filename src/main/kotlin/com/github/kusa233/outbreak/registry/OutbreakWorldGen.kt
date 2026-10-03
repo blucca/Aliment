@@ -35,6 +35,9 @@ object OutbreakWorldGen {
     val GYMNOPILUS_PATCH: ResourceKey<PlacedFeature> =
         ResourceKey.create(Registries.PLACED_FEATURE, Registration.id("gymnopilus_patch"))
 
+    val EPHEDRA_PATCH: ResourceKey<PlacedFeature> =
+        ResourceKey.create(Registries.PLACED_FEATURE, Registration.id("ephedra_patch"))
+
     /**
      * Where a mandrake grows wild: both plains and both swamps, since a sunflower plain is still a
      * plain and a mangrove swamp is still a swamp.
@@ -59,6 +62,20 @@ object OutbreakWorldGen {
         Biomes.TAIGA,
     )
 
+    /**
+     * Where ephedra grows wild: arid deserts, badlands, and windswept hills.
+     */
+    private val EPHEDRA_BIOMES = listOf(
+        Biomes.DESERT,
+        Biomes.BADLANDS,
+        Biomes.ERODED_BADLANDS,
+        Biomes.WOODED_BADLANDS,
+        Biomes.WINDSWEPT_HILLS,
+        Biomes.SAVANNA,
+        Biomes.SAVANNA_PLATEAU,
+        Biomes.WINDSWEPT_SAVANNA,
+    )
+
     fun initialize() {
         BiomeModifications.addFeature(
             BiomeSelectors.tag(BiomeTags.IS_RIVER),
@@ -79,6 +96,11 @@ object OutbreakWorldGen {
             BiomeSelectors.includeByKey(GYMNOPILUS_BIOMES),
             GenerationStep.Decoration.VEGETAL_DECORATION,
             GYMNOPILUS_PATCH,
+        )
+        BiomeModifications.addFeature(
+            BiomeSelectors.includeByKey(EPHEDRA_BIOMES),
+            GenerationStep.Decoration.VEGETAL_DECORATION,
+            EPHEDRA_PATCH,
         )
     }
 }

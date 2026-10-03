@@ -5,13 +5,16 @@ import com.github.kusa233.outbreak.registry.OutbreakBlocks
 import com.github.kusa233.outbreak.registry.OutbreakItems
 import com.github.kusa233.outbreak.registry.OutbreakWorldGen
 import com.github.kusa233.outbreak.registry.Registration
+import com.github.kusa233.outbreak.world.OutbreakGrinding
 import com.github.kusa233.outbreak.world.block.AlcoholCauldronBlock
 import com.github.kusa233.outbreak.world.block.CondenserPipeBlock
+import com.github.kusa233.outbreak.world.block.EphedraBlock
 import com.github.kusa233.outbreak.world.block.FermentationTankBlock
 import com.github.kusa233.outbreak.world.block.FermentationTankBlockEntity
 import com.github.kusa233.outbreak.world.block.MandrakeBlock
 import com.github.kusa233.outbreak.world.block.WillowSoupCauldronBlock
 import com.github.kusa233.outbreak.world.item.WineItem
+import com.github.kusa233.outbreak.world.recipe.ShearEphedraRecipe
 import net.fabricmc.api.ModInitializer
 import net.fabricmc.fabric.api.entity.FakePlayer
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
@@ -26,6 +29,7 @@ import net.minecraft.world.item.BoneMealItem
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraft.world.item.crafting.AbstractCookingRecipe
+import net.minecraft.world.item.crafting.CraftingInput
 import net.minecraft.world.level.biome.Biome
 import net.minecraft.world.level.biome.Biomes
 import net.minecraft.world.level.block.Block
@@ -113,6 +117,7 @@ class OutbreakSelfTest : ModInitializer {
                 testGymnopilusCooking(level)
                 testAdvancements(level, FakePlayer.get(level))
                 testFermentationAndDistillation(level, FakePlayer.get(level))
+                testEphedra(level, FakePlayer.get(level))
                 stage = 4
             }
 
@@ -402,6 +407,16 @@ class OutbreakSelfTest : ModInitializer {
         check("and in the taiga", sprouted(Biomes.TAIGA))
         check("but not in the plains", !sprouted(Biomes.PLAINS))
         check("nor in a desert", !sprouted(Biomes.DESERT))
+
+        val ephedra = registries.lookupOrThrow(Registries.PLACED_FEATURE)
+            .getOrThrow(OutbreakWorldGen.EPHEDRA_PATCH)
+        fun arid(key: ResourceKey<Biome>): Boolean =
+            biomes.getOrThrow(key).value().generationSettings.features().any { it.contains(ephedra) }
+
+        check("ephedra grows wild in the desert", arid(Biomes.DESERT))
+        check("and in the badlands", arid(Biomes.BADLANDS))
+        check("but not in the dark forest", !arid(Biomes.DARK_FOREST))
+        check("nor in the plains", !arid(Biomes.PLAINS))
     }
 
     /**
@@ -612,6 +627,88 @@ class OutbreakSelfTest : ModInitializer {
         level.setBlockAndUpdate(riserPos, Blocks.AIR.defaultBlockState())
         level.setBlockAndUpdate(firePos, Blocks.STONE.defaultBlockState())
         level.setBlockAndUpdate(cauldronPos, Blocks.AIR.defaultBlockState())
+    }
+
+    private fun testEphedra(level: ServerLevel, player: FakePlayer) {
+        val testBase = BlockPos(14, FLOOR_Y + 1, 14)
+        val ground = testBase.below()
+
+        // 1. Placement on sand, red sand, terracotta, and dirt
+        val grounds = listOf(
+            "sand" to Blocks.SAND,
+            "red sand" to Blocks.RED_SAND,
+            "terracotta" to Blocks.TERRACOTTA,
+            "dirt" to Blocks.DIRT,
+        )
+        val item = ItemStack(OutbreakItems.EPHEDRA)
+        for ((label, block) in grounds) {
+            level.setBlockAndUpdate(ground, block.defaultBlockState())
+            level.setBlockAndUpdate(testBase, Blocks.AIR.defaultBlockState())
+            player.setItemInHand(InteractionHand.MAIN_HAND, item.copy())
+            useOn(level, player, ground)
+            val planted = level.getBlockState(testBase).`is`(OutbreakBlocks.EPHEDRA)
+            check("ephedra can be sown on $label", planted)
+        }
+
+        // 2. Bone meal through four growth stages (0 -> 1 -> 2 -> 3)
+        level.setBlockAndUpdate(testBase, OutbreakBlocks.EPHEDRA.defaultBlockState())
+        val ages = mutableListOf(level.getBlockState(testBase).getValue(EphedraBlock.AGE))
+        repeat(EphedraBlock.MAX_AGE) {
+            BoneMealItem.growCrop(ItemStack(Items.BONE_MEAL), level, testBase)
+            ages += level.getBlockState(testBase).getValue(EphedraBlock.AGE)
+        }
+        logger.info("SELFTEST ephedra stages after bone meal: {}", ages)
+        check("bone meal takes ephedra through four stages", ages == listOf(0, 1, 2, 3))
+        check("a ripe ephedra is no longer a bonemeal target", !BoneMealItem.growCrop(ItemStack(Items.BONE_MEAL), level, testBase))
+
+        // 3. Right-click harvest on ripe bush resets age to 1
+        val hit = BlockHitResult(Vec3.atCenterOf(testBase), Direction.UP, testBase, false)
+        val stateBefore = level.getBlockState(testBase)
+        check("ephedra is ripe at age 3", stateBefore.getValue(EphedraBlock.AGE) == 3)
+        val result = stateBefore.useItemOn(ItemStack.EMPTY, level, player, InteractionHand.MAIN_HAND, hit)
+        check("right clicking ripe ephedra succeeds", result.consumesAction())
+        val stateAfter = level.getBlockState(testBase)
+        check("right click harvest resets ephedra to age 1", stateAfter.getValue(EphedraBlock.AGE) == 1)
+
+        // 4. Drops when mined
+        level.setBlockAndUpdate(testBase, OutbreakBlocks.EPHEDRA.defaultBlockState().setValue(EphedraBlock.AGE, 3))
+        val ripeDrops = Block.getDrops(level.getBlockState(testBase), level, testBase, null)
+        check("ripe ephedra drops ephedra items", ripeDrops.any { it.`is`(OutbreakItems.EPHEDRA) })
+
+        level.setBlockAndUpdate(testBase, OutbreakBlocks.EPHEDRA.defaultBlockState().setValue(EphedraBlock.AGE, 0))
+        val unripeDrops = Block.getDrops(level.getBlockState(testBase), level, testBase, null)
+        check("unripe ephedra drops 1 ephedra item", unripeDrops.any { it.`is`(OutbreakItems.EPHEDRA) })
+
+        // 5. Grindstone processing: Ephedra -> Crushed Ephedra
+        check("ephedra is grindable", OutbreakGrinding.isGrindable(ItemStack(OutbreakItems.EPHEDRA)))
+        val grindResult = OutbreakGrinding.resultFor(ItemStack(OutbreakItems.EPHEDRA), ItemStack.EMPTY)
+        check("grinding ephedra yields crushed ephedra", grindResult.`is`(OutbreakItems.CRUSHED_EPHEDRA) && grindResult.count == 1)
+
+        // 6. Crafting with shears: Shears + Ephedra -> Crushed Ephedra (damages shears)
+        val shearsStack = ItemStack(Items.SHEARS)
+        val ephedraStack = ItemStack(OutbreakItems.EPHEDRA)
+        val craftInput = CraftingInput.of(2, 1, listOf(shearsStack, ephedraStack))
+        check("shear recipe matches shears and ephedra", ShearEphedraRecipe.INSTANCE.matches(craftInput, level))
+        val shearResult = ShearEphedraRecipe.INSTANCE.assemble(craftInput)
+        check("shear recipe yields crushed ephedra", shearResult.`is`(OutbreakItems.CRUSHED_EPHEDRA))
+        val remainders = ShearEphedraRecipe.INSTANCE.getRemainingItems(craftInput)
+        val remainderShears = remainders[0]
+        check("shears remains in crafting grid with 1 damage taken", remainderShears.`is`(Items.SHEARS) && remainderShears.damageValue == 1)
+
+        val shearsRecipe = level.server.recipeManager.byKey(
+            ResourceKey.create(Registries.RECIPE, Registration.id("crushed_ephedra_from_shears")),
+        )
+        check("the crushed_ephedra_from_shears recipe is loaded", shearsRecipe.isPresent)
+
+        // 7. Recipe for ephedrine potion (Bottle + Crushed Ephedra)
+        val recipe = level.server.recipeManager.byKey(
+            ResourceKey.create(Registries.RECIPE, Registration.id("ephedrine")),
+        )
+        check("the ephedrine crafting recipe is loaded", recipe.isPresent)
+
+        // Clean up
+        level.setBlockAndUpdate(testBase, Blocks.AIR.defaultBlockState())
+        level.setBlockAndUpdate(ground, Blocks.STONE.defaultBlockState())
     }
 
     // ------------------------------------------------------------------ helpers

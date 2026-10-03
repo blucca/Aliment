@@ -1688,6 +1688,51 @@ class OutbreakPhysiologySelfTest : ModInitializer {
         OutbreakIngestion.injectDexamethasone(player)
         check("an injection raises dexamethasone", player.getAttachedOrCreate(OutbreakAttachments.DATA).dexamethasone > 0f)
 
+        // Ephedra and ephedrine
+        player.setAttached(OutbreakAttachments.DATA, OutbreakData.HEALTHY)
+        check("healthy player starts with 0 ephedrine", player.getAttachedOrCreate(OutbreakAttachments.DATA).ephedrine == 0f)
+        ItemStack(OutbreakItems.EPHEDRA, 1).finishUsingItem(level, player)
+        val afterEphedra = player.getAttachedOrCreate(OutbreakAttachments.DATA)
+        logger.info("PHYS ephedra eaten: ephedrine {}", afterEphedra.ephedrine)
+        check("eating ephedra adds 0.5 ephedrine", abs(afterEphedra.ephedrine - 0.5f) < 0.001f)
+        check("0.5 ephedrine does not trigger haste", !afterEphedra.hasHasteFromEphedrine)
+
+        ItemStack(OutbreakItems.EPHEDRA, 1).finishUsingItem(level, player)
+        val afterTwoEphedra = player.getAttachedOrCreate(OutbreakAttachments.DATA)
+        check("eating two ephedra gives 1.0 ephedrine", abs(afterTwoEphedra.ephedrine - 1.0f) < 0.001f)
+        check("1.0 ephedrine is on threshold and does not trigger haste", !afterTwoEphedra.hasHasteFromEphedrine)
+
+        ItemStack(OutbreakItems.EPHEDRA, 1).finishUsingItem(level, player)
+        val afterThreeEphedra = player.getAttachedOrCreate(OutbreakAttachments.DATA)
+        check("eating three ephedra gives 1.5 ephedrine", abs(afterThreeEphedra.ephedrine - 1.5f) < 0.001f)
+        check("1.5 ephedrine triggers haste", afterThreeEphedra.hasHasteFromEphedrine)
+
+        // Ephedrine potion item
+        player.setAttached(OutbreakAttachments.DATA, OutbreakData.HEALTHY)
+        ItemStack(OutbreakItems.EPHEDRINE, 1).finishUsingItem(level, player)
+        val afterPotion = player.getAttachedOrCreate(OutbreakAttachments.DATA)
+        logger.info("PHYS ephedrine potion drunk: {}", afterPotion.ephedrine)
+        check("drinking ephedrine potion adds 2.5 ephedrine", abs(afterPotion.ephedrine - 2.5f) < 0.001f)
+        check("ephedrine potion triggers haste", afterPotion.hasHasteFromEphedrine)
+
+        // Ephedrine cap
+        val capped = OutbreakPhysiology.addEphedrine(OutbreakData.HEALTHY, 10f)
+        check("ephedrine is capped at 5.0", capped.ephedrine == OutbreakData.EPHEDRINE_CAP)
+
+        // Symptoms apply Haste I when ephedrine > 1.0
+        player.setAttached(OutbreakAttachments.DATA, OutbreakData.HEALTHY.copy(ephedrine = 1.5f))
+        OutbreakSymptoms.tick(player)
+        check("ephedrine > 1 grants haste effect", player.hasEffect(MobEffects.HASTE))
+        val hasteAmp = player.getEffect(MobEffects.HASTE)?.amplifier ?: -1
+        check("haste level is 1 (amplifier 0)", hasteAmp == 0)
+
+        // Ephedrine decay: metabolized completely in 1 in-game day (24000 ticks)
+        var decaySim = OutbreakData.HEALTHY.copy(ephedrine = 5.0f)
+        repeat(12000) { decaySim = OutbreakPhysiology.tick(decaySim) }
+        check("ephedrine at 12000 ticks is halfway (2.5)", abs(decaySim.ephedrine - 2.5f) < 0.01f)
+        repeat(12000) { decaySim = OutbreakPhysiology.tick(decaySim) }
+        check("ephedrine at 24000 ticks is completely cleared to 0", decaySim.ephedrine == 0f)
+
         // PlayerMixin scales food exhaustion.
         player.setAttached(OutbreakAttachments.DATA, OutbreakData.HEALTHY)
         val healthyMultiplier = OutbreakSymptoms.exhaustionMultiplier(player)

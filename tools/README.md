@@ -105,9 +105,12 @@ that the drug blur stacks with them and that exactly one trip stage is on the sc
 drives a real `GrindstoneMenu` to prove the two grindstone
 mixins applied, rolls the chest-loot pool
 the mod actually adds, freezes a creative player and respawns a dead one, and checks the exhaustion
-multiplier, the mining penalty and the synced client state. It also enumerates every item and entity
+multiplier, the mining penalty and the synced client state. It also exercises the ephedra
+and ephedrine system: eating ephedra (+0.5 ephedrine), purified ephedrine (+2.5 ephedrine),
+capping at 5.0, granting Haste I when > 1.0, and 1-game-day (24000 ticks) linear metabolism decay.
+It also enumerates every item and entity
 type the mod registers and fails, naming the key, if any of them has no name in `en_us.json` or
-`zh_cn.json` or `ja_jp.json`. 367 checks.
+`zh_cn.json` or `ja_jp.json`. 381 checks.
 
 ### Running either one
 

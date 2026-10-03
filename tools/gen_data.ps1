@@ -382,6 +382,7 @@ $blockEntries = [ordered]@{
     'fermentation_tank'       = 'Glass Fermentation Tank'
     'condenser_pipe'          = 'Glass Condenser Pipe'
     'alcohol_cauldron'        = 'Alcohol Cauldron'
+    'ephedra'                 = 'Ephedra'
 }
 
 $itemEntries = [ordered]@{
@@ -416,6 +417,9 @@ $itemEntries = [ordered]@{
     'cooked_gymnopilus'            = 'Cooked Gymnopilus'
     'brewer_yeast'                 = "Brewer's Yeast"
     'wine'                         = 'Wine'
+    'ephedra'                      = 'Ephedra'
+    'crushed_ephedra'              = 'Crushed Ephedra'
+    'ephedrine'                    = 'Ephedrine Potion'
 }
 
 # the two boats are plain items that also have entity names, like vanilla's
@@ -2035,6 +2039,215 @@ Write-Json "assets/$ns/items/wine.json" @"
     "type": "minecraft:model",
     "model": "$ns`:item/wine"
   }
+}
+"@
+
+# 6. Ephedra & Ephedrine
+Write-Json "assets/$ns/blockstates/ephedra.json" @"
+{
+  "variants": {
+    "age=0": { "model": "$ns`:block/ephedra_stage0" },
+    "age=1": { "model": "$ns`:block/ephedra_stage1" },
+    "age=2": { "model": "$ns`:block/ephedra_stage2" },
+    "age=3": { "model": "$ns`:block/ephedra_stage3" }
+  }
+}
+"@
+
+foreach ($stage in 0..3) {
+    Write-Json "assets/$ns/models/block/ephedra_stage$stage.json" @"
+{
+  "parent": "minecraft:block/cross",
+  "textures": {
+    "cross": "$ns`:block/ephedra_stage$stage"
+  }
+}
+"@
+}
+
+Write-Json "assets/$ns/models/item/ephedra.json" @"
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "$ns`:item/ephedra"
+  }
+}
+"@
+Write-Json "assets/$ns/items/ephedra.json" @"
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "$ns`:item/ephedra"
+  }
+}
+"@
+
+Write-Json "assets/$ns/models/item/crushed_ephedra.json" @"
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "$ns`:item/crushed_ephedra"
+  }
+}
+"@
+Write-Json "assets/$ns/items/crushed_ephedra.json" @"
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "$ns`:item/crushed_ephedra"
+  }
+}
+"@
+
+Write-Json "assets/$ns/models/item/ephedrine.json" @"
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "$ns`:item/ephedrine"
+  }
+}
+"@
+Write-Json "assets/$ns/items/ephedrine.json" @"
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "$ns`:item/ephedrine"
+  }
+}
+"@
+
+Write-Json "data/$ns/loot_table/blocks/ephedra.json" @"
+{
+  "type": "minecraft:block",
+  "modifier": {
+    "type": "minecraft:explosion_decay"
+  },
+  "pools": [
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "$ns`:ephedra"
+        }
+      ],
+      "modifier": [
+        {
+          "type": "minecraft:set_count",
+          "count": {
+            "type": "minecraft:uniform",
+            "min": 1,
+            "max": 2
+          },
+          "condition": {
+            "type": "minecraft:match_block",
+            "blocks": "$ns`:ephedra",
+            "state": {
+              "age": "3"
+            }
+          }
+        },
+        {
+          "type": "minecraft:apply_bonus",
+          "enchantment": "minecraft:fortune",
+          "formula": "minecraft:uniform_bonus_count",
+          "parameters": {
+            "bonusMultiplier": 1
+          },
+          "condition": {
+            "type": "minecraft:match_block",
+            "blocks": "$ns`:ephedra",
+            "state": {
+              "age": "3"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "random_sequence": "$ns`:blocks/ephedra"
+}
+"@
+
+Write-Json "data/$ns/recipe/ephedrine.json" @"
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "minecraft:glass_bottle",
+    "$ns`:crushed_ephedra"
+  ],
+  "result": {
+    "count": 1,
+    "id": "$ns`:ephedrine"
+  }
+}
+"@
+
+Write-Json "data/$ns/recipe/crushed_ephedra_from_shears.json" @"
+{
+  "type": "$ns`:crafting_shear_ephedra",
+  "category": "misc"
+}
+"@
+
+Write-Json "data/$ns/worldgen/feature/ephedra.json" @"
+{
+  "type": "minecraft:simple_block",
+  "to_place": {
+    "id": "$ns`:ephedra",
+    "properties": {
+      "age": "3"
+    }
+  }
+}
+"@
+
+Write-Json "data/$ns/worldgen/placed_feature/ephedra_patch.json" @"
+{
+  "feature": "$ns`:ephedra",
+  "placement": [
+    {
+      "type": "minecraft:rarity_filter",
+      "chance": 8
+    },
+    {
+      "type": "minecraft:in_square"
+    },
+    {
+      "type": "minecraft:heightmap",
+      "heightmap": "WORLD_SURFACE_WG"
+    },
+    {
+      "type": "minecraft:biome"
+    },
+    {
+      "type": "minecraft:block_predicate_filter",
+      "predicate": {
+        "type": "minecraft:all_of",
+        "predicates": [
+          {
+            "type": "minecraft:matching_block_tag",
+            "tag": "minecraft:air"
+          },
+          {
+            "type": "minecraft:matching_blocks",
+            "blocks": [
+              "minecraft:sand",
+              "minecraft:red_sand",
+              "minecraft:terracotta",
+              "minecraft:grass_block"
+            ],
+            "offset": [
+              0,
+              -1,
+              0
+            ]
+          }
+        ]
+      }
+    }
+  ]
 }
 "@
 

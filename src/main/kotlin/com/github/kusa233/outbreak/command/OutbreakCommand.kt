@@ -34,6 +34,7 @@ object OutbreakCommand {
         "salicin", "dexamethasone",
         "scopolamine", "atropine",
         "psilocybin", "psilocin",
+        "ephedrine",
         "temperature", "pyrogen",
     )
 
@@ -136,6 +137,10 @@ object OutbreakCommand {
                 data.psilocybin, data.psilocin, data.psilocinTier,
                 if (data.psilocin > 5f) "  [drug fever]" else "",
             ),
+            "  ephedra  ephedrine %.2f%s".format(
+                data.ephedrine,
+                if (data.hasHasteFromEphedrine) "  [haste I]" else "",
+            ),
         )
         for (line in lines) {
             context.source.sendSuccess({ Component.literal(line) }, false)
@@ -190,6 +195,7 @@ object OutbreakCommand {
             "atropine" -> data.withAtropine(clamp(value, OutbreakData.ANTICHOLINERGIC_CAP))
             "psilocybin" -> data.withPsilocybin(clamp(value, OutbreakData.PSILOCYBIN_CAP))
             "psilocin" -> data.withPsilocin(clamp(value, OutbreakData.PSILOCIN_CAP))
+            "ephedrine" -> data.withEphedrine(clamp(value, OutbreakData.EPHEDRINE_CAP))
             // Setting the temperature moves the body itself; setting the pyrogen moves the target
             // it is walking towards, which is what makes a fever persist.
             "temperature" -> data.copy(

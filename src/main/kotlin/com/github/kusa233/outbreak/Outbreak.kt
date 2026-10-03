@@ -9,6 +9,7 @@ import com.github.kusa233.outbreak.registry.OutbreakBlocks
 import com.github.kusa233.outbreak.registry.OutbreakCreativeTabs
 import com.github.kusa233.outbreak.registry.OutbreakEntities
 import com.github.kusa233.outbreak.registry.OutbreakItems
+import com.github.kusa233.outbreak.registry.OutbreakRecipes
 import com.github.kusa233.outbreak.registry.OutbreakWorldGen
 import com.github.kusa233.outbreak.world.OutbreakLoot
 import com.github.kusa233.outbreak.world.tree.OutbreakTreeDecorators
@@ -34,6 +35,7 @@ class Outbreak : ModInitializer {
         OutbreakBlocks.initialize()
         OutbreakEntities.initialize()
         OutbreakItems.initialize()
+        OutbreakRecipes.initialize()
         OutbreakBlockEntities.initialize()
         OutbreakCreativeTabs.initialize()
         OutbreakWorldGen.initialize()

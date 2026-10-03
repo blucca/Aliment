@@ -98,4 +98,10 @@ object OutbreakPhysiology {
      */
     fun mushroom(data: OutbreakData, psilocybin: Float, psilocin: Float): OutbreakData =
         OutbreakModelBridge.mushroom(data, psilocybin, psilocin)
+
+    /**
+     * Adds ephedrine, the stimulant alkaloid, capped at [OutbreakData.EPHEDRINE_CAP].
+     */
+    fun addEphedrine(data: OutbreakData, amount: Float): OutbreakData =
+        OutbreakModelBridge.addEphedrine(data, amount)
 }
