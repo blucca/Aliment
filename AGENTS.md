@@ -1,7 +1,7 @@
 # Outbreak
 
-Fabric mod for Minecraft 26.3 (Scala 3.9 / Kotlin 2.4 / Java 25). See `WILLOW.md` and `PHYSIOLOGY.md`
-for the content documentation, and `tools/README.md` for the asset generators and dev self tests.
+Fabric mod for Minecraft 26.3 (Scala 3.9 / Kotlin 2.4 / Java 25). See `SPOILER.md`, `PHYSIOLOGY.md`, and
+`TECHNICAL.md` for the content and architecture documentation, and `tools/README.md` for asset generators and dev self tests.
 
 ## Languages: where code goes
 
