@@ -10,6 +10,7 @@ import com.github.kusa233.aliment.world.block.GymnopilusBlock
 import com.github.kusa233.aliment.world.block.LicoriceBlock
 import com.github.kusa233.aliment.world.block.MandrakeBlock
 import com.github.kusa233.aliment.world.block.PhellodendronBlock
+import com.github.kusa233.aliment.world.block.SeaweedBlock
 import com.github.kusa233.aliment.world.block.WillowSoupCauldronBlock
 import com.github.kusa233.aliment.world.block.WillowVinesBlock
 import com.github.kusa233.aliment.world.block.WillowVinesPlantBlock
@@ -417,6 +418,20 @@ object AlimentBlocks {
             .offsetType(BlockBehaviour.OffsetType.XZ)
             .pushReaction(PushReaction.POPPED),
     ) { LicoriceBlock(it) }
+
+    /**
+     * Seaweed (海藻): an underwater edible crop with 4 growth stages, yielding iodine.
+     */
+    val SEAWEED: Block = Registration.registerBlock(
+        "seaweed",
+        BlockBehaviour.Properties.of()
+            .mapColor(MapColor.PLANT)
+            .noCollision()
+            .randomTicks()
+            .instabreak()
+            .sound(SoundType.WET_GRASS)
+            .pushReaction(PushReaction.POPPED),
+    ) { SeaweedBlock(it) }
 
     // ---------------------------------------------------------------- brewing & distillation
 

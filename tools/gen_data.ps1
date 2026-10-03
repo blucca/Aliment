@@ -386,6 +386,7 @@ $blockEntries = [ordered]@{
     'coptis'                  = 'Coptis'
     'phellodendron'           = 'Phellodendron'
     'licorice'                = 'Licorice'
+    'seaweed'                 = 'Seaweed'
 }
 
 $itemEntries = [ordered]@{
@@ -432,6 +433,8 @@ $itemEntries = [ordered]@{
     'licorice'                     = 'Licorice'
     'crushed_licorice'             = 'Crushed Licorice'
     'licorice_potion'              = 'Licorice Potion'
+    'seaweed'                      = 'Seaweed'
+    'cooked_seaweed'               = 'Cooked Seaweed'
 }
 
 # the two boats are plain items that also have entity names, like vanilla's

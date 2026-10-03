@@ -108,6 +108,9 @@ object AlimentCreativeTabs {
         AlimentItems.LICORICE,
         AlimentItems.CRUSHED_LICORICE,
         AlimentItems.LICORICE_POTION,
+        // seaweed
+        AlimentItems.SEAWEED,
+        AlimentItems.COOKED_SEAWEED,
     )
 
     /**
@@ -118,7 +121,7 @@ object AlimentCreativeTabs {
         BuiltInRegistries.CREATIVE_MODE_TAB,
         TAB_KEY,
         CreativeModeTab.builder(CreativeModeTab.Row.TOP, TAB_COLUMN)
-            .title(Component.translatable("itemGroup.Aliment.main"))
+            .title(Component.translatable("itemGroup.aliment.main"))
             .icon { ItemStack(AlimentBlocks.WILLOW_SAPLING) }
             .displayItems { _, output -> CONTENT.forEach(output::accept) }
             .build(),

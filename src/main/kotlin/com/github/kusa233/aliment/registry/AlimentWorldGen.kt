@@ -47,6 +47,9 @@ object AlimentWorldGen {
     val LICORICE_PATCH: ResourceKey<PlacedFeature> =
         ResourceKey.create(Registries.PLACED_FEATURE, Registration.id("licorice_patch"))
 
+    val SEAWEED_PATCH: ResourceKey<PlacedFeature> =
+        ResourceKey.create(Registries.PLACED_FEATURE, Registration.id("seaweed_patch"))
+
     /**
      * Where a mandrake grows wild: both plains and both swamps, since a sunflower plain is still a
      * plain and a mangrove swamp is still a swamp.
@@ -129,6 +132,11 @@ object AlimentWorldGen {
             nonColdOverworld,
             GenerationStep.Decoration.VEGETAL_DECORATION,
             LICORICE_PATCH,
+        )
+        BiomeModifications.addFeature(
+            BiomeSelectors.tag(BiomeTags.IS_OCEAN),
+            GenerationStep.Decoration.VEGETAL_DECORATION,
+            SEAWEED_PATCH,
         )
     }
 }

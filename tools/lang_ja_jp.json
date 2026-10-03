@@ -1,4 +1,4 @@
-﻿{
+{
   "itemGroup.aliment.main": "アウトブレイク",
   "willow_log": "ヤナギの原木",
   "willow_wood": "ヤナギの木",
@@ -73,6 +73,8 @@
   "licorice": "カンゾウ",
   "crushed_licorice": "砕いたカンゾウ",
   "licorice_potion": "甘草水薬",
+  "seaweed": "海藻",
+  "cooked_seaweed": "焼き海藻",
   "tooltip.aliment.wine.concentration": "アルコール度数: %s",
   "advancements.aliment.ancient_anti_inflammatory.title": "古代の抗炎症",
   "advancements.aliment.ancient_anti_inflammatory.description": "ヤナギの樹皮を入手する",

@@ -1642,6 +1642,17 @@ class AlimentPhysiologySelfTest : ModInitializer {
         check("kelp adds 0.10 umol/L of iodine", abs(afterKelp - 0.40f) < 0.001f)
         check("dried kelp adds 0.20 umol/L", abs(afterDried - 0.50f) < 0.001f)
 
+        // Seaweed and Cooked Seaweed: direct rich sources of iodine.
+        player.setAttached(AlimentAttachments.DATA, deficient)
+        ItemStack(AlimentItems.SEAWEED, 1).finishUsingItem(level, player)
+        val afterSeaweed = player.getAttachedOrCreate(AlimentAttachments.DATA).traceElements.iodine
+        player.setAttached(AlimentAttachments.DATA, deficient)
+        ItemStack(AlimentItems.COOKED_SEAWEED, 1).finishUsingItem(level, player)
+        val afterCookedSeaweed = player.getAttachedOrCreate(AlimentAttachments.DATA).traceElements.iodine
+        logger.info("PHYS iodine from seaweed {} / cooked seaweed {}", afterSeaweed, afterCookedSeaweed)
+        check("raw seaweed adds 1.0 umol/L of iodine", abs(afterSeaweed - 1.30f) < 0.001f)
+        check("cooked seaweed adds 1.5 umol/L of iodine", abs(afterCookedSeaweed - 1.80f) < 0.001f)
+
         // The mandrake, eaten: the fruit and the seeds both carry the two alkaloids.
         player.setAttached(AlimentAttachments.DATA, AlimentData.HEALTHY)
         ItemStack(AlimentItems.MANDRAKE_FRUIT, 1).finishUsingItem(level, player)

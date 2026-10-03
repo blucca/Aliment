@@ -62,6 +62,8 @@ object AlimentIngestion {
      */
     private const val KELP_IODINE = 0.10f
     private const val DRIED_KELP_IODINE = 0.20f
+    private const val SEAWEED_IODINE = 1.0f
+    private const val COOKED_SEAWEED_IODINE = 1.5f
 
     /** What one mandrake fruit carries, in dose units; the seeds are the same plant, watered down. */
     private const val FRUIT_SCOPOLAMINE = 1.0f
@@ -173,10 +175,12 @@ object AlimentIngestion {
             data = AlimentPhysiology.dose(data, SALICIN_PER_SERVING)
         }
 
-        // Kelp is the only dietary source of iodine, so it is the only way to stop the slow drain.
+        // Kelp and seaweed are dietary sources of iodine, stopping the slow drain.
         when (stack.item) {
             Items.KELP -> data = AlimentPhysiology.iodine(data, KELP_IODINE)
             Items.DRIED_KELP -> data = AlimentPhysiology.iodine(data, DRIED_KELP_IODINE)
+            AlimentItems.SEAWEED -> data = AlimentPhysiology.iodine(data, SEAWEED_IODINE)
+            AlimentItems.COOKED_SEAWEED -> data = AlimentPhysiology.iodine(data, COOKED_SEAWEED_IODINE)
 
             // The mandrake: scopolamine for the delirium, atropine for the dry mouth and the fever
             // that comes with it. A fruit is a full dose of the first, the seeds three quarters.

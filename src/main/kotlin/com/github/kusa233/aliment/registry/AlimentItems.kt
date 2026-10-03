@@ -425,7 +425,25 @@ object AlimentItems {
             .stacksTo(16),
     ) { Item(it) }
 
+    // ---------------------------------------------------------------- seaweed (海藻)
+
+    /** Seaweed (海藻): underwater edible crop (+1.0 iodine), plantable or raw food. */
+    val SEAWEED: Item = Registration.registerItem(
+        "seaweed",
+        Item.Properties().food(seaweedFood()),
+    ) { BlockItem(AlimentBlocks.SEAWEED, it) }
+
+    /** Cooked Seaweed (熟海藻): cooked food (+1.5 iodine) from furnace, smoker or campfire. */
+    val COOKED_SEAWEED: Item = Registration.registerItem(
+        "cooked_seaweed",
+        Item.Properties().food(cookedSeaweedFood()),
+    ) { Item(it) }
+
     fun createWine(concentration: Float): ItemStack = WineItem.createStack(WINE, concentration)
+
+    private fun seaweedFood(): FoodProperties = buildFood(1, 0.2f, alwaysEdible = true)
+
+    private fun cookedSeaweedFood(): FoodProperties = buildFood(3, 0.6f, alwaysEdible = true)
 
     private fun ephedraFood(): FoodProperties = buildFood(1, 0.2f, alwaysEdible = true)
 

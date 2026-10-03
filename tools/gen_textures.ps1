@@ -1,4 +1,4 @@
-﻿# =====================================================================
+# =====================================================================
 #  Outbreak - Willow wood set texture generator
 #  Regenerates every PNG used by the willow wood set from scratch.
 #  Idempotent: deletes and recreates all target files.
@@ -1835,59 +1835,44 @@ function New-BrineTop([string]$colOut,[string]$baseCol,[string]$darkCol,[string]
 
 # ---------------------------------------------------------------------
 # B15. block/rock_salt_ore.png  (fully opaque)
-#      Vanilla-stone-like speckle with a few 2x2 clumps, then five embedded
-#      pale pink salt crystal clusters:
-#        H  crystal pale   P  crystal mid   q  crystal deep   W  sparkle
+#      Built directly on the vanilla stone/ore structure, differing only
+#      in the key mineral colors for authentic Jappa-style rock salt halite:
 # ---------------------------------------------------------------------
 function New-RockSaltOreBlock([string]$colOut){
-    $g = New-Grid 16 16
-    for($y=0;$y -lt 16;$y++){
-        for($x=0;$x -lt 16;$x++){
-            # clumpy base: a 5-tap blur of the value hash gives irregular
-            # blobs, which is how vanilla stone reads at 16x16 (per-pixel
-            # noise alone is flat static, 2x2 blocks look like a quilt)
-            $sm = 4.0 * (Noise $x $y 811)
-            $sm = $sm + (Noise ($x - 1) $y 811) + (Noise ($x + 1) $y 811)
-            $sm = $sm + (Noise $x ($y - 1) 811) + (Noise $x ($y + 1) 811)
-            $sm = $sm / 8.0
-            $col = $cOreStnB
-            if($sm -gt 0.660){ $col = $cOreStnL }
-            elseif($sm -lt 0.400){ $col = $cOreStnD }
-            $jn = Noise ($x*7) ($y*5) 823
-            if($jn -gt 0.92){ $col = $cOreStnL }
-            elseif($jn -lt 0.08){ $col = $cOreStnD }
-            $g[$x,$y] = $col
-        }
-    }
-    # a few larger dark and light chips so the stone is not uniform
-    foreach($cl in @(@(4,1,$cOreStnD),@(10,6,$cOreStnD),@(1,12,$cOreStnL),
-                     @(13,12,$cOreStnD),@(6,9,$cOreStnL))){
-        GridPx $g $cl[0] $cl[1] $cl[2]
-        GridPx $g ($cl[0]+1) $cl[1] $cl[2]
-        GridPx $g $cl[0] ($cl[1]+1) $cl[2]
-    }
-    $crustA = @('.HP.','HPWP','.qPq')
-    $crustB = @('HPq','qP.')
-    $clusters = @(@(1,3,'A'),@(10,2,'B'),@(11,8,'A'),@(2,10,'A'),@(7,12,'B'))
-    foreach($cl in $clusters){
-        $pat = $crustB
-        if($cl[2] -eq 'A'){ $pat = $crustA }
-        for($py=0;$py -lt $pat.Count;$py++){
-            $pline = $pat[$py]
-            for($px=0;$px -lt $pline.Length;$px++){
-                $pch = $pline.Substring($px,1)
-                $pc = ''
-                if($pch -ceq 'H'){ $pc = $cOreCrH }
-                elseif($pch -ceq 'P'){ $pc = $cOreCrM }
-                elseif($pch -ceq 'q'){ $pc = $cOreCrD }
-                elseif($pch -ceq 'W'){ $pc = $cOreCrW }
-                if($pc -ne ''){ GridPx $g ($cl[0] + $px) ($cl[1] + $py) $pc }
+    $jar = (Get-ChildItem -Path "$root\.gradle\loom-cache" -Recurse -Filter "*minecraft-clientOnly*.jar" -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
+    if ($jar -and (Test-Path $jar)) {
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        $zip = [System.IO.Compression.ZipFile]::OpenRead($jar)
+        $iEntry = $zip.GetEntry("assets/minecraft/textures/block/iron_ore.png")
+        if ($iEntry) {
+            $iStream = $iEntry.Open()
+            $ironBmp = [System.Drawing.Bitmap]::FromStream($iStream)
+            $iStream.Dispose()
+            $zip.Dispose()
+
+            $oreBmp = New-Object System.Drawing.Bitmap 16, 16
+            for ($y = 0; $y -lt 16; $y++) {
+                for ($x = 0; $x -lt 16; $x++) {
+                    $p = $ironBmp.GetPixel($x, $y)
+                    $hex = "{0:X2}{1:X2}{2:X2}" -f $p.R, $p.G, $p.B
+                    $newCol = switch ($hex) {
+                        "E2C0AA" { [System.Drawing.Color]::FromArgb(255, 255, 240, 243) } # Specular salt glint
+                        "D8AF93" { [System.Drawing.Color]::FromArgb(255, 242, 184, 194) } # Light pink halite
+                        "AF8E77" { [System.Drawing.Color]::FromArgb(255, 212, 122, 136) } # Mid rose rock salt
+                        "887455" { [System.Drawing.Color]::FromArgb(255, 156, 72, 86)   } # Deep mineral shadow
+                        "77674F" { [System.Drawing.Color]::FromArgb(255, 99, 43, 52)    } # Dark contact crevice
+                        default  { $p }
+                    }
+                    $oreBmp.SetPixel($x, $y, $newCol)
+                }
             }
+            $oreBmp.Save($colOut, [System.Drawing.Imaging.ImageFormat]::Png)
+            $oreBmp.Dispose()
+            $ironBmp.Dispose()
+            return
         }
-        # a dark chip under the cluster so the crystal reads as embedded
-        GridPx $g ($cl[0] + 1) ($cl[1] + $pat.Count) $cOreStnD
+        $zip.Dispose()
     }
-    Save-Png $colOut $g 16 16
 }
 
 # ---------------------------------------------------------------------
