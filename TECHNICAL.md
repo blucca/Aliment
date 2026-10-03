@@ -62,7 +62,7 @@ To guarantee the pure mathematical integrity of physiological calculations and e
 ### 2.1 Independent `compileModelScala` Task
 The standard Gradle Scala plugin's `compileScala` task unconditionally depends on `compileJava`, regardless of whether Java sources exist in that source set. This creates an unresolvable cyclic dependency:
 
-$$\text{compileJava} \rightarrow \text{compileKotlin} \rightarrow \text{compileScala} \rightarrow \text{compileJava}$$
+![\text{compileJava} \rightarrow \text{compileKotlin} \rightarrow \text{compileSca](maths/math_0592f54693cf.png)
 
 **Solution**:
 A custom `ScalaCompile` task named `compileModelScala` is explicitly configured in `build.gradle.kts` with four underlying conventions:

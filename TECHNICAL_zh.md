@@ -62,7 +62,7 @@
 ### 2.1 独立的 `compileModelScala` 编译任务
 Gradle 原生 Scala 插件默认的 `compileScala` 任务无条件依赖 `compileJava`，无论源码集里是否有 Java 代码。这会导致不可解的循环依赖：
 
-$$\text{compileJava} \rightarrow \text{compileKotlin} \rightarrow \text{compileScala} \rightarrow \text{compileJava}$$
+![\text{compileJava} \rightarrow \text{compileKotlin} \rightarrow \text{compileSca](maths/math_0592f54693cf.png)
 
 **解决方案**：
 在 `build.gradle.kts` 中通过手写独立的 `ScalaCompile` 任务（命名为 `compileModelScala`），并配置四项底层约定：

@@ -22,3 +22,4 @@ bin/
 .*/
 # Fabric / Loom development environment
 run/
+node_modules/

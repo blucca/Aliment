@@ -21,7 +21,7 @@ Aliment（供养）的核心系统：每个玩家体内持续演算的一套**�
 
 炎症指数不再是单一数值，而是由五种介质**加权求和**得来：
 
-$$\mathcal{I} = \sum_{i=1}^5 w_i M_i = 0.15 \cdot H + 0.20 \cdot P + 0.15 \cdot L_k + 0.35 \cdot C + 0.15 \cdot B$$
+![\mathcal{I} = \sum_{i=1}^5 w_i M_i = 0.15 \cdot H + 0.20 \cdot P + 0.15 \cdot L_](maths/math_3d4d9a8fb7a9.png)
 
 其中：
 * $H$：组胺（Histamine）
@@ -40,7 +40,7 @@ $$\mathcal{I} = \sum_{i=1}^5 w_i M_i = 0.15 \cdot H + 0.20 \cdot P + 0.15 \cdot 
 
 安静状态下这五项分别是 `(H, P, L_k, C, B) = (25.0, 30.0, 30.0, 20.0, 25.0)`，加权和**正好 25.0**（安全区中点）：
 
-$$\mathcal{I}_{\text{resting}} = 0.15(25) + 0.20(30) + 0.15(30) + 0.35(20) + 0.15(25) = 25.0$$
+![\mathcal{I}_{\text{resting}} = 0.15(25) + 0.20(30) + 0.15(30) + 0.35(20) + 0.15(](maths/math_8387fdaaf4aa.png)
 
 公式详见 `ModelMediators.getInflammation`（权重在 `MediatorLevels`）。
 
@@ -101,7 +101,7 @@ $$\mathcal{I}_{\text{resting}} = 0.15(25) + 0.20(30) + 0.15(30) + 0.35(20) + 0.1
 
 * **一级动力学代谢消除（浓度越高排出越快）**：
 
-  $$\frac{dC}{dt} = -k \cdot C, \quad k = \frac{\ln(2)}{120000} \approx 5.776 \times 10^{-6}\text{ / tick}$$
+  ![\frac{dC}{dt} = -k \cdot C, \quad k = \frac{\ln(2)}{120000} \approx 5.776 \times](maths/math_6e2c5b71c6b5.png)
 
   - **排出速率正比于当前体内浓度**：血清浓度高时排泄速率极快，低浓度时排泄显著减缓；
   - **衰减半衰期为 5 个游戏日（120,000 ticks）**：当玩家处于正常范围最大值（**80.0 µmol/L**）且不吃任何植物性食物时，恰好需要整整 **5 个游戏日** 代谢掉至异常线（**40.0 µmol/L**）。
@@ -172,9 +172,9 @@ $$\mathcal{I}_{\text{resting}} = 0.15(25) + 0.20(30) + 0.15(30) + 0.35(20) + 0.1
 
 * **零级代谢消除动力学方程**：
 
-  $$\frac{d[\text{Salicin}]}{dt} = - \frac{3.0}{72000} = - \frac{1}{24000} \approx -4.167 \times 10^{-5}\text{ / tick}$$
+  ![\frac{d[\text{Salicin}]}{dt} = - \frac{3.0}{72000} = - \frac{1}{24000} \approx -](maths/math_344f8949cc74.png)
 
-  $$\frac{d[\text{Dex}]}{dt} = - \frac{2.0}{48000} = - \frac{1}{24000} \approx -4.167 \times 10^{-5}\text{ / tick}$$
+  ![\frac{d[\text{Dex}]}{dt} = - \frac{2.0}{48000} = - \frac{1}{24000} \approx -4.16](maths/math_94ce85c57641.png)
 
 > **关键机制澄清**：**水杨苷与地塞米松均不直接杀灭或清除病原体**。它们的生理本质是**抗炎与免疫抑制**：
 > - 适量使用可防止炎症过高导致的免疫风暴（炎症 ≥ 75 免疫功能同样崩溃并灼伤机体）；
@@ -185,7 +185,7 @@ $$\mathcal{I}_{\text{resting}} = 0.15(25) + 0.20(30) + 0.15(30) + 0.35(20) + 0.1
 
 曼陀罗（果实与种子，吃了才有）带进来两个独立数据，各自上限 **5.0**，**一个游戏日线性代谢完**：
 
-$$\frac{d S_{\text{scop}}}{dt} = - \frac{5.0}{24000} \approx -2.083 \times 10^{-4}\text{ / tick}, \quad \frac{d A_{\text{atro}}}{dt} = - \frac{5.0}{24000} \approx -2.083 \times 10^{-4}\text{ / tick}$$
+![\frac{d S_{\text{scop}}}{dt} = - \frac{5.0}{24000} \approx -2.083 \times 10^{-4}](maths/math_188c26933c51.png)
 
 | 吃的东西 | 东莨菪碱 ($S_{\text{scop}}$) | 阿托品 ($A_{\text{atro}}$) |
 | --- | --- | --- |
@@ -194,11 +194,11 @@ $$\frac{d S_{\text{scop}}}{dt} = - \frac{5.0}{24000} \approx -2.083 \times 10^{-
 
 两者之和 $\Sigma_{\text{alk}} = S_{\text{scop}} + A_{\text{atro}}$ 决定**体温**（设定点上移，不走前列腺素，所以**水杨苷退不掉**）：
 
-$$\Delta T_{\text{anticholinergic}} = \begin{cases} 0\ ^\circ\text{C}, & \Sigma_{\text{alk}} < 1.5 \\ 1.0\ ^\circ\text{C} \implies T \to 38.0\ ^\circ\text{C}, & 1.5 \le \Sigma_{\text{alk}} < 2.5 \\ 2.5\ ^\circ\text{C} \implies T \to 39.5\ ^\circ\text{C}, & 2.5 \le \Sigma_{\text{alk}} < 4.0 \\ 4.0\ ^\circ\text{C} \implies T \to 41.0\ ^\circ\text{C}, & \Sigma_{\text{alk}} \ge 4.0 \end{cases}$$
+![\Delta T_{\text{anticholinergic}} = \begin{cases} 0\ ^\circ\text{C}, & \Sigma_{\](maths/math_49396f0477ed.png)
 
 单个或合计决定**视觉模糊**：
 
-$$\text{视觉模糊激活} \iff S_{\text{scop}} \ge 2.3 \lor A_{\text{atro}} \ge 2.3 \lor \Sigma_{\text{alk}} \ge 2.7$$
+![\text{视觉模糊激活} \iff S_{\text{scop}} \ge 2.3 \lor A_{\text{atro}} \ge 2.3 \lor \Si](maths/math_d18488021cc4.png)
 
 激活时雾收到 **8 格**，8 格外的方块全糊掉。
 
@@ -221,9 +221,9 @@ $$\text{视觉模糊激活} \iff S_{\text{scop}} \ge 2.3 \lor A_{\text{atro}} \g
 
 * **前药转化与零级代谢动力学**：
 
-  $$\frac{d[\text{Psilocybin}]}{dt} = - \min\left([\text{Psilocybin}], \frac{1.3}{12000}\right)$$
+  ![\frac{d[\text{Psilocybin}]}{dt} = - \min\left([\text{Psilocybin}], \frac{1.3}{12](maths/math_0f3da0456f03.png)
 
-  $$\frac{d[\text{Psilocin}]}{dt} = \min\left([\text{Psilocybin}], \frac{1.3}{12000}\right) - \frac{1.3}{24000}$$
+  ![\frac{d[\text{Psilocin}]}{dt} = \min\left([\text{Psilocybin}], \frac{1.3}{12000}](maths/math_d346b4d8c7ef.png)
 
   其中 $\frac{1.3}{12000} \approx 1.083 \times 10^{-4}\text{ / tick}$，$\frac{1.3}{24000} \approx 5.417 \times 10^{-5}\text{ / tick}$。
 
@@ -303,13 +303,13 @@ $$\text{视觉模糊激活} \iff S_{\text{scop}} \ge 2.3 \lor A_{\text{atro}} \g
 
 病原体基础逻辑斯蒂增殖速率：
 
-$$\frac{dL_{\text{base}}}{dt} = r \cdot L \cdot \left(1 - \frac{L}{K}\right)$$
+![\frac{dL_{\text{base}}}{dt} = r \cdot L \cdot \left(1 - \frac{L}{K}\right)](maths/math_b380976f6d1d.png)
 
 其中 $r = 0.0004\text{ / tick}$，环境容纳上限 $K = 100.0$。
 
 机体免疫系统主动清除速率：
 
-$$C_{\text{immune}} = \begin{cases} 0, & \text{if } \neg\text{immuneActive} \land L \le 20.0 \\ \left(\dfrac{dL_{\text{base}}}{dt} + c_0\right) \cdot \eta(\mathcal{I}), & \text{otherwise} \end{cases}$$
+![C_{\text{immune}} = \begin{cases} 0, & \text{if } \neg\text{immuneActive} \land ](maths/math_ab3dbc5c1ffd.png)
 
 其中 $c_0 = \dfrac{20.0}{48000} \approx 4.1667 \times 10^{-4}\text{ / tick}$，$\eta(\mathcal{I})$ 为综合炎症效能函数。
 
@@ -329,7 +329,7 @@ $$C_{\text{immune}} = \begin{cases} 0, & \text{if } \neg\text{immuneActive} \lan
 
 免疫效能 $\eta(\mathcal{I})$ 呈非对称高斯钟形曲线，在安全区（25.0）最高，两侧塌陷：
 
-$$\eta(\mathcal{I}) = \begin{cases} \exp\left(-\dfrac{(\mathcal{I} - 25.0)^2}{2 \cdot 10.0^2}\right), & \mathcal{I} < 25.0 \\[8pt] \exp\left(-\dfrac{(\mathcal{I} - 25.0)^2}{2 \cdot 15.0^2}\right), & \mathcal{I} \ge 25.0 \end{cases}$$
+![\eta(\mathcal{I}) = \begin{cases} \exp\left(-\dfrac{(\mathcal{I} - 25.0)^2}{2 \c](maths/math_e55702340b9c.png)
 
 | 炎症 $\mathcal{I}$ | 0 | 6 | 12 | 25 | 40 | 50 | 75 | 100 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -341,30 +341,30 @@ $$\eta(\mathcal{I}) = \begin{cases} \exp\left(-\dfrac{(\mathcal{I} - 25.0)^2}{2 
 
 感染刺激强度分段函数 $S(L)$：
 
-$$S(L) = \begin{cases} 0, & \text{if } \neg\text{immuneActive} \land L \le 20.0 \\ \dfrac{L - 20.0}{35.0}, & \text{if } 20.0 < L \le 55.0 \\ 1.0 + 2.5 \cdot \dfrac{L - 55.0}{45.0}, & \text{if } L > 55.0 \end{cases}$$
+![S(L) = \begin{cases} 0, & \text{if } \neg\text{immuneActive} \land L \le 20.0 \\](maths/math_df3f6442e66c.png)
 
 抗炎药物抑制与响应阻尼（水杨苷与地塞米松）：
 设 $D_{\text{sal}}$ 与 $D_{\text{dex}}$ 分别为水杨苷与地塞米松的当前体内有效浓度（起效基准 $D_{\text{sal,eff}} = 1.0, D_{\text{dex,eff}} = 1.0$）：
 
-$$s_{\text{sal}} = \frac{D_{\text{sal}}}{1.0}, \quad s_{\text{dex}} = \frac{D_{\text{dex}}}{1.0}$$
+![s_{\text{sal}} = \frac{D_{\text{sal}}}{1.0}, \quad s_{\text{dex}} = \frac{D_{\te](maths/math_bc4cce392c6d.png)
 
-$$f_{\text{sal}} = \min(s_{\text{sal}}, 1.0), \quad f_{\text{dex}} = \min(s_{\text{dex}}, 1.0)$$
+![f_{\text{sal}} = \min(s_{\text{sal}}, 1.0), \quad f_{\text{dex}} = \min(s_{\text](maths/math_2c3a2ca5d543.png)
 
-$$\delta_{\text{damp}} = \max\left(1.0 - 0.88 \cdot \max(f_{\text{sal}}, f_{\text{dex}}), 0.05\right)$$
+![\delta_{\text{damp}} = \max\left(1.0 - 0.88 \cdot \max(f_{\text{sal}}, f_{\text{](maths/math_e45f5f7d1191.png)
 
-$$\text{Overdose} = \max(s_{\text{sal}} - 1.0, 0) + \max(s_{\text{dex}} - 1.0, 0)$$
+![\text{Overdose} = \max(s_{\text{sal}} - 1.0, 0) + \max(s_{\text{dex}} - 1.0, 0)](maths/math_9ec04159a02b.png)
 
-$$\beta_{\text{base}} = \max(1.0 - 0.5 \cdot \text{Overdose}, 0.0)$$
+![\beta_{\text{base}} = \max(1.0 - 0.5 \cdot \text{Overdose}, 0.0)](maths/math_f6fd5293255e.png)
 
 各介质的目标渐近值公式 ($M_{i,\text{target}}$)：
 
-$$\begin{aligned} C_{\text{target}} &= C_{\text{base}} \cdot \beta_{\text{base}} + 100.0 \cdot S(L) \cdot \delta_{\text{damp}} \cdot (1.0 - 0.4 \cdot f_{\text{dex}}) \\ H_{\text{target}} &= H_{\text{base}} \cdot \beta_{\text{base}} + 45.0 \cdot S(L) \cdot \delta_{\text{damp}} \\ B_{\text{target}} &= B_{\text{base}} \cdot \beta_{\text{base}} + 60.0 \cdot S(L) \cdot \delta_{\text{damp}} \\ P_{\text{target}} &= P_{\text{base}} \cdot \beta_{\text{base}} + \left(0.5 \cdot C_{\text{target}} + 25.0 \cdot S(L)\right) \cdot \delta_{\text{damp}} \cdot (1.0 - 0.5 \cdot f_{\text{sal}}) \\ L_{k,\text{target}} &= L_{k,\text{base}} \cdot \beta_{\text{base}} + \left(0.5 \cdot C_{\text{target}} + 20.0 \cdot S(L)\right) \cdot \delta_{\text{damp}} \cdot (1.0 - 0.4 \cdot f_{\text{dex}}) \end{aligned}$$
+![\begin{aligned} C_{\text{target}} &= C_{\text{base}} \cdot \beta_{\text{base}} +](maths/math_c5bfeb4fbce6.png)
 
 其中静息基准值为 $(H_{\text{base}}, P_{\text{base}}, L_{k,\text{base}}, C_{\text{base}}, B_{\text{base}}) = (25.0, 30.0, 30.0, 20.0, 25.0)$。
 
 每个介质以 $k_m = 0.002\text{ / tick}$（约 25 秒）逼近自己的目标：
 
-$$\frac{dM_i}{dt} = k_m \cdot (M_{i,\text{target}} - M_i)$$
+![\frac{dM_i}{dt} = k_m \cdot (M_{i,\text{target}} - M_i)](maths/math_2c8712fbdea9.png)
 
 前列腺素和白三烯**由细胞因子诱导**（COX-2 / 脂氧合酶），所以它们是下游产物——
 这也让"地塞米松抑制上游、水杨苷抑制下游"的差别有了实际意义。
@@ -376,37 +376,37 @@ $$\frac{dM_i}{dt} = k_m \cdot (M_{i,\text{target}} - M_i)$$
 
 对于靶向药物浓度 $D \in [0.0, 7.0]$，减速阈值为 $D_{\text{slow}} = 1.5$，抑制阈值为 $D_{\text{suppress}} = 3.0$：
 
-$$\frac{dL}{dt} = \begin{cases} \dfrac{dL_{\text{base}}}{dt} - C_{\text{immune}}, & D \le 1.5 \\[6pt] \dfrac{dL_{\text{base}}}{dt} \cdot \left(1.0 - 0.75 \cdot \dfrac{D - 1.5}{1.5}\right) - C_{\text{immune}}, & 1.5 < D < 3.0 \\[6pt] - \left( C_{\text{immune}} + C_{\text{drug}} \right), & D \ge 3.0 \end{cases}$$
+![\frac{dL}{dt} = \begin{cases} \dfrac{dL_{\text{base}}}{dt} - C_{\text{immune}}, ](maths/math_dc11d1ef9793.png)
 
 其中靶向清除速率为：
 
-$$C_{\text{drug}} = c_{\text{suppress}} \cdot \frac{D}{D_{\text{suppress}}}, \quad c_{\text{suppress}} = \frac{100.0}{1.5 \times 24000} \approx 2.778 \times 10^{-3}\text{ / tick}$$
+![C_{\text{drug}} = c_{\text{suppress}} \cdot \frac{D}{D_{\text{suppress}}}, \quad](maths/math_eb7942b399c3.png)
 
 - **黄连素（0.0 ~ 7.0）**：特异性对抗**细菌（Bacteria）**
   - 在体内以最高浓度 7.0 为基准需 **2.5 游戏日（60,000 ticks）** 线性代谢归零：
 
-    $$\frac{d[\text{Berberine}]}{dt} = - \frac{7.0}{60000} \approx -1.167 \times 10^{-4}\text{ / tick}$$
+    ![\frac{d[\text{Berberine}]}{dt} = - \frac{7.0}{60000} \approx -1.167 \times 10^{-](maths/math_a34718585124.png)
 
 - **甘草酸（0.0 ~ 7.0）**：特异性对抗**病毒（Virus）**
   - 在体内以最高浓度 7.0 为基准需 **2 游戏日（48,000 ticks）** 线性代谢归零：
 
-    $$\frac{d[\text{Glycyrrhizin}]}{dt} = - \frac{7.0}{48000} \approx -1.458 \times 10^{-4}\text{ / tick}$$
+    ![\frac{d[\text{Glycyrrhizin}]}{dt} = - \frac{7.0}{48000} \approx -1.458 \times 10](maths/math_b8025391e252.png)
 
 ### 水分与出汗消耗模型
 
 体内总水量 $W$ 每 tick 的变化速率：
 
-$$\frac{dW}{dt} = - (\Phi_{\text{renal}} + \Phi_{\text{sweat}})$$
+![\frac{dW}{dt} = - (\Phi_{\text{renal}} + \Phi_{\text{sweat}})](maths/math_9efbfff66894.png)
 
 肾脏排水 $\Phi_{\text{renal}}$ 在过度补水（$W > 100.0$）时加速排出：
 
-$$\Phi_{\text{renal}} = k_w \cdot \left(1.0 + 0.01 \cdot \max(W - 100.0, 0)\right) \cdot \gamma_{\text{Na}} \cdot \gamma_{\text{Ca}}$$
+![\Phi_{\text{renal}} = k_w \cdot \left(1.0 + 0.01 \cdot \max(W - 100.0, 0)\right)](maths/math_5b7d0e08062c.png)
 
 其中 $k_w = \frac{100.0}{5.0 \times 24000.0} = \frac{1}{1200} \approx 8.333 \times 10^{-4}\text{ / tick}$，高钠（$[\text{Na}] > 150.0$）时 $\gamma_{\text{Na}} = 1.3$，高钙（$[\text{Ca}] > 3.0$）时 $\gamma_{\text{Ca}} = 1.2$。
 
 发热出汗流失 $\Phi_{\text{sweat}}$（核心体温高于 38.25 °C，即 $\Delta T = T - 37.0 > 1.25$）：
 
-$$\Phi_{\text{sweat}} = a \cdot \Delta T + b \cdot (\Delta T)^2, \quad a = -\frac{1}{3360}, \quad b = \frac{1}{4200}$$
+![\Phi_{\text{sweat}} = a \cdot \Delta T + b \cdot (\Delta T)^2, \quad a = -\frac{](maths/math_f04cc59d21ef.png)
 
 总流失速度基准：
 - 正常体温（37.0 °C，无发汗）：$\frac{dW}{dt} = -\frac{1}{1200}\text{ / tick}$（整 5 游戏日耗尽 100 水分）
@@ -417,15 +417,15 @@ $$\Phi_{\text{sweat}} = a \cdot \Delta T + b \cdot (\Delta T)^2, \quad a = -\fra
 
 每项血清电解质 $E_i$ 的动力学微分方程：
 
-$$\frac{dE_i}{dt} = k_h \cdot (E_{i,\text{norm}} - E_i) - (\Lambda_{\text{flush}} + \Lambda_{\text{sweat}}) \cdot \xi_i \cdot E_{i,\text{norm}}$$
+![\frac{dE_i}{dt} = k_h \cdot (E_{i,\text{norm}} - E_i) - (\Lambda_{\text{flush}} ](maths/math_2a91431d48bf.png)
 
 其中：
 
-$$\Lambda_{\text{flush}} = \text{clamp}\left(\frac{\max(W - 100.0, 0)}{100.0}, 0, 1\right) \cdot 9 \times 10^{-6}\text{ / tick}$$
+![\Lambda_{\text{flush}} = \text{clamp}\left(\frac{\max(W - 100.0, 0)}{100.0}, 0, ](maths/math_1ea17ca2324e.png)
 
-$$\Lambda_{\text{sweat}} = \begin{cases} \max(T - 37.0, 0) \cdot 2 \times 10^{-6}\text{ / tick}, & T > 38.25\ ^\circ\text{C} \\ 0, & T \le 38.25\ ^\circ\text{C} \end{cases}$$
+![\Lambda_{\text{sweat}} = \begin{cases} \max(T - 37.0, 0) \cdot 2 \times 10^{-6}\](maths/math_b4298def69ea.png)
 
-$$k_h = 0.00005\text{ / tick} \quad (\approx 20,000\text{ ticks 半衰期})$$
+![k_h = 0.00005\text{ / tick} \quad (\approx 20,000\text{ ticks 半衰期})](maths/math_3dbf20e5b7bb.png)
 
 相对排出系数：$\xi = (\text{Na}: 1.0, \text{Cl}: 1.0, \text{K}: 0.7, \text{Mg}: 0.4, \text{Ca}: 0.4)$。
 钠和氯流失最快，镁和钙最慢，因此猛喝水最先导致稀释性低钠血症。
@@ -434,13 +434,13 @@ $$k_h = 0.00005\text{ / tick} \quad (\approx 20,000\text{ ticks 半衰期})$$
 
 碘代谢方程（无自体回补，持续单向消耗）：
 
-$$\frac{dI}{dt} = - \left( k_{\text{drain}} + (\Lambda_{\text{flush}} + \Lambda_{\text{sweat}}) \cdot \xi_{\text{iodine}} \right) \cdot I_{\text{norm}}$$
+![\frac{dI}{dt} = - \left( k_{\text{drain}} + (\Lambda_{\text{flush}} + \Lambda_{\](maths/math_ed0e58a2b337.png)
 
 其中基础流失率 $k_{\text{drain}} = \frac{0.50 - 0.05}{72000 \cdot 0.50} \approx 1.25 \times 10^{-5}\text{ / tick}$（每天固定损耗 $0.15\ \mu\text{mol/L}$，整 3 游戏日耗空），$\xi_{\text{iodine}} = 1.0$。
 
 维生素C（抗坏血酸）一级消除动力学：
 
-$$\frac{dC_{\text{vitC}}}{dt} = - k_{\text{vitC}} \cdot C_{\text{vitC}}, \quad k_{\text{vitC}} = \frac{\ln(2)}{120000} \approx 5.7762 \times 10^{-6}\text{ / tick}$$
+![\frac{dC_{\text{vitC}}}{dt} = - k_{\text{vitC}} \cdot C_{\text{vitC}}, \quad k_{](maths/math_919e105a0676.png)
 
 体内浓度越高排出越快，半衰期整 5 游戏日（120,000 ticks 从正常上限 80.0 降至异常线 40.0）。
 
@@ -448,19 +448,19 @@ $$\frac{dC_{\text{vitC}}}{dt} = - k_{\text{vitC}} \cdot C_{\text{vitC}}, \quad k
 
 目标核心体温计算公式 $T_{\text{target}}$：
 
-$$T_{\text{target}} = 37.0 + \Delta T_{\text{fever}} + P_{\text{pyrogen}} + \Delta T_{\text{thyroid}} + \Delta T_{\text{anticholinergic}} + \Delta T_{\text{psilocin}} + \Delta T_{\text{ambient}}$$
+![T_{\text{target}} = 37.0 + \Delta T_{\text{fever}} + P_{\text{pyrogen}} + \Delta](maths/math_859ef8076936.png)
 
 其中：
 
-$$\Delta T_{\text{fever}} = \begin{cases} \min\left(0.05 \cdot \max(P - 30.0, 0), 2.5\right), & L \le 55.0 \\ \min\left(0.05 \cdot \max(P - 30.0, 0), 4.0\right), & L > 55.0 \end{cases}$$
+![\Delta T_{\text{fever}} = \begin{cases} \min\left(0.05 \cdot \max(P - 30.0, 0), ](maths/math_fb378394309b.png)
 
-$$\Delta T_{\text{thyroid}} = \text{clamp}\left(2.0 \cdot \frac{I - I_{\text{safe}}}{0.50}, -0.8, 0.8\right)$$
+![\Delta T_{\text{thyroid}} = \text{clamp}\left(2.0 \cdot \frac{I - I_{\text{safe}](maths/math_36ec97640dd6.png)
 
-$$\Delta T_{\text{ambient}} = 0.6 \cdot (T_{\text{ambient}} - 37.0)$$
+![\Delta T_{\text{ambient}} = 0.6 \cdot (T_{\text{ambient}} - 37.0)](maths/math_2c18ccffa80b.png)
 
 体温趋向目标的动态松弛积分：
 
-$$\frac{dT}{dt} = k_T \cdot (T_{\text{target}} - T), \quad k_T = 0.0004\text{ / tick}$$
+![\frac{dT}{dt} = k_T \cdot (T_{\text{target}} - T), \quad k_T = 0.0004\text{ / ti](maths/math_f2671bfe5dbd.png)
 
 * **发热走前列腺素（PGE2）**，这正是下丘脑真正用来升温的介质——所以水杨苷（COX 抑制剂）
   在这里天然就是退烧药，而细胞因子风暴会烧到 40 °C 以上（自检里实测 40.1）。

@@ -252,7 +252,7 @@
   这也是为什么**把炎症压太低会把自己害死**——它和下面的重度感染伤害是同一套连锁。
 * **重度感染（载量 $\ge 60.0$）会直接扣血**：魔法伤害，每两秒结算一次：
 
-  $$\text{Damage}(L) = 1.0 + \frac{L - 60.0}{40.0}\quad (L \ge 60.0)$$
+  ![\text{Damage}(L) = 1.0 + \frac{L - 60.0}{40.0}\quad (L \ge 60.0)](maths/math_b14c84699508.png)
 
   护甲无法减免。载量 60 时每 10 秒半颗心，载量 100 时每 10 秒一颗心。这是整个模组里**唯一一个不需要怪物就能杀死你的症状**。
 
@@ -382,7 +382,7 @@
 果实和种子**都能吃**（饱食时也能吃，右键空处即可；对着方块右键还是种下去）。它们带进来
 两个数据，各自上限 **5.0**，**一个游戏日线性代谢干净**：
 
-$$\frac{dS_{\text{scop}}}{dt} = - \frac{5.0}{24000} \approx -2.083 \times 10^{-4}\text{ / tick}, \quad \frac{dA_{\text{atro}}}{dt} = - \frac{5.0}{24000} \approx -2.083 \times 10^{-4}\text{ / tick}$$
+![\frac{dS_{\text{scop}}}{dt} = - \frac{5.0}{24000} \approx -2.083 \times 10^{-4}\](maths/math_7007e3aab2e4.png)
 
 | 吃的东西 | 东莨菪碱 ($S_{\text{scop}}$) | 阿托品 ($A_{\text{atro}}$) |
 | --- | --- | --- |
@@ -391,7 +391,7 @@ $$\frac{dS_{\text{scop}}}{dt} = - \frac{5.0}{24000} \approx -2.083 \times 10^{-4
 
 两者之和 $\Sigma_{\text{alk}} = S_{\text{scop}} + A_{\text{atro}}$ 超过 **1.5** 就开始**体温升高**，分三档（这是设定点上移，不是前列腺素发烧，**水杨苷退不掉**）：
 
-$$\Delta T_{\text{anticholinergic}} = \begin{cases} 0\ ^\circ\text{C}, & \Sigma_{\text{alk}} < 1.5 \\ 1.0\ ^\circ\text{C} \implies T \to 38.0\ ^\circ\text{C}, & 1.5 \le \Sigma_{\text{alk}} < 2.5 \\ 2.5\ ^\circ\text{C} \implies T \to 39.5\ ^\circ\text{C}, & 2.5 \le \Sigma_{\text{alk}} < 4.0 \\ 4.0\ ^\circ\text{C} \implies T \to 41.0\ ^\circ\text{C}, & \Sigma_{\text{alk}} \ge 4.0 \end{cases}$$
+![\Delta T_{\text{anticholinergic}} = \begin{cases} 0\ ^\circ\text{C}, & \Sigma_{\](maths/math_49396f0477ed.png)
 
 另外，当满足 $S_{\text{scop}} \ge 2.3 \lor A_{\text{atro}} \ge 2.3 \lor \Sigma_{\text{alk}} \ge 2.7$ 时，触发**视觉模糊：雾收缩到 8 格**——
 屏幕整体发糊，八格之外的方块全部糊进雾里。它和高温症状**互相独立、可以叠加**：
@@ -426,9 +426,9 @@ $$\Delta T_{\text{anticholinergic}} = \begin{cases} 0\ ^\circ\text{C}, & \Sigma_
 
 * **前药转化与零级代谢动力学**：
 
-  $$\frac{d[\text{Psilocybin}]}{dt} = - \min\left([\text{Psilocybin}], \frac{1.3}{12000}\right)$$
+  ![\frac{d[\text{Psilocybin}]}{dt} = - \min\left([\text{Psilocybin}], \frac{1.3}{12](maths/math_0f3da0456f03.png)
 
-  $$\frac{d[\text{Psilocin}]}{dt} = \min\left([\text{Psilocybin}], \frac{1.3}{12000}\right) - \frac{1.3}{24000}$$
+  ![\frac{d[\text{Psilocin}]}{dt} = \min\left([\text{Psilocybin}], \frac{1.3}{12000}](maths/math_d346b4d8c7ef.png)
 
 一颗蘑菇总计 2.6，正好**两天**清完；五颗（6.5/6.5）总计 13，就是**十天**。
 因为代谢是固定速率，吃得多不是"多飘一会儿"，是**线性变长**。
@@ -527,7 +527,7 @@ $$\Delta T_{\text{anticholinergic}} = \begin{cases} 0\ ^\circ\text{C}, & \Sigma_
 - **人体代谢**：
   - 乙醇在体内随时间呈零级线性代谢清除，从满值 1.0 衰减至 0 耗时整整 1 游戏日（24,000 ticks）：
 
-    $$\frac{d[\text{Ethanol}]}{dt} = - \frac{1.0}{24000} \approx -4.167 \times 10^{-5}\text{ / tick}$$
+    ![\frac{d[\text{Ethanol}]}{dt} = - \frac{1.0}{24000} \approx -4.167 \times 10^{-5}](maths/math_82cc996553a2.png)
 
     喝一瓶普通酒约 1.4 分钟即可醒酒。
 - **调试指令支持**：`/aliment status` 会显示当前乙醇指数与醉酒状态，支持 `/aliment set ethanol <value>` 设定。
@@ -573,7 +573,7 @@ $$\Delta T_{\text{anticholinergic}} = \begin{cases} 0\ ^\circ\text{C}, & \Sigma_
 - **体内代谢与急迫药效**：
   - 麻黄碱在体内平稳线性代谢，**一游戏日内（24,000 ticks / 20 分钟）完全代谢完成**：
 
-    $$\frac{d[\text{Ephedrine}]}{dt} = - \frac{5.0}{24000} \approx -2.083 \times 10^{-4}\text{ / tick}$$
+    ![\frac{d[\text{Ephedrine}]}{dt} = - \frac{5.0}{24000} \approx -2.083 \times 10^{-](maths/math_b84c4cea9403.png)
 
   - 当麻黄碱指标 **$[\text{Ephedrine}] > 1.0$** 时，神经受到兴奋刺激，持续提供一级急迫（速掘 I，Haste I）效果。满负荷（5.0 指标）可在体内维持 16 分钟以上的速掘效果。
 
@@ -610,19 +610,19 @@ $$\Delta T_{\text{anticholinergic}} = \begin{cases} 0\ ^\circ\text{C}, & \Sigma_
 #### 药理动力学与病原体抑制
 对于靶向药物浓度 $D \in [0.0, 7.0]$，减速阈值 $D_{\text{slow}} = 1.5$，抑制阈值 $D_{\text{suppress}} = 3.0$：
 
-$$\frac{dL}{dt} = \begin{cases} \dfrac{dL_{\text{base}}}{dt} - C_{\text{immune}}, & D \le 1.5 \\[8pt] \dfrac{dL_{\text{base}}}{dt} \cdot \left(1.0 - 0.75 \cdot \dfrac{D - 1.5}{1.5}\right) - C_{\text{immune}}, & 1.5 < D < 3.0 \\[8pt] - \left( C_{\text{immune}} + c_{\text{suppress}} \cdot \dfrac{D}{3.0} \right), & D \ge 3.0 \end{cases}$$
+![\frac{dL}{dt} = \begin{cases} \dfrac{dL_{\text{base}}}{dt} - C_{\text{immune}}, ](maths/math_101c37886d0e.png)
 
 其中 $c_{\text{suppress}} = \frac{100.0}{1.5 \times 24000} \approx 2.778 \times 10^{-3}\text{ / tick}$。
 
 - **黄连素（Berberine，指标范围 0.0 ~ 7.0）**：特异性对抗**细菌感染**
   - **代谢**：以最高浓度 7.0 为基准需 2.5 游戏日（60,000 ticks）线性代谢至 0：
 
-    $$\frac{d[\text{Berberine}]}{dt} = - \frac{7.0}{60000} \approx -1.167 \times 10^{-4}\text{ / tick}$$
+    ![\frac{d[\text{Berberine}]}{dt} = - \frac{7.0}{60000} \approx -1.167 \times 10^{-](maths/math_a34718585124.png)
 
 - **甘草酸（Glycyrrhizin，指标范围 0.0 ~ 7.0）**：特异性对抗**病毒感染**
   - **代谢**：以最高浓度 7.0 为基准需 2 游戏日（48,000 ticks）线性代谢至 0：
 
-    $$\frac{d[\text{Glycyrrhizin}]}{dt} = - \frac{7.0}{48000} \approx -1.458 \times 10^{-4}\text{ / tick}$$
+    ![\frac{d[\text{Glycyrrhizin}]}{dt} = - \frac{7.0}{48000} \approx -1.458 \times 10](maths/math_b8025391e252.png)
 
 ### 14. 海藻与水生养殖（Seaweed）及补碘机制
 
