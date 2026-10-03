@@ -21,26 +21,31 @@ Aliment（供养）的核心系统：每个玩家体内持续演算的一套**�
 
 炎症指数不再是单一数值，而是由五种介质**加权求和**得来：
 
-![\mathcal{I} = \sum_{i=1}^5 w_i M_i = 0.15 \cdot H + 0.20 \cdot P + 0.15 \cdot L_](maths/math_3d4d9a8fb7a9.png)
+```scala
+inflammation = 0.15 * histamine + 0.20 * prostaglandin + 0.15 * leukotriene + 0.35 * cytokine + 0.15 * bradykinin
+```
 
 其中：
-* $H$：组胺（Histamine）
-* $P$：前列腺素（Prostaglandin）
-* $L_k$：白三烯（Leukotriene）
-* $C$：细胞因子（Cytokine）
-* $B$：缓激肽（Bradykinin）
+* `histamine` (H)：组胺（Histamine）
+* `prostaglandin` (P)：前列腺素（Prostaglandin）
+* `leukotriene` (Lk)：白三烯（Leukotriene）
+* `cytokine` (C)：细胞因子（Cytokine）
+* `bradykinin` (B)：缓激肽（Bradykinin）
 
-| 介质 | 权重 $w_i$ | 现实中的作用 | 主要被谁抑制 |
+| 介质 | 权重 | 现实中的作用 | 主要被谁抑制 |
 | --- | --- | --- | --- |
-| 组胺 histamine ($H$) | 0.15 | 血管扩张、瘙痒、肿胀（肥大细胞） | 两者都略有效 |
-| 前列腺素 prostaglandin ($P$) | 0.20 | 疼痛、发热（COX 通路） | **水杨苷**（阿司匹林机制） |
-| 白三烯 leukotriene ($L_k$) | 0.15 | 支气管收缩、黏液 | **地塞米松** |
-| 细胞因子 cytokine ($C$) | 0.35 | 全身发热、风暴的主驱动 | **地塞米松**（最强） |
-| 缓激肽 bradykinin ($B$) | 0.15 | 疼痛、血管扩张 | 水杨苷 |
+| 组胺 histamine (H) | 0.15 | 血管扩张、瘙痒、肿胀（肥大细胞） | 两者都略有效 |
+| 前列腺素 prostaglandin (P) | 0.20 | 疼痛、发热（COX 通路） | **水杨苷**（阿司匹林机制） |
+| 白三烯 leukotriene (Lk) | 0.15 | 支气管收缩、黏液 | **地塞米松** |
+| 细胞因子 cytokine (C) | 0.35 | 全身发热、风暴的主驱动 | **地塞米松**（最强） |
+| 缓激肽 bradykinin (B) | 0.15 | 疼痛、血管扩张 | 水杨苷 |
 
-安静状态下这五项分别是 `(H, P, L_k, C, B) = (25.0, 30.0, 30.0, 20.0, 25.0)`，加权和**正好 25.0**（安全区中点）：
+安静状态下这五项分别是 `(H, P, Lk, C, B) = (25.0, 30.0, 30.0, 20.0, 25.0)`，加权和**正好 25.0**（安全区中点）：
 
-![\mathcal{I}_{\text{resting}} = 0.15(25) + 0.20(30) + 0.15(30) + 0.35(20) + 0.15(](maths/math_8387fdaaf4aa.png)
+```scala
+// 静息基准：(H, P, Lk, C, B) = (25.0, 30.0, 30.0, 20.0, 25.0)
+val restingInflammation = 0.15 * 25.0 + 0.20 * 30.0 + 0.15 * 30.0 + 0.35 * 20.0 + 0.15 * 25.0 // == 25.0
+```
 
 公式详见 `ModelMediators.getInflammation`（权重在 `MediatorLevels`）。
 
@@ -101,10 +106,16 @@ Aliment（供养）的核心系统：每个玩家体内持续演算的一套**�
 
 * **一级动力学代谢消除（浓度越高排出越快）**：
 
-  ![\frac{dC}{dt} = -k \cdot C, \quad k = \frac{\ln(2)}{120000} \approx 5.776 \times](maths/math_6e2c5b71c6b5.png)
+  ```scala
+  // 一级消除动力学：半衰期 5 游戏日（120,000 ticks）
+  // k = ln(2) / 120000 ≈ 5.776e-6 / tick
+  val k = Math.log(2.0).toFloat / 120000f
+  vitaminC -= vitaminC * k
+  ```
 
   - **排出速率正比于当前体内浓度**：血清浓度高时排泄速率极快，低浓度时排泄显著减缓；
   - **衰减半衰期为 5 个游戏日（120,000 ticks）**：当玩家处于正常范围最大值（**80.0 µmol/L**）且不吃任何植物性食物时，恰好需要整整 **5 个游戏日** 代谢掉至异常线（**40.0 µmol/L**）。
+
 * **临床症状表现**：
   - **轻度缺乏（< 40.0 µmol/L，早期维生素C缺乏）**：获得 **挖掘疲劳 I（Mining Fatigue I）** 负面效果；
   - **严重缺乏（< 15.0 µmol/L，坏血病期）**：叠加获得 **虚弱 I（Weakness I）** 效果（即同时受到 **挖掘疲劳 I + 虚弱 I**）；
@@ -172,12 +183,14 @@ Aliment（供养）的核心系统：每个玩家体内持续演算的一套**�
 
 * **零级代谢消除动力学方程**：
 
-  ![\frac{d[\text{Salicin}]}{dt} = - \frac{3.0}{72000} = - \frac{1}{24000} \approx -](maths/math_344f8949cc74.png)
-
-  ![\frac{d[\text{Dex}]}{dt} = - \frac{2.0}{48000} = - \frac{1}{24000} \approx -4.16](maths/math_94ce85c57641.png)
+  ```scala
+  // 零级线性代谢消除：
+  salicin = Math.max(salicin - 3.0f / 72000f, 0f)       // -4.167e-5 / tick（3 游戏日代谢 3.0）
+  dexamethasone = Math.max(dexamethasone - 2.0f / 48000f, 0f) // -4.167e-5 / tick（2 游戏日代谢 2.0）
+  ```
 
 > **关键机制澄清**：**水杨苷与地塞米松均不直接杀灭或清除病原体**。它们的生理本质是**抗炎与免疫抑制**：
-> - 适量使用可防止炎症过高导致的免疫风暴（炎症 ≥ 75 免疫功能同样崩溃并灼伤机体）；
+> - 适量使用可防止炎症过高导致的免疫风暴（炎症 >= 75 免疫功能同样崩溃并灼伤机体）；
 > - **过量**（超过起效浓度）会将静息炎症水平整体压低至安全区以下（< 12），导致**免疫抑制**；
 >   由于病原体依赖正常的免疫系统进行清除，免疫抑制状态下机体丧失清除能力，感染会迅速失控生长至 40 以上！
 
@@ -185,20 +198,32 @@ Aliment（供养）的核心系统：每个玩家体内持续演算的一套**�
 
 曼陀罗（果实与种子，吃了才有）带进来两个独立数据，各自上限 **5.0**，**一个游戏日线性代谢完**：
 
-![\frac{d S_{\text{scop}}}{dt} = - \frac{5.0}{24000} \approx -2.083 \times 10^{-4}](maths/math_188c26933c51.png)
+```scala
+// 曼陀罗生物碱线性消除：1 游戏日（24,000 ticks）代谢 5.0
+scopolamine = Math.max(scopolamine - 5.0f / 24000f, 0f) // -2.083e-4 / tick
+atropine = Math.max(atropine - 5.0f / 24000f, 0f)       // -2.083e-4 / tick
+```
 
-| 吃的东西 | 东莨菪碱 ($S_{\text{scop}}$) | 阿托品 ($A_{\text{atro}}$) |
+| 吃的东西 | 东莨菪碱 (S_scop) | 阿托品 (A_atro) |
 | --- | --- | --- |
 | `mandrake_fruit` | **+1.0** | **+0.1** |
 | `mandrake_seeds` | **+0.75** | **+0.1** |
 
-两者之和 $\Sigma_{\text{alk}} = S_{\text{scop}} + A_{\text{atro}}$ 决定**体温**（设定点上移，不走前列腺素，所以**水杨苷退不掉**）：
+两者之和 `alkaloidSum = scopolamine + atropine` 决定**体温**（设定点上移，不走前列腺素，所以**水杨苷退不掉**）：
 
-![\Delta T_{\text{anticholinergic}} = \begin{cases} 0\ ^\circ\text{C}, & \Sigma_{\](maths/math_49396f0477ed.png)
+```scala
+val deltaT =
+  if (alkaloidSum >= 4.0f) 4.0f      // 核心体温目标 -> 41.0 °C
+  else if (alkaloidSum >= 2.5f) 2.5f // 核心体温目标 -> 39.5 °C
+  else if (alkaloidSum >= 1.5f) 1.0f // 核心体温目标 -> 38.0 °C
+  else 0.0f
+```
 
 单个或合计决定**视觉模糊**：
 
-![\text{视觉模糊激活} \iff S_{\text{scop}} \ge 2.3 \lor A_{\text{atro}} \ge 2.3 \lor \Si](maths/math_d18488021cc4.png)
+```scala
+val visualBlurActive = scopolamine >= 2.3f || atropine >= 2.3f || alkaloidSum >= 2.7f
+```
 
 激活时雾收到 **8 格**，8 格外的方块全糊掉。
 
@@ -207,7 +232,7 @@ Aliment（供养）的核心系统：每个玩家体内持续演算的一套**�
 
 > 实现上体温那部分是模型的（`Physiology.anticholinergicFever`，加进 `targetTemperature`），
 > 视觉那部分分两半：后处理效果由服务端像别的画面效果一样请求（`anticholinergic_blur`），
-> **雾是客户端渲染决定**，所以走同步标志 `AlimentClientState.blurred` → `FogRendererMixin`
+> **雾是客户端渲染决定**，所以走同步标志 `AlimentClientState.blurred` -> `FogRendererMixin`
 > 把 `FogData` 的环境雾与天空/云淡出收到 8 格（照原版失明效果的做法，渲染距离本身不动）。
 
 ### 裸盖菇素与裸盖菇素醇 `psilocybin` / `psilocin`
@@ -221,11 +246,14 @@ Aliment（供养）的核心系统：每个玩家体内持续演算的一套**�
 
 * **前药转化与零级代谢动力学**：
 
-  ![\frac{d[\text{Psilocybin}]}{dt} = - \min\left([\text{Psilocybin}], \frac{1.3}{12](maths/math_0f3da0456f03.png)
+  ```scala
+  // 前药转化：1.3 单位在半个游戏日（12,000 ticks）内 1:1 转化为裸盖菇素醇
+  val converted = Math.min(psilocybin, 1.3f / 12000f) // 1.083e-4 / tick
+  psilocybin -= converted
 
-  ![\frac{d[\text{Psilocin}]}{dt} = \min\left([\text{Psilocybin}], \frac{1.3}{12000}](maths/math_d346b4d8c7ef.png)
-
-  其中 $\frac{1.3}{12000} \approx 1.083 \times 10^{-4}\text{ / tick}$，$\frac{1.3}{24000} \approx 5.417 \times 10^{-5}\text{ / tick}$。
+  // 裸盖菇素醇消除：固定零级速率 1.3 每游戏日（24,000 ticks）
+  psilocin = clamp(psilocin + converted - (1.3f / 24000f), 0f, 10.0f) // -5.417e-5 / tick
+  ```
 
 一颗生蘑菇一次给 **1.3 / 1.3**。因为代谢是**固定速率**而不是按比例，一次蘑菇的总量是
 1.3 + 1.3 = 2.6，正好 **两个游戏日**清完；五颗（6.5 / 6.5）总量 13，就是 **十个游戏日**——
@@ -235,11 +263,11 @@ Aliment（供养）的核心系统：每个玩家体内持续演算的一套**�
 
 | 条件 | 效果 |
 | --- | --- |
-| $[\text{Psilocin}] > 1.2$ | 从方块边缘**随机方向拉出彩色线条**（每 8 像素格子用自己的哈希选一个方向和长度，某像素沿该方向一段距离外正好有亮度跳变 → 说明那里是边缘，这个像素就点亮。所以亮起来的其实是边缘的"位移副本"，四段不同距离不同强度叠起来就是一条从边缘射出的锥形线；边缘本身**不会被整条描边染色**） |
-| $[\text{Psilocin}] > 1.7$ | 方块开始**染上随机亮色**（每 8 像素一格随机色相，**混回原像素而不是覆盖**，保留明暗所以形状仍然看得清；强度只有 0.30），再叠一层**全屏彩色噪点**（一像素一粒，约 45% 的像素各拿一个随机色相，强度 0.20） |
-| $[\text{Psilocin}] > 2.5$ | 全屏幕**轻度扭曲**（两组正弦波推采样点） |
-| $[\text{Psilocin}] > 5.0$ | **剧烈扭曲**，同时体温开始上升（最高 **39 °C**） |
-| $[\text{Psilocin}] \ge 7.0$ | 体温可达 **41 °C** |
+| `psilocin > 1.2` | 从方块边缘**随机方向拉出彩色线条**（每 8 像素格子用自己的哈希选一个方向和长度，某像素沿该方向一段距离外正好有亮度跳变 -> 说明那里是边缘，这个像素就点亮。所以亮起来的其实是边缘的"位移副本"，四段不同距离不同强度叠起来就是一条从边缘射出的锥形线；边缘本身**不会被整条描边染色**） |
+| `psilocin > 1.7` | 方块开始**染上随机亮色**（每 8 像素一格随机色相，**混回原像素而不是覆盖**，保留明暗所以形状仍然看得清；强度只有 0.30），再叠一层**全屏彩色噪点**（一像素一粒，约 45% 的像素各拿一个随机色相，强度 0.20） |
+| `psilocin > 2.5` | 全屏幕**轻度扭曲**（两组正弦波推采样点） |
+| `psilocin > 5.0` | **剧烈扭曲**，同时体温开始上升（最高 **39 °C**） |
+| `psilocin >= 7.0` | 体温可达 **41 °C** |
 
 阈值是**严格大于**（`>`），体温那档从 5 起、7 再上一档，都是设定点上移、不走前列腺素，
 所以**和曼陀罗的热、感染的热全部叠加**（模型上限仍是 42 °C）。四阶段是**包含关系**：
@@ -303,68 +331,96 @@ Aliment（供养）的核心系统：每个玩家体内持续演算的一套**�
 
 病原体基础逻辑斯蒂增殖速率：
 
-![\frac{dL_{\text{base}}}{dt} = r \cdot L \cdot \left(1 - \frac{L}{K}\right)](maths/math_b380976f6d1d.png)
-
-其中 $r = 0.0004\text{ / tick}$，环境容纳上限 $K = 100.0$。
+```scala
+// 逻辑斯蒂增殖方程：r = 0.0004 / tick，容纳上限 K = 100.0
+val baseGrowth = 0.0004f * load * (1.0f - load / 100.0f)
+```
 
 机体免疫系统主动清除速率：
 
-![C_{\text{immune}} = \begin{cases} 0, & \text{if } \neg\text{immuneActive} \land ](maths/math_ab3dbc5c1ffd.png)
+```scala
+// 主动清除速率：基准清除速度 = 20.0 载量 / 48,000 ticks（2 游戏日）
+val immuneClearance = if (immuneActive || load > 20.0f) {
+  baseGrowth * competence + (20.0f / 48000f) * competence
+} else {
+  0.0f
+}
+```
 
-其中 $c_0 = \dfrac{20.0}{48000} \approx 4.1667 \times 10^{-4}\text{ / tick}$，$\eta(\mathcal{I})$ 为综合炎症效能函数。
+其中 `competence` 为综合炎症效能函数。
 
-- **隐匿生长期（载量 $L \le 20.0$）**：
+- **隐匿生长期（载量 `load <= 20.0`）**：
   - 感染病原体持续按逻辑斯蒂生长（logistic growth）；
-  - 免疫系统尚未警觉介入，刺激强度为 0，炎症介质与免疫指数维持基准静息状态（$\mathcal{I} = 25.0$）；
-  - 体温维持正常基准（$T = 37.0\ ^\circ\text{C}$），无前列腺素发热。
-- **免疫介入与压制期（载量 $20.0 < L \le 55.0$）**：
+  - 免疫系统尚未警觉介入，刺激强度为 0，炎症介质与免疫指数维持基准静息状态（`inflammation == 25.0`）；
+  - 体温维持正常基准（`temperature == 37.0 °C`），无前列腺素发热。
+- **免疫介入与压制期（载量 `20.0 < load <= 55.0`）**：
   - 载量突破 **20.0** 时触发免疫介入（`immuneActive = true`），炎症介质开始上升；
   - 前列腺素随之升高带动体温上升，此阶段最高发热限制在 **39.5 °C**；
-  - **正常范围免疫的压制速度**：在正常免疫力（$\eta(\mathcal{I}) = 1.0$）下，主动压制能在 **2 游戏日（48,000 tick）** 内将感染完全压至 0；
+  - **正常范围免疫的压制速度**：在正常免疫力（`competence == 1.0`）下，主动压制能在 **2 游戏日（48,000 tick）** 内将感染完全压至 0；
   - 感染降至 0 后，机体退出免疫应答状态（`immuneActive = false`），介质平稳回退至静息基准。
-- **免疫失常与应激风暴期（载量 $L > 55.0$）**：
+- **免疫失常与应激风暴期（载量 `load > 55.0`）**：
   - 若免疫力不正常（如过量使用水杨苷/地塞米松引发免疫抑制，或免疫力缺陷），免疫压制失效，感染将持续肆虐生长突破 55；
-  - 载量突破 **55.0** 时免疫系统进入严重应激状态，炎症介质暴增（细胞因子激增 2.5 倍），极易触发致命免疫风暴（$\mathcal{I} \ge 75.0$）；
+  - 载量突破 **55.0** 时免疫系统进入严重应激状态，炎症介质暴增（细胞因子激增 2.5 倍），极易触发致命免疫风暴（`inflammation >= 75.0`）；
   - 体温上限解锁至 42.0 °C 超高热，同时造成败血症魔法持续伤害。
 
-免疫效能 $\eta(\mathcal{I})$ 呈非对称高斯钟形曲线，在安全区（25.0）最高，两侧塌陷：
+免疫效能呈非对称高斯钟形曲线，在安全区（25.0）最高，两侧塌陷：
 
-![\eta(\mathcal{I}) = \begin{cases} \exp\left(-\dfrac{(\mathcal{I} - 25.0)^2}{2 \c](maths/math_e55702340b9c.png)
+```scala
+// 非对称高斯钟形曲线：sigma = 10.0（25 以下）/ 15.0（25 以上）
+val delta = inflammation - 25.0f
+val sigma = if (inflammation < 25.0f) 10.0f else 15.0f
+val bell = Math.exp(-(delta * delta) / (2.0 * sigma * sigma)).toFloat
+val lowEndSuppression = clamp(inflammation / 12.0f, 0.0f, 1.0f)
+val competence = bell * lowEndSuppression
+```
 
-| 炎症 $\mathcal{I}$ | 0 | 6 | 12 | 25 | 40 | 50 | 75 | 100 |
+| 炎症 | 0 | 6 | 12 | 25 | 40 | 50 | 75 | 100 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 免疫力 $\eta(\mathcal{I})$ | 0.00 | 0.22 | 0.69 | **1.00** | 0.61 | 0.25 | 0.004 | ~0 |
+| 免疫力 | 0.00 | 0.22 | 0.69 | **1.00** | 0.61 | 0.25 | 0.004 | ~0 |
 
-**炎症太低 → 免疫罢工；炎症太高 → 免疫风暴，同样压不住病原，还反过来伤害宿主。**
+**炎症太低 -> 免疫罢工；炎症太高 -> 免疫风暴，同样压不住病原，还反过来伤害宿主。**
 
 ### 介质动力学
 
-感染刺激强度分段函数 $S(L)$：
+感染刺激强度分段函数：
 
-![S(L) = \begin{cases} 0, & \text{if } \neg\text{immuneActive} \land L \le 20.0 \\](maths/math_df3f6442e66c.png)
+```scala
+val stimulus = if (!immuneActive && load <= 20.0f) {
+  0.0f
+} else if (load <= 55.0f) {
+  (load - 20.0f) / (55.0f - 20.0f)
+} else {
+  1.0f + 2.5f * clamp((load - 55.0f) / (100.0f - 55.0f), 0.0f, 1.0f)
+}
+```
 
 抗炎药物抑制与响应阻尼（水杨苷与地塞米松）：
-设 $D_{\text{sal}}$ 与 $D_{\text{dex}}$ 分别为水杨苷与地塞米松的当前体内有效浓度（起效基准 $D_{\text{sal,eff}} = 1.0, D_{\text{dex,eff}} = 1.0$）：
 
-![s_{\text{sal}} = \frac{D_{\text{sal}}}{1.0}, \quad s_{\text{dex}} = \frac{D_{\te](maths/math_bc4cce392c6d.png)
+```scala
+val salicinEffect = Math.min(salicin / 1.0f, 1.0f)
+val dexEffect = Math.min(dexamethasone / 1.0f, 1.0f)
+val maxDrugEffect = Math.max(salicinEffect, dexEffect)
 
-![f_{\text{sal}} = \min(s_{\text{sal}}, 1.0), \quad f_{\text{dex}} = \min(s_{\text](maths/math_2c3a2ca5d543.png)
+val damping = Math.max(1.0f - 0.88f * maxDrugEffect, 0.05f)
+val overdose = Math.max(salicin / 1.0f - 1.0f, 0.0f) + Math.max(dexamethasone / 1.0f - 1.0f, 0.0f)
+val baselineScale = Math.max(1.0f - overdose * 1.8f, 0.0f)
+```
 
-![\delta_{\text{damp}} = \max\left(1.0 - 0.88 \cdot \max(f_{\text{sal}}, f_{\text{](maths/math_e45f5f7d1191.png)
+各介质的目标渐近值公式：
 
-![\text{Overdose} = \max(s_{\text{sal}} - 1.0, 0) + \max(s_{\text{dex}} - 1.0, 0)](maths/math_9ec04159a02b.png)
+```scala
+// 静息基准：(H, P, Lk, C, B) = (25.0, 30.0, 30.0, 20.0, 25.0)
+val cytokineTarget = 20.0f * baselineScale + 100.0f * stimulus * damping * (1.0f - 0.4f * dexEffect)
+val histamineTarget = 25.0f * baselineScale + 45.0f * stimulus * damping
+val bradykininTarget = 25.0f * baselineScale + 60.0f * stimulus * damping
+val prostaglandinTarget = 20.0f * baselineScale +
+  (cytokine * 0.5f + 25.0f * stimulus) * damping * (1.0f - 0.5f * salicinEffect)
+val leukotrieneTarget = 20.0f * baselineScale +
+  (cytokine * 0.5f + 20.0f * stimulus) * damping * (1.0f - 0.4f * dexEffect)
 
-![\beta_{\text{base}} = \max(1.0 - 0.5 \cdot \text{Overdose}, 0.0)](maths/math_f6fd5293255e.png)
-
-各介质的目标渐近值公式 ($M_{i,\text{target}}$)：
-
-![\begin{aligned} C_{\text{target}} &= C_{\text{base}} \cdot \beta_{\text{base}} +](maths/math_c5bfeb4fbce6.png)
-
-其中静息基准值为 $(H_{\text{base}}, P_{\text{base}}, L_{k,\text{base}}, C_{\text{base}}, B_{\text{base}}) = (25.0, 30.0, 30.0, 20.0, 25.0)$。
-
-每个介质以 $k_m = 0.002\text{ / tick}$（约 25 秒）逼近自己的目标：
-
-![\frac{dM_i}{dt} = k_m \cdot (M_{i,\text{target}} - M_i)](maths/math_2c8712fbdea9.png)
+// 每个介质以 k_m = 0.002 / tick（约 25 秒）逼近自己的目标
+mediator += (target - mediator) * 0.002f
+```
 
 前列腺素和白三烯**由细胞因子诱导**（COX-2 / 脂氧合酶），所以它们是下游产物——
 这也让"地塞米松抑制上游、水杨苷抑制下游"的差别有了实际意义。
@@ -374,93 +430,118 @@ Aliment（供养）的核心系统：每个玩家体内持续演算的一套**�
 
 与只平抑免疫反应的水杨苷/地塞米松不同，**黄连素（Berberine）**与**甘草酸（Glycyrrhizin）**直接针对病原体本身发挥抑菌与抑毒药效：
 
-对于靶向药物浓度 $D \in [0.0, 7.0]$，减速阈值为 $D_{\text{slow}} = 1.5$，抑制阈值为 $D_{\text{suppress}} = 3.0$：
+对于靶向药物浓度在 `[0.0, 7.0]`，减速阈值为 1.5，抑制阈值为 3.0：
 
-![\frac{dL}{dt} = \begin{cases} \dfrac{dL_{\text{base}}}{dt} - C_{\text{immune}}, ](maths/math_dc11d1ef9793.png)
-
-其中靶向清除速率为：
-
-![C_{\text{drug}} = c_{\text{suppress}} \cdot \frac{D}{D_{\text{suppress}}}, \quad](maths/math_eb7942b399c3.png)
+```scala
+if (drugConc >= 3.0f) {
+  // 彻底阻断病原体复制；主动清除速率随药物浓度线性提高
+  val drugClearance = (100.0f / (1.5f * 24000f)) * (drugConc / 3.0f)
+  load = Math.max(load - immuneClearance - drugClearance, 0.0f)
+} else if (drugConc > 1.5f) {
+  // 抑制病原体增殖速率，使免疫系统占据上风
+  val slowRatio = (drugConc - 1.5f) / (3.0f - 1.5f)
+  val reducedGrowth = baseGrowth * (1.0f - 0.75f * slowRatio)
+  load = Math.max(load + reducedGrowth - immuneClearance, 0.0f)
+} else {
+  // 正常病原体复制减去机体免疫清除
+  load = Math.max(load + baseGrowth - immuneClearance, 0.0f)
+}
+```
 
 - **黄连素（0.0 ~ 7.0）**：特异性对抗**细菌（Bacteria）**
   - 在体内以最高浓度 7.0 为基准需 **2.5 游戏日（60,000 ticks）** 线性代谢归零：
-
-    ![\frac{d[\text{Berberine}]}{dt} = - \frac{7.0}{60000} \approx -1.167 \times 10^{-](maths/math_a34718585124.png)
+    ```scala
+    berberine = Math.max(berberine - 7.0f / 60000f, 0.0f) // -1.167e-4 / tick
+    ```
 
 - **甘草酸（0.0 ~ 7.0）**：特异性对抗**病毒（Virus）**
   - 在体内以最高浓度 7.0 为基准需 **2 游戏日（48,000 ticks）** 线性代谢归零：
-
-    ![\frac{d[\text{Glycyrrhizin}]}{dt} = - \frac{7.0}{48000} \approx -1.458 \times 10](maths/math_b8025391e252.png)
+    ```scala
+    glycyrrhizin = Math.max(glycyrrhizin - 7.0f / 48000f, 0.0f) // -1.458e-4 / tick
+    ```
 
 ### 水分与出汗消耗模型
 
-体内总水量 $W$ 每 tick 的变化速率：
+体内总水量每 tick 的变化速率：
 
-![\frac{dW}{dt} = - (\Phi_{\text{renal}} + \Phi_{\text{sweat}})](maths/math_9efbfff66894.png)
+```scala
+// 肾脏排水流失
+var renalLoss = (100.0f / 120000f) * (1.0f + 0.01f * Math.max(water - 100.0f, 0.0f))
+if (sodium > 150.0f) renalLoss *= 1.3f
+if (calcium > 3.0f)  renalLoss *= 1.2f
 
-肾脏排水 $\Phi_{\text{renal}}$ 在过度补水（$W > 100.0$）时加速排出：
+// 发热出汗流失（核心体温高于 38.25 °C 触发，即 deltaT = temp - 37.0 > 1.25）
+val deltaT = Math.max(temperature - 37.0f, 0.0f)
+val sweatLoss = if (deltaT > 1.25f) {
+  Math.max((-1.0f / 3360.0f) * deltaT + (1.0f / 4200.0f) * deltaT * deltaT, 0.0f)
+} else {
+  0.0f
+}
 
-![\Phi_{\text{renal}} = k_w \cdot \left(1.0 + 0.01 \cdot \max(W - 100.0, 0)\right)](maths/math_5b7d0e08062c.png)
-
-其中 $k_w = \frac{100.0}{5.0 \times 24000.0} = \frac{1}{1200} \approx 8.333 \times 10^{-4}\text{ / tick}$，高钠（$[\text{Na}] > 150.0$）时 $\gamma_{\text{Na}} = 1.3$，高钙（$[\text{Ca}] > 3.0$）时 $\gamma_{\text{Ca}} = 1.2$。
-
-发热出汗流失 $\Phi_{\text{sweat}}$（核心体温高于 38.25 °C，即 $\Delta T = T - 37.0 > 1.25$）：
-
-![\Phi_{\text{sweat}} = a \cdot \Delta T + b \cdot (\Delta T)^2, \quad a = -\frac{](maths/math_f04cc59d21ef.png)
+water = clamp(water - renalLoss - sweatLoss, 0.0f, 200.0f)
+```
 
 总流失速度基准：
-- 正常体温（37.0 °C，无发汗）：$\frac{dW}{dt} = -\frac{1}{1200}\text{ / tick}$（整 5 游戏日耗尽 100 水分）
-- 发热 39.0 °C：$\frac{dW}{dt} = -\frac{1}{840}\text{ / tick}$（整 3.5 游戏日耗尽 100 水分）
-- 高热 40.0 °C：$\frac{dW}{dt} = -\frac{1}{480}\text{ / tick}$（整 2.0 游戏日耗尽 100 水分）
+- 正常体温（37.0 °C，无发汗）：`waterLoss = 1 / 1200 / tick`（整 5 游戏日耗尽 100 水分）
+- 发热 39.0 °C：`waterLoss = 1 / 840 / tick`（整 3.5 游戏日耗尽 100 水分）
+- 高热 40.0 °C：`waterLoss = 1 / 480 / tick`（整 2.0 游戏日耗尽 100 水分）
 
 ### 电解质稳态与排出
 
-每项血清电解质 $E_i$ 的动力学微分方程：
+每项血清电解质的动力学方程：
 
-![\frac{dE_i}{dt} = k_h \cdot (E_{i,\text{norm}} - E_i) - (\Lambda_{\text{flush}} ](maths/math_2a91431d48bf.png)
+```scala
+// 过度补水冲刷系数
+val flushFraction = clamp((water - 100.0f) / 100.0f, 0.0f, 1.0f) * 0.000009f
 
-其中：
+// 出汗流失系数
+val sweatFraction = if (temperature > 38.25f) Math.max(temperature - 37.0f, 0.0f) * 0.000002f else 0.0f
 
-![\Lambda_{\text{flush}} = \text{clamp}\left(\frac{\max(W - 100.0, 0)}{100.0}, 0, ](maths/math_1ea17ca2324e.png)
+// 相对排出系数：(Na: 1.0, Cl: 1.0, K: 0.7, Mg: 0.4, Ca: 0.4)
+val totalLossRate = (flushFraction + sweatFraction) * excretionMultiplier * normalConcentration
+val restorationRate = 0.00005f * (normalConcentration - currentConcentration)
 
-![\Lambda_{\text{sweat}} = \begin{cases} \max(T - 37.0, 0) \cdot 2 \times 10^{-6}\](maths/math_b4298def69ea.png)
+electrolyte += restorationRate - totalLossRate
+```
 
-![k_h = 0.00005\text{ / tick} \quad (\approx 20,000\text{ ticks 半衰期})](maths/math_3dbf20e5b7bb.png)
-
-相对排出系数：$\xi = (\text{Na}: 1.0, \text{Cl}: 1.0, \text{K}: 0.7, \text{Mg}: 0.4, \text{Ca}: 0.4)$。
 钠和氯流失最快，镁和钙最慢，因此猛喝水最先导致稀释性低钠血症。
 
 ### 碘与维生素C
 
 碘代谢方程（无自体回补，持续单向消耗）：
 
-![\frac{dI}{dt} = - \left( k_{\text{drain}} + (\Lambda_{\text{flush}} + \Lambda_{\](maths/math_ed0e58a2b337.png)
+```scala
+// 碘：每天固定损耗 0.15 µmol/L（整 3 游戏日耗空至下限 0.05），出汗与多尿额外带走
+val iodineLossRate = (0.15f / 24000f) + (flushFraction + sweatFraction) * 0.50f
+iodine = Math.max(iodine - iodineLossRate, 0.05f)
 
-其中基础流失率 $k_{\text{drain}} = \frac{0.50 - 0.05}{72000 \cdot 0.50} \approx 1.25 \times 10^{-5}\text{ / tick}$（每天固定损耗 $0.15\ \mu\text{mol/L}$，整 3 游戏日耗空），$\xi_{\text{iodine}} = 1.0$。
-
-维生素C（抗坏血酸）一级消除动力学：
-
-![\frac{dC_{\text{vitC}}}{dt} = - k_{\text{vitC}} \cdot C_{\text{vitC}}, \quad k_{](maths/math_919e105a0676.png)
+// 维生素C：一级动力学代谢，半衰期 5 游戏日（120,000 ticks）
+val kVitC = Math.log(2.0).toFloat / 120000f
+vitaminC -= vitaminC * kVitC
+```
 
 体内浓度越高排出越快，半衰期整 5 游戏日（120,000 ticks 从正常上限 80.0 降至异常线 40.0）。
 
 ### 体温调节
 
-目标核心体温计算公式 $T_{\text{target}}$：
+目标核心体温计算公式：
 
-![T_{\text{target}} = 37.0 + \Delta T_{\text{fever}} + P_{\text{pyrogen}} + \Delta](maths/math_859ef8076936.png)
+```scala
+val prostaglandinExcess = Math.max(prostaglandin - 20.0f, 0.0f)
+val feverMax = if (pathogenLoad <= 55.0f) 2.5f else 4.0f
+val fever = Math.min(0.05f * prostaglandinExcess, feverMax)
 
-其中：
+val thyroidDelta = clamp(2.0f * (iodine - 0.50f) / 0.50f, -0.8f, 0.8f)
+val ambientOffset = 0.6f * (ambientTemperature - 37.0f)
 
-![\Delta T_{\text{fever}} = \begin{cases} \min\left(0.05 \cdot \max(P - 30.0, 0), ](maths/math_fb378394309b.png)
+val targetTemperature = clamp(
+  37.0f + fever + pyrogen + thyroidDelta + anticholinergicFever + psilocinFever + ambientOffset,
+  30.0f, 42.0f
+)
 
-![\Delta T_{\text{thyroid}} = \text{clamp}\left(2.0 \cdot \frac{I - I_{\text{safe}](maths/math_36ec97640dd6.png)
-
-![\Delta T_{\text{ambient}} = 0.6 \cdot (T_{\text{ambient}} - 37.0)](maths/math_2c18ccffa80b.png)
-
-体温趋向目标的动态松弛积分：
-
-![\frac{dT}{dt} = k_T \cdot (T_{\text{target}} - T), \quad k_T = 0.0004\text{ / ti](maths/math_f2671bfe5dbd.png)
+// 体温趋向目标的动态松弛积分（k_T = 0.0004 / tick，约 2500 ticks 走完 63% 差距）
+temperature += (targetTemperature - temperature) * 0.0004f
+```
 
 * **发热走前列腺素（PGE2）**，这正是下丘脑真正用来升温的介质——所以水杨苷（COX 抑制剂）
   在这里天然就是退烧药，而细胞因子风暴会烧到 40 °C 以上（自检里实测 40.1）。
@@ -470,7 +551,7 @@ Aliment（供养）的核心系统：每个玩家体内持续演算的一套**�
   先溜走，发烧的峰值永远够不到你要的温度（要 39.5 只能烧到 38.8）。
   停顿之后峰值就是你要的那个数，整场发烧也会在二十分钟内结束，不会留下一个
   "一小时前开的命令，现在屏幕还在晃"的 bug。
-* **甲状腺**：碘不足 → 设定点下移（怕冷），碘过量 → 设定点上移（怕热）。幅度不到 1 °C，
+* **甲状腺**：碘不足 -> 设定点下移（怕冷），碘过量 -> 设定点上移（怕热）。幅度不到 1 °C，
   它改的是"平时的体温"，不是发烧。
 * **环境**：见下表。温带和沙漠都在**中性温度区**里（体温调节完全扛得住），
   真正能打穿防御的是湿透、细雪、火和岩浆。
@@ -580,13 +661,13 @@ Aliment（供养）的核心系统：每个玩家体内持续演算的一套**�
 | --- | --- | --- |
 | `ItemMixin` | `Item.finishUsingItem` | 原版**没有**"吃完/喝完"事件，等到 server tick 时物品栏已经变了 |
 | `PlayerMixin` | `Player.causeFoodExhaustion` | 缩放参数才能覆盖**所有**消耗来源（走路、疾跑、挖掘、跳跃） |
-| `GrindstoneInputSlotMixin` | `GrindstoneMenu$2` / `$3` 的 `mayPlace` | 原版砂轮只收"可损坏或带附魔"的物品，我们的物品根本放不进去 |
+| `GrindstoneInputSlotMixin` | `GrindstoneMenu$2` / `GrindstoneMenu$3` 的 `mayPlace` | 原版砂轮只收"可损坏或带附魔"的物品，我们的物品根本放不进去 |
 | `GrindstoneMenuMixin` | `GrindstoneMenu.computeResult` | 原版不知道我们的转化表，放进去也磨不出东西 |
 | `CameraMixin`（客户端） | `Camera.alignWithEntity` | 原版没有镜头抖动，这个版本的 Fabric 也移除了 `ViewportEvent` |
 | `FogRendererMixin`（客户端） | `FogRenderer.setupFog` | "只能看清 8 格"是渲染决定，服务端只说"你瞎了"（`client_state.blurred`），雾得客户端自己收 |
 | `HudMixin`（客户端） | `Hud.extractPlayerHealth` | 原版没有口渴条，挂在生命值渲染之后就能紧贴血条上方 |
 
-> 砂轮的两个输入槽是**匿名内部类**（`GrindstoneMenu$2` / `$3`），
+> 砂轮的两个输入槽是**匿名内部类**（`GrindstoneMenu$2` / `GrindstoneMenu$3`），
 > 只能用字符串 `@Mixin(targets = ...)` 指定，没法用编译期引用。
 >
 > 挖掘速度、感染判定、抖动计时、口渴条取值、体温画面效果**都不需要** mixin：

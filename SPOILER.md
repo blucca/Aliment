@@ -243,9 +243,12 @@ Three infection vectors exist:
 
 * Proximity contact evaluates against all living `Mob` entities (cows, wolves, villagers, bats). Standing near dense livestock quickly spreads viral infection.
 * **Opportunistic Colonization**: Immunosuppression permits resident flora to colonize without external vectors.
-* **Sepsis Magic Damage (Load $\ge 60.0$)**: Deals unblockable magic damage every 2 seconds:
+* **Sepsis Magic Damage (Load >= 60.0)**: Deals unblockable magic damage every 2 seconds:
 
-  ![\text{Damage}(L) = 1.0 + \frac{L - 60.0}{40.0}\quad (L \ge 60.0)](maths/math_b14c84699508.png)
+  ```scala
+  // Magic damage every 2 seconds when pathogen load >= 60.0:
+  val damage = 1.0f + (load - 60.0f) / 40.0f
+  ```
 
   At load 100, this deals 2 damage (1 full heart) every 10 seconds.
 
@@ -255,8 +258,7 @@ Three infection vectors exist:
 
 | Drug | Source | Dose | Elimination Window | Elimination Rate |
 | --- | --- | --- | --- | --- |
-| Salicin | Willow Broth (raw or boiled) | +1.1 | **3 game days** | $\frac{d[\text{Salicin}]}{dt} = - \frac{3.0}{72000} \approx -4.167 \times 10^{-5}\text{ / tick}$ |
-| Dexamethasone | Injection syringe (right-click) | +1.2 | **2 game days** | $\frac{d[\text{Dex}]}{dt} = - \frac{2.0}{48000} \approx -4.167 \times 10^{-5}\text{ / tick}$ |
+| Salicin | Willow Broth (raw or boiled) | +1.1 | **3 game days** | `salicin = Math.max(salicin - 3.0f / 72000f, 0f)` (-4.167e-5 / tick) | Dexamethasone | Injection syringe (right-click) | +1.2 | **2 game days** | `dexamethasone = Math.max(dexamethasone - 2.0f / 48000f, 0f)` (-4.167e-5 / tick) |
 
 Salicin is a COX inhibitor acting as an antipyretic by blocking prostaglandin synthesis. Dexamethasone strongly halts cytokine transcription, aborting cytokine storms. **Neither directly kills pathogens.**
 
@@ -347,20 +349,37 @@ A wild herbaceous nightshade plant with four growth stages, **planted on soil bl
 * **Initial State**: Naturally generates in its **mature stage** (`age: 3`), displaying flowering top leaves and hanging green fruits.
 
 ### Cultivation and Harvesting
-* **Cultivation**: Plantable on grass blocks, dirt, coarse dirt, rooted dirt, mud, moss blocks, and farmland. Grows via random ticks when light level $\ge 9$ (1/8 chance per step); bone meal advances 1 stage per use (3 applications to mature).
+* **Cultivation**: Plantable on grass blocks, dirt, coarse dirt, rooted dirt, mud, moss blocks, and farmland. Grows via random ticks when light level >= 9 (1/8 chance per step); bone meal advances 1 stage per use (3 applications to mature).
 * **Harvesting**: Only breaking **Stage 4 (mature)** drops **1–2 fruits** (affected by Fortune); breaking immature stages drops nothing.
-* **Seed Propagation**: In crafting grid, **1 fruit $\to$ 2 seeds**, allowing exponential agricultural expansion.
+* **Seed Propagation**: In crafting grid, **1 fruit -> 2 seeds**, allowing exponential agricultural expansion.
 
 ### Ingestion: Scopolamine and Atropine
-Edible when full. Fruits provide **+1.0 Scopolamine / +0.1 Atropine**; seeds provide **+0.75 Scopolamine / +0.1 Atropine**. Both clear linearly over 1 game day:
 
-![\frac{dS_{\text{scop}}}{dt} = - \frac{5.0}{24000} \approx -2.083 \times 10^{-4}\](maths/math_7007e3aab2e4.png)
+Ingesting mandrake fruit or seeds introduces two independent alkaloids, capped at **5.0**, **clearing linearly over 1 game day**:
 
-Combined alkaloid load $\Sigma_{\text{alk}} = S_{\text{scop}} + A_{\text{atro}}$ elevates core body temperature independently of prostaglandins (**salicin cannot break mandrake fever**):
+```scala
+// Mandrake alkaloid linear clearance: 5.0 units clear in 1 game day (24,000 ticks)
+scopolamine = Math.max(scopolamine - 5.0f / 24000f, 0f) // -2.083e-4 / tick
+atropine = Math.max(atropine - 5.0f / 24000f, 0f)       // -2.083e-4 / tick
+```
 
-![\Delta T_{\text{anticholinergic}} = \begin{cases} 0\ ^\circ\text{C}, & \Sigma_{\](maths/math_49396f0477ed.png)
+| Ingested Item | Scopolamine (S_scop) | Atropine (A_atro) |
+| --- | --- | --- |
+| Mandrake Fruit | **+1.0** | **+0.1** |
+| Mandrake Seeds | **+0.75** | **+0.1** |
 
-* Visual blur contracts view fog to 8 blocks when $S_{\text{scop}} \ge 2.3 \lor A_{\text{atro}} \ge 2.3 \lor \Sigma_{\text{alk}} \ge 2.7$.
+Combined alkaloid load `alkaloidSum = scopolamine + atropine` elevates core body temperature independently of prostaglandins (**salicin cannot break mandrake fever**):
+
+```scala
+val deltaT =
+  if (alkaloidSum >= 4.0f) 4.0f      // Target core temp -> 41.0 °C
+  else if (alkaloidSum >= 2.5f) 2.5f // Target core temp -> 39.5 °C
+  else if (alkaloidSum >= 1.5f) 1.0f // Target core temp -> 38.0 °C
+  else 0.0f
+```
+
+* Visual blur contracts view fog to 8 blocks when `scopolamine >= 2.3f || atropine >= 2.3f || alkaloidSum >= 2.7f`.
+* Drug fever and visual blur stack additively with infection symptoms.
 
 ---
 
@@ -373,25 +392,30 @@ A rust-colored wood-decay mushroom flourishing in damp, shady, and wooded biomes
 * **Generation Step**: `GenerationStep.Decoration.VEGETAL_DECORATION`.
 * **Placement & Frequency**: 3 attempts per chunk (`count: 3`, `in_square`) evaluated against surface heightmap `WORLD_SURFACE_WG`.
 * **Substrate Predicate**: Current position must be air (`#minecraft:air`); block directly beneath must be Overworld substrate (`#minecraft:substrate_overworld`, supporting dirt, grass, and wood logs).
-* **Cultivation & Light Independence**: As a lignicolous wood-decay fungus, it **completely bypasses vanilla mushroom darkness restrictions** (no light $\le 12$ requirement), growing freely under open sunlight and on tree trunks.
+* **Cultivation & Light Independence**: As a lignicolous wood-decay fungus, it **completely bypasses vanilla mushroom darkness restrictions** (no light <= 12 requirement), growing freely under open sunlight and on tree trunks.
 
 ### Consumption and Kinetics
 * **Raw Consumption**: Eating raw grants **1.3 Psilocybin + 1.3 Psilocin** (3 hunger / 4 saturation).
 * **Cooking**: Cooked in a furnace, smoker, or campfire yields **Cooked Gymnopilus** (4 hunger / 5 saturation) with zero psychedelic compounds (heat destroys alkaloids).
 * **Metabolic Kinetics**: Psilocybin is an inactive prodrug converted 1:1 into psilocin over half a game day. Psilocin clears at a constant zero-order rate of **1.3 per game day**:
 
-  ![\frac{d[\text{Psilocybin}]}{dt} = - \min\left([\text{Psilocybin}], \frac{1.3}{12](maths/math_0f3da0456f03.png)
+  ```scala
+  // Inactive prodrug conversion: 1.3 units convert over half a game day (12,000 ticks)
+  val converted = Math.min(psilocybin, 1.3f / 12000f) // 1.083e-4 / tick
+  psilocybin -= converted
 
-  ![\frac{d[\text{Psilocin}]}{dt} = \min\left([\text{Psilocybin}], \frac{1.3}{12000}](maths/math_d346b4d8c7ef.png)
+  // Active psilocin elimination: fixed zero-order rate of 1.3 units per game day (24,000 ticks)
+  psilocin = clamp(psilocin + converted - (1.3f / 24000f), 0f, 10.0f) // -5.417e-5 / tick
+  ```
 
   Consuming 5 raw mushrooms extends the trip linearly to 10 game days.
 
 ### Visual Distortions
-* $[\text{Psilocin}] > 1.2$: Chromatic rays emit from block edges.
-* $[\text{Psilocin}] > 1.7$: Chromatic color shifts on blocks + full-screen color noise.
-* $[\text{Psilocin}] > 2.5$: Mild full-screen spatial wave warping.
-* $[\text{Psilocin}] > 5.0$: Intense spatial warping + drug fever climbing up to 39.0 °C.
-* $[\text{Psilocin}] \ge 7.0$: Hyperthermia reaching 41.0 °C.
+* `psilocin > 1.2`: Chromatic rays emit from block edges.
+* `psilocin > 1.7`: Chromatic color shifts on blocks + full-screen color noise.
+* `psilocin > 2.5`: Mild full-screen spatial wave warping.
+* `psilocin > 5.0`: Intense spatial warping + drug fever climbing up to 39.0 °C.
+* `psilocin >= 7.0`: Hyperthermia reaching 41.0 °C.
 
 ---
 
@@ -415,11 +439,14 @@ A rust-colored wood-decay mushroom flourishing in damp, shady, and wooded biomes
 * Increases blood ethanol index (0.0 to 1.0): 7% wine adds +0.07; 40% distilled spirits add +0.40.
 * Elimination follows zero-order kinetics:
 
-  ![\frac{d[\text{Ethanol}]}{dt} = - \frac{1.0}{24000} \approx -4.167 \times 10^{-5}](maths/math_82cc996553a2.png)
+  ```scala
+  // Zero-order elimination: 1.0 clears in 24,000 ticks (1 game day)
+  ethanol = Math.max(ethanol - 1.0f / 24000f, 0f) // -4.167e-5 / tick
+  ```
 
 * Intoxication thresholds:
-  - $[\text{Ethanol}] \ge 0.35$: Nausea I and Slowness I.
-  - $[\text{Ethanol}] \ge 0.70$: Nausea II and Slowness II.
+  - `ethanol >= 0.35`: Nausea I and Slowness I.
+  - `ethanol >= 0.70`: Nausea II and Slowness II.
 
 ---
 
@@ -449,9 +476,12 @@ A rust-colored wood-decay mushroom flourishing in damp, shady, and wooded biomes
 * **Pharmacology & Kinetics**: Ingesting raw twigs adds +0.5; drinking a potion adds +2.5 ephedrine (capped at 5.0).
 * **Elimination & Haste Effect**:
 
-  ![\frac{d[\text{Ephedrine}]}{dt} = - \frac{5.0}{24000} \approx -2.083 \times 10^{-](maths/math_b84c4cea9403.png)
+  ```scala
+  // Zero-order elimination: 5.0 clears in 24,000 ticks (1 game day)
+  ephedrine = Math.max(ephedrine - 5.0f / 24000f, 0f) // -2.083e-4 / tick
+  ```
 
-  Concentrations $[\text{Ephedrine}] > 1.0$ grant **Haste I** (faster mining speed). A full dose (5.0) provides over 16 continuous minutes of Haste.
+  Concentrations `ephedrine > 1.0` grant **Haste I** (faster mining speed). A full dose (5.0) provides over 16 continuous minutes of Haste.
 
 ---
 
@@ -472,21 +502,36 @@ A rust-colored wood-decay mushroom flourishing in damp, shady, and wooded biomes
 ### Processing and Potions
 * Grind on a grindstone into Crushed Coptis, Crushed Phellodendron, or Crushed Licorice.
 * Brew with a Water Bottle in crafting:
-  * Crushed Coptis + Water Bottle $\to$ **Coptis Potion** (+2.5 Berberine).
-  * Crushed Phellodendron + Water Bottle $\to$ **Phellodendron Potion** (+1.5 Berberine).
-  * Crushed Licorice + Water Bottle $\to$ **Licorice Potion** (+2.5 Glycyrrhizin).
+  * Crushed Coptis + Water Bottle -> **Coptis Potion** (+2.5 Berberine).
+  * Crushed Phellodendron + Water Bottle -> **Phellodendron Potion** (+1.5 Berberine).
+  * Crushed Licorice + Water Bottle -> **Licorice Potion** (+2.5 Glycyrrhizin).
 
 ### Antimicrobial Actions
-For drug concentration $D \in [0.0, 7.0]$, deceleration threshold $D_{\text{slow}} = 1.5$, and suppression threshold $D_{\text{suppress}} = 3.0$:
 
-![\frac{dL}{dt} = \begin{cases} \dfrac{dL_{\text{base}}}{dt} - C_{\text{immune}}, ](maths/math_5f944c9bd075.png)
+Unlike symptomatic anti-inflammatories, **Berberine** and **Glycyrrhizin** directly kill and suppress pathogens:
 
-where $c_{\text{suppress}} = \frac{100.0}{1.5 \times 24000} \approx 2.778 \times 10^{-3}\text{ / tick}$.
+For targeted drug concentration `drug in [0.0, 7.0]`, deceleration threshold 1.5, and suppression threshold 3.0:
 
-* **Berberine (0.0 – 7.0, Antibacterial)**:
-  - Specifically targets bacteria. Clears linearly at $\frac{d[\text{Berberine}]}{dt} = - \frac{7.0}{60000} \approx -1.167 \times 10^{-4}\text{ / tick}$ (2.5 game days).
-* **Glycyrrhizin (0.0 – 7.0, Antiviral)**:
-  - Specifically targets viruses. Clears linearly at $\frac{d[\text{Glycyrrhizin}]}{dt} = - \frac{7.0}{48000} \approx -1.458 \times 10^{-4}\text{ / tick}$ (2.0 game days).
+```scala
+if (drugConc >= 3.0f) {
+  // Complete suppression of replication; drug clearance scales with concentration
+  val drugClearance = (100.0f / (1.5f * 24000f)) * (drugConc / 3.0f)
+  load = Math.max(load - immuneClearance - drugClearance, 0.0f)
+} else if (drugConc > 1.5f) {
+  // Reduced pathogen replication rate allowing immune system to overpower it
+  val slowRatio = (drugConc - 1.5f) / (3.0f - 1.5f)
+  val reducedGrowth = baseGrowth * (1.0f - 0.75f * slowRatio)
+  load = Math.max(load + reducedGrowth - immuneClearance, 0.0f)
+} else {
+  // Normal pathogen replication minus immune clearance
+  load = Math.max(load + baseGrowth - immuneClearance, 0.0f)
+}
+```
+
+where `c_suppress = 100.0 / (1.5 * 24000) ≈ 2.778e-3 / tick`.
+
+* **Berberine (Targets Bacteria)**: `berberine = Math.max(berberine - 7.0f / 60000f, 0.0f)` (-1.167e-4 / tick, clears in 2.5 game days).
+* **Glycyrrhizin (Targets Viruses)**: `glycyrrhizin = Math.max(glycyrrhizin - 7.0f / 48000f, 0.0f)` (-1.458e-4 / tick, clears in 2.0 game days).
 
 ---
 
@@ -518,7 +563,12 @@ where $c_{\text{suppress}} = \frac{100.0}{1.5 \times 24000} \approx 2.778 \times
   * Scurvy Threshold: **15.0 µmol/L**
 * **First-Order Clearance Kinetics**:
 
-  ![\frac{dC}{dt} = -k \cdot C, \quad k = \frac{\ln(2)}{120000} \approx 5.776 \times](maths/math_6e2c5b71c6b5.png)
+  ```scala
+  // First-order excretion: half-life = 5 game days (120,000 ticks)
+  // k = ln(2) / 120000 ≈ 5.776e-6 per tick
+  val k = Math.log(2.0).toFloat / 120000f
+  vitaminC -= vitaminC * k
+  ```
 
   Decays from 80.0 to 40.0 µmol/L in **exactly 5 in-game days** (120,000 ticks) without plant food.
 * **Deficiency Pathology**:

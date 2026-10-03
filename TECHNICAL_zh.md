@@ -11,7 +11,7 @@
 ## 1. 多语言分层架构
 
 为保证生理模型数值计算的纯粹性与 Minecraft 平台逻辑的解耦，项目采用严格的单向依赖三层架构：
-`src/main/scala` $\rightarrow$ `src/main/kotlin` $\rightarrow$ `src/main/java` $\rightarrow$ `src/client`
+`src/main/scala` -> `src/main/kotlin` -> `src/main/java` -> `src/client`
 
 ```
    src/main/scala (Scala 3.9)
@@ -62,7 +62,9 @@
 ### 2.1 独立的 `compileModelScala` 编译任务
 Gradle 原生 Scala 插件默认的 `compileScala` 任务无条件依赖 `compileJava`，无论源码集里是否有 Java 代码。这会导致不可解的循环依赖：
 
-![\text{compileJava} \rightarrow \text{compileKotlin} \rightarrow \text{compileSca](maths/math_0592f54693cf.png)
+```
+compileJava -> compileKotlin -> compileScala -> compileJava
+```
 
 **解决方案**：
 在 `build.gradle.kts` 中通过手写独立的 `ScalaCompile` 任务（命名为 `compileModelScala`），并配置四项底层约定：
@@ -130,6 +132,6 @@ Gradle 原生 Scala 插件默认的 `compileScala` 任务无条件依赖 `compil
 - **靶向药理动力学**：
   - 水杨苷退烧抗炎、地塞米松强效平息风暴；
   - 麻黄碱每 tick 衰减（1 游戏日完全代谢）及速掘状态激活；
-  - 黄连素对抗细菌：$\le 1.5$ 正常生长，$>1.5$ 减缓，$\ge 3.0$ 彻底阻断生长且始终向下压制，在 1.5 游戏日内将满额感染清零，体内 2.5 游戏日完全代谢；
-  - 甘草酸对抗病毒：$\le 1.5$ 正常生长，$>1.5$ 减缓，$\ge 3.0$ 彻底阻断生长且始终向下压制，在 1.5 游戏日内将满额感染清零，体内 2.0 游戏日完全代谢。
+  - 黄连素对抗细菌：<= 1.5 正常生长，> 1.5 减缓，>= 3.0 彻底阻断生长且始终向下压制，在 1.5 游戏日内将满额感染清零，体内 2.5 游戏日完全代谢；
+  - 甘草酸对抗病毒：<= 1.5 正常生长，> 1.5 减缓，>= 3.0 彻底阻断生长且始终向下压制，在 1.5 游戏日内将满额感染清零，体内 2.0 游戏日完全代谢。
 - **本地化完整性**：自动反射所有已注册物品与方块，确保英、中、日三语翻译字典覆盖率 100%，无任何缺失未汉化键。

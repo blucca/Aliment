@@ -11,7 +11,7 @@ Target Platform: **Minecraft 26.3**, built on **Fabric Loader 0.19.5** and **Fab
 ## 1. Multi-Language Tiered Architecture
 
 To guarantee the pure mathematical integrity of physiological calculations and ensure decoupling from Minecraft platform logic, the project enforces a strict, unidirectional four-tier architecture:
-`src/main/scala` $\rightarrow$ `src/main/kotlin` $\rightarrow$ `src/main/java` $\rightarrow$ `src/client`
+`src/main/scala` -> `src/main/kotlin` -> `src/main/java` -> `src/client`
 
 ```
    src/main/scala (Scala 3.9)
@@ -62,7 +62,9 @@ To guarantee the pure mathematical integrity of physiological calculations and e
 ### 2.1 Independent `compileModelScala` Task
 The standard Gradle Scala plugin's `compileScala` task unconditionally depends on `compileJava`, regardless of whether Java sources exist in that source set. This creates an unresolvable cyclic dependency:
 
-![\text{compileJava} \rightarrow \text{compileKotlin} \rightarrow \text{compileSca](maths/math_0592f54693cf.png)
+```
+compileJava -> compileKotlin -> compileScala -> compileJava
+```
 
 **Solution**:
 A custom `ScalaCompile` task named `compileModelScala` is explicitly configured in `build.gradle.kts` with four underlying conventions:
@@ -130,6 +132,6 @@ Because standard JUnit runners cannot emulate world generation checks, chunk bou
 - **Targeted Pharmacokinetics**:
   - Salicin fever reduction and dexamethasone cytokine storm arrest;
   - Ephedrine per-tick decay (clearing within 1 game day) and haste activation;
-  - Berberine antibacterial efficacy: normal growth at $\le 1.5$, deceleration at $>1.5$, complete replication block and suppression at $\ge 3.0$, eradicating full infection within 1.5 game days with a 2.5-day clearance window;
-  - Glycyrrhizin antiviral efficacy: normal replication at $\le 1.5$, deceleration at $>1.5$, complete block at $\ge 3.0$, clearing full viral load within 1.5 game days with a 2.0-day clearance window.
+  - Berberine antibacterial efficacy: normal growth at <= 1.5, deceleration at > 1.5, complete replication block and suppression at >= 3.0, eradicating full infection within 1.5 game days with a 2.5-day clearance window;
+  - Glycyrrhizin antiviral efficacy: normal replication at <= 1.5, deceleration at > 1.5, complete block at >= 3.0, clearing full viral load within 1.5 game days with a 2.0-day clearance window.
 - **Localization Completeness**: Uses runtime reflection over all registered items and blocks to assert 100% dictionary key coverage across English, Chinese, and Japanese without missing keys.
