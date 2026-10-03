@@ -227,6 +227,39 @@ object TraceElementDefaults {
 }
 
 /**
+ * Pharmacological compounds and alkaloids carried in the body.
+ *
+ * Abstracted into its own structure so that ModelState remains clean and focused on core physiology,
+ * while drug pharmacokinetics, clearance, and dosing can be evaluated together.
+ */
+final case class ModelDrugs(
+    @BeanProperty salicin: Float = 0f,
+    @BeanProperty dexamethasone: Float = 0f,
+    @BeanProperty scopolamine: Float = 0f,
+    @BeanProperty atropine: Float = 0f,
+    @BeanProperty psilocybin: Float = 0f,
+    @BeanProperty psilocin: Float = 0f,
+    @BeanProperty ephedrine: Float = 0f,
+    @BeanProperty berberine: Float = 0f,
+    @BeanProperty glycyrrhizin: Float = 0f,
+) {
+  def withSalicin(value: Float): ModelDrugs = copy(salicin = value)
+  def withDexamethasone(value: Float): ModelDrugs = copy(dexamethasone = value)
+  def withScopolamine(value: Float): ModelDrugs = copy(scopolamine = value)
+  def withAtropine(value: Float): ModelDrugs = copy(atropine = value)
+  def withPsilocybin(value: Float): ModelDrugs = copy(psilocybin = value)
+  def withPsilocin(value: Float): ModelDrugs = copy(psilocin = value)
+  def withEphedrine(value: Float): ModelDrugs = copy(ephedrine = value)
+  def withBerberine(value: Float): ModelDrugs = copy(berberine = value)
+  def withGlycyrrhizin(value: Float): ModelDrugs = copy(glycyrrhizin = value)
+}
+
+/** The default clean drug state with zero concentration for all substances. */
+object DrugDefaults {
+  val CLEAN: ModelDrugs = new ModelDrugs(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f)
+}
+
+/**
  * Every scalar the model reads or writes, in one place.
  *
  * `OutbreakModelBridge` re-exports these names to Kotlin, so the numbers exist exactly once and the
@@ -364,6 +397,32 @@ object ModelConstants {
   /** Ephedrine is completely metabolised within one in-game day (24000 ticks). */
   val EPHEDRINE_METABOLISM_TICKS: Int = 24000
   val EPHEDRINE_DECAY_PER_TICK: Float = EPHEDRINE_CAP / EPHEDRINE_METABOLISM_TICKS
+
+  // ---------------------------------------------------------------- berberine & glycyrrhizin
+
+  /** The maximum berberine (黄连素) concentration, 0..7. */
+  val BERBERINE_CAP: Float = 7.0f
+
+  /** Concentration threshold above which bacterial growth rate is reduced. */
+  val BERBERINE_SLOW_THRESHOLD: Float = 1.5f
+
+  /** Concentration threshold above which bacteria are suppressed (growth stops, count decays). */
+  val BERBERINE_SUPPRESS_THRESHOLD: Float = 3.0f
+
+  val BERBERINE_METABOLISM_TICKS: Int = 24000
+  val BERBERINE_DECAY_PER_TICK: Float = BERBERINE_CAP / BERBERINE_METABOLISM_TICKS
+
+  /** The maximum glycyrrhizin (甘草酸) concentration, 0..7. */
+  val GLYCYRRHIZIN_CAP: Float = 7.0f
+
+  /** Concentration threshold above which viral growth rate is reduced. */
+  val GLYCYRRHIZIN_SLOW_THRESHOLD: Float = 1.5f
+
+  /** Concentration threshold above which viruses are suppressed (growth stops, count decays). */
+  val GLYCYRRHIZIN_SUPPRESS_THRESHOLD: Float = 3.0f
+
+  val GLYCYRRHIZIN_METABOLISM_TICKS: Int = 24000
+  val GLYCYRRHIZIN_DECAY_PER_TICK: Float = GLYCYRRHIZIN_CAP / GLYCYRRHIZIN_METABOLISM_TICKS
 }
 
 /**
@@ -384,22 +443,12 @@ final case class ModelState(
     @BeanProperty water: Float,
     @BeanProperty electrolytes: ModelElectrolytes,
     @BeanProperty traceElements: ModelTraceElements,
-    @BeanProperty salicin: Float,
-    @BeanProperty dexamethasone: Float,
     @BeanProperty temperature: Float,
     @BeanProperty pyrogen: Float,
-    /** Scopolamine, the deliriant half of a mandrake, 0..[ModelConstants.ANTICHOLINERGIC_CAP]. */
-    @BeanProperty scopolamine: Float,
-    /** Atropine, the same plant's peripheral poison, on the same cap. */
-    @BeanProperty atropine: Float,
-    /** Psilocybin, the mushroom's prodrug: no effect of its own, converted into psilocin. 0..10. */
-    @BeanProperty psilocybin: Float,
-    /** Psilocin, which is what the trip and the fever actually come from. 0..10. */
-    @BeanProperty psilocin: Float,
-    /** Ephedrine, the stimulant alkaloid, 0..[ModelConstants.EPHEDRINE_CAP]. */
-    @BeanProperty ephedrine: Float,
     /** Whether the active immune response has been triggered (once pathogen load > 20). */
     @BeanProperty immuneActive: Boolean = false,
+    /** Pharmacological compounds and alkaloids carried in the body. */
+    @BeanProperty drugs: ModelDrugs = DrugDefaults.CLEAN,
 ) {
   def withMediators(value: ModelMediators): ModelState = copy(mediators = value)
   def withBacteria(value: Float): ModelState = copy(bacteria = value)
@@ -407,14 +456,29 @@ final case class ModelState(
   def withWater(value: Float): ModelState = copy(water = value)
   def withElectrolytes(value: ModelElectrolytes): ModelState = copy(electrolytes = value)
   def withTraceElements(value: ModelTraceElements): ModelState = copy(traceElements = value)
-  def withSalicin(value: Float): ModelState = copy(salicin = value)
-  def withDexamethasone(value: Float): ModelState = copy(dexamethasone = value)
   def withTemperature(value: Float): ModelState = copy(temperature = value)
   def withPyrogen(value: Float): ModelState = copy(pyrogen = value)
-  def withScopolamine(value: Float): ModelState = copy(scopolamine = value)
-  def withAtropine(value: Float): ModelState = copy(atropine = value)
-  def withPsilocybin(value: Float): ModelState = copy(psilocybin = value)
-  def withPsilocin(value: Float): ModelState = copy(psilocin = value)
-  def withEphedrine(value: Float): ModelState = copy(ephedrine = value)
   def withImmuneActive(value: Boolean): ModelState = copy(immuneActive = value)
+  def withDrugs(value: ModelDrugs): ModelState = copy(drugs = value)
+
+  // Convenience accessors delegating to drugs
+  def salicin: Float = drugs.salicin
+  def dexamethasone: Float = drugs.dexamethasone
+  def scopolamine: Float = drugs.scopolamine
+  def atropine: Float = drugs.atropine
+  def psilocybin: Float = drugs.psilocybin
+  def psilocin: Float = drugs.psilocin
+  def ephedrine: Float = drugs.ephedrine
+  def berberine: Float = drugs.berberine
+  def glycyrrhizin: Float = drugs.glycyrrhizin
+
+  def withSalicin(value: Float): ModelState = copy(drugs = drugs.withSalicin(value))
+  def withDexamethasone(value: Float): ModelState = copy(drugs = drugs.withDexamethasone(value))
+  def withScopolamine(value: Float): ModelState = copy(drugs = drugs.withScopolamine(value))
+  def withAtropine(value: Float): ModelState = copy(drugs = drugs.withAtropine(value))
+  def withPsilocybin(value: Float): ModelState = copy(drugs = drugs.withPsilocybin(value))
+  def withPsilocin(value: Float): ModelState = copy(drugs = drugs.withPsilocin(value))
+  def withEphedrine(value: Float): ModelState = copy(drugs = drugs.withEphedrine(value))
+  def withBerberine(value: Float): ModelState = copy(drugs = drugs.withBerberine(value))
+  def withGlycyrrhizin(value: Float): ModelState = copy(drugs = drugs.withGlycyrrhizin(value))
 }

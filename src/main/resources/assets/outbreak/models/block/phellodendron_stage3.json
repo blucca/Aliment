@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cross",
+  "textures": {
+    "cross": "outbreak:block/phellodendron_stage3"
+  }
+}

@@ -104,4 +104,16 @@ object OutbreakPhysiology {
      */
     fun addEphedrine(data: OutbreakData, amount: Float): OutbreakData =
         OutbreakModelBridge.addEphedrine(data, amount)
+
+    /**
+     * Adds berberine (黄连素), capped at [OutbreakData.BERBERINE_CAP].
+     */
+    fun addBerberine(data: OutbreakData, amount: Float): OutbreakData =
+        OutbreakModelBridge.addBerberine(data, amount)
+
+    /**
+     * Adds glycyrrhizin (甘草酸), capped at [OutbreakData.GLYCYRRHIZIN_CAP].
+     */
+    fun addGlycyrrhizin(data: OutbreakData, amount: Float): OutbreakData =
+        OutbreakModelBridge.addGlycyrrhizin(data, amount)
 }

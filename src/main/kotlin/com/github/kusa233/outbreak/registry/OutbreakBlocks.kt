@@ -3,10 +3,13 @@ package com.github.kusa233.outbreak.registry
 import com.github.kusa233.outbreak.world.block.AlcoholCauldronBlock
 import com.github.kusa233.outbreak.world.block.BrineCauldronBlock
 import com.github.kusa233.outbreak.world.block.CondenserPipeBlock
+import com.github.kusa233.outbreak.world.block.CoptisBlock
 import com.github.kusa233.outbreak.world.block.EphedraBlock
 import com.github.kusa233.outbreak.world.block.FermentationTankBlock
 import com.github.kusa233.outbreak.world.block.GymnopilusBlock
+import com.github.kusa233.outbreak.world.block.LicoriceBlock
 import com.github.kusa233.outbreak.world.block.MandrakeBlock
+import com.github.kusa233.outbreak.world.block.PhellodendronBlock
 import com.github.kusa233.outbreak.world.block.WillowSoupCauldronBlock
 import com.github.kusa233.outbreak.world.block.WillowVinesBlock
 import com.github.kusa233.outbreak.world.block.WillowVinesPlantBlock
@@ -367,6 +370,53 @@ object OutbreakBlocks {
             .offsetType(BlockBehaviour.OffsetType.XZ)
             .pushReaction(PushReaction.POPPED),
     ) { EphedraBlock(it) }
+
+    // ---------------------------------------------------------------- traditional medicinal herbs
+
+    /**
+     * Coptis (黄连): medicinal herb rich in berberine.
+     */
+    val COPTIS: Block = Registration.registerBlock(
+        "coptis",
+        BlockBehaviour.Properties.of()
+            .mapColor(MapColor.PLANT)
+            .noCollision()
+            .randomTicks()
+            .instabreak()
+            .sound(SoundType.GRASS)
+            .offsetType(BlockBehaviour.OffsetType.XZ)
+            .pushReaction(PushReaction.POPPED),
+    ) { CoptisBlock(it) }
+
+    /**
+     * Phellodendron (黄柏): medicinal shrub/bark source rich in berberine.
+     */
+    val PHELLODENDRON: Block = Registration.registerBlock(
+        "phellodendron",
+        BlockBehaviour.Properties.of()
+            .mapColor(MapColor.PLANT)
+            .noCollision()
+            .randomTicks()
+            .instabreak()
+            .sound(SoundType.GRASS)
+            .offsetType(BlockBehaviour.OffsetType.XZ)
+            .pushReaction(PushReaction.POPPED),
+    ) { PhellodendronBlock(it) }
+
+    /**
+     * Licorice (甘草): medicinal herb rich in glycyrrhizin.
+     */
+    val LICORICE: Block = Registration.registerBlock(
+        "licorice",
+        BlockBehaviour.Properties.of()
+            .mapColor(MapColor.PLANT)
+            .noCollision()
+            .randomTicks()
+            .instabreak()
+            .sound(SoundType.GRASS)
+            .offsetType(BlockBehaviour.OffsetType.XZ)
+            .pushReaction(PushReaction.POPPED),
+    ) { LicoriceBlock(it) }
 
     // ---------------------------------------------------------------- brewing & distillation
 

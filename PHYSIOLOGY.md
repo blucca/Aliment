@@ -283,6 +283,26 @@ damping = 1 - 0.88 * max(salicinFight, dexFight)
 这也让"地塞米松抑制上游、水杨苷抑制下游"的差别有了实际意义。
 **两者均不直接清除病原体，而是通过压低炎症介质来平抑反应。**
 
+### 抗菌与抗病毒靶向药物动力学（黄连素与甘草酸）
+
+与只平抑免疫反应的水杨苷/地塞米松不同，**黄连素（Berberine）**与**甘草酸（Glycyrrhizin）**直接针对病原体本身发挥抑菌与抑毒药效：
+
+- **黄连素（0.0 ~ 7.0）**：特异性对抗**细菌（Bacteria）**
+  - **$\text{conc} \le 1.5$**：药物浓度不足，细菌正常生长；
+  - **$1.5 < \text{conc} < 3.0$**：细菌生长速率随浓度升高受到显著减缓：
+    $$\text{slowRatio} = \frac{\text{conc} - 1.5}{1.5} \times 0.75$$
+    $$\text{effectiveGrowth} = \text{baseGrowth} \times (1.0 - \text{slowRatio})$$
+    配合机体免疫系统可更迅速地压制病原体；
+  - **$\text{conc} \ge 3.0$**：细菌增殖被彻底阻断（$\text{growth} = 0$），且在药物直接清除作用下持续衰退：
+    $$\text{drugClearance} = 1.5 \times \text{CLEARANCE\_BASE\_RATE} \times \frac{\text{conc}}{3.0}$$
+  - **代谢消除**：在体内 1 游戏日（24,000 ticks）内线性代谢归零（衰减率 $7.0 / 24,000 \approx 0.0002917\text{ / tick}$）。
+
+- **甘草酸（0.0 ~ 7.0）**：特异性对抗**病毒（Virus）**
+  - **$\text{conc} \le 1.5$**：药物浓度不足，病毒正常复制；
+  - **$1.5 < \text{conc} < 3.0$**：病毒复制速度随浓度升高受到显著减缓（算法与黄连素相同）；
+  - **$\text{conc} \ge 3.0$**：病毒复制完全停止（$\text{growth} = 0$），并在药物压制作用下持续消退；
+  - **代谢消除**：在体内 1 游戏日（24,000 ticks）内线性代谢归零（衰减率 $7.0 / 24,000 \approx 0.0002917\text{ / tick}$）。
+
 ### 水分与出汗消耗模型
 
 ```

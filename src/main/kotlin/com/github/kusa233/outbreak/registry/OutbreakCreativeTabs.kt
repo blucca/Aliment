@@ -98,6 +98,16 @@ object OutbreakCreativeTabs {
         OutbreakItems.EPHEDRA,
         OutbreakItems.CRUSHED_EPHEDRA,
         OutbreakItems.EPHEDRINE,
+        // traditional herbs (coptis, phellodendron, licorice)
+        OutbreakItems.COPTIS,
+        OutbreakItems.CRUSHED_COPTIS,
+        OutbreakItems.COPTIS_POTION,
+        OutbreakItems.PHELLODENDRON,
+        OutbreakItems.CRUSHED_PHELLODENDRON,
+        OutbreakItems.PHELLODENDRON_POTION,
+        OutbreakItems.LICORICE,
+        OutbreakItems.CRUSHED_LICORICE,
+        OutbreakItems.LICORICE_POTION,
     )
 
     /**

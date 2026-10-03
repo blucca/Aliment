@@ -442,6 +442,37 @@ object Physiology {
 
   // ------------------------------------------------------------------ the tick
 
+  /** Metabolises and decays all pharmacological compounds carried in the body by one tick. */
+  def stepDrugs(drugs: ModelDrugs): ModelDrugs = {
+    val salicin = Math.max(drugs.salicin - ModelConstants.SALICIN_DECAY_PER_TICK, 0f)
+    val dexamethasone = Math.max(drugs.dexamethasone - ModelConstants.DEXAMETHASONE_DECAY_PER_TICK, 0f)
+    val scopolamine = Math.max(drugs.scopolamine - ModelConstants.ANTICHOLINERGIC_DECAY_PER_TICK, 0f)
+    val atropine = Math.max(drugs.atropine - ModelConstants.ANTICHOLINERGIC_DECAY_PER_TICK, 0f)
+
+    val converted = Math.min(drugs.psilocybin, ModelConstants.PSILOCYBIN_DECAY_PER_TICK)
+    val psilocybin = drugs.psilocybin - converted
+    val psilocin = clamp(
+      drugs.psilocin + converted - ModelConstants.PSILOCIN_DECAY_PER_TICK,
+      0f,
+      ModelConstants.PSILOCIN_CAP,
+    )
+    val ephedrine = Math.max(drugs.ephedrine - ModelConstants.EPHEDRINE_DECAY_PER_TICK, 0f)
+    val berberine = Math.max(drugs.berberine - ModelConstants.BERBERINE_DECAY_PER_TICK, 0f)
+    val glycyrrhizin = Math.max(drugs.glycyrrhizin - ModelConstants.GLYCYRRHIZIN_DECAY_PER_TICK, 0f)
+
+    new ModelDrugs(
+      salicin,
+      dexamethasone,
+      scopolamine,
+      atropine,
+      psilocybin,
+      psilocin,
+      ephedrine,
+      berberine,
+      glycyrrhizin,
+    )
+  }
+
   /**
    * Advances a player's physiology by a single tick.
    *
@@ -454,29 +485,13 @@ object Physiology {
   def tick(state: ModelState, ambient: Float): ModelState = {
     // 1. Drugs and injected pyrogen are metabolised first so the rest of the tick sees the current
     //    concentrations. A negative pyrogen is an antipyretic offset and clears the same way.
-    val salicin = Math.max(state.salicin - ModelConstants.SALICIN_DECAY_PER_TICK, 0f)
-    val dexamethasone = Math.max(state.dexamethasone - ModelConstants.DEXAMETHASONE_DECAY_PER_TICK, 0f)
+    val drugs = stepDrugs(state.drugs)
     val pyrogen = stepPyrogen(state, ambient)
-    // The mandrake alkaloids clear the same way, over a game day, so a single fruit is a trip and a
-    // whole stack of them is an overdose the player has to wait out.
-    val scopolamine = Math.max(state.scopolamine - ModelConstants.ANTICHOLINERGIC_DECAY_PER_TICK, 0f)
-    val atropine = Math.max(state.atropine - ModelConstants.ANTICHOLINERGIC_DECAY_PER_TICK, 0f)
-    // The mushroom's compounds. Psilocybin has no effect of its own: it is a prodrug, and every
-    // tick a slice of it turns into exactly as much psilocin. Psilocin then leaves at a flat rate,
-    // so what is in the body is the integral of the dose rather than a decaying fraction of it.
-    val converted = Math.min(state.psilocybin, ModelConstants.PSILOCYBIN_DECAY_PER_TICK)
-    val psilocybin = state.psilocybin - converted
-    val psilocin = clamp(
-      state.psilocin + converted - ModelConstants.PSILOCIN_DECAY_PER_TICK,
-      0f,
-      ModelConstants.PSILOCIN_CAP,
-    )
-    val ephedrine = Math.max(state.ephedrine - ModelConstants.EPHEDRINE_DECAY_PER_TICK, 0f)
 
-    // 2. Pathogens grow logistically and are cleared in proportion to immune competence.
+    // 2. Pathogens grow logistically and are cleared in proportion to immune competence and targeted drugs.
     val competence = immuneCompetence(state.mediators.getInflammation)
-    val bacteria = stepPathogen(state.bacteria, competence, state.immuneActive)
-    val virus = stepPathogen(state.virus, competence, state.immuneActive)
+    val bacteria = stepBacteria(state.bacteria, competence, state.immuneActive, drugs.berberine)
+    val virus = stepVirus(state.virus, competence, state.immuneActive, drugs.glycyrrhizin)
 
     val currentLoad = pathogenLoad(bacteria, virus)
     val nextImmuneActive = if (state.immuneActive) {
@@ -486,14 +501,8 @@ object Physiology {
     }
 
     val next = state
-      .withSalicin(salicin)
-      .withDexamethasone(dexamethasone)
+      .withDrugs(drugs)
       .withPyrogen(pyrogen)
-      .withScopolamine(scopolamine)
-      .withAtropine(atropine)
-      .withPsilocybin(psilocybin)
-      .withPsilocin(psilocin)
-      .withEphedrine(ephedrine)
       .withBacteria(bacteria)
       .withVirus(virus)
       .withImmuneActive(nextImmuneActive)
@@ -573,6 +582,59 @@ object Physiology {
     clamp(current + (target - current) * MEDIATOR_APPROACH, 0f, MediatorLevels.MAX)
 
   // ------------------------------------------------------------------ pathogens
+
+  private def stepBacteria(load: Float, competence: Float, immuneActive: Boolean, berberine: Float): Float =
+    stepTargetedPathogen(
+      load,
+      competence,
+      immuneActive,
+      berberine,
+      ModelConstants.BERBERINE_SLOW_THRESHOLD,
+      ModelConstants.BERBERINE_SUPPRESS_THRESHOLD,
+    )
+
+  private def stepVirus(load: Float, competence: Float, immuneActive: Boolean, glycyrrhizin: Float): Float =
+    stepTargetedPathogen(
+      load,
+      competence,
+      immuneActive,
+      glycyrrhizin,
+      ModelConstants.GLYCYRRHIZIN_SLOW_THRESHOLD,
+      ModelConstants.GLYCYRRHIZIN_SUPPRESS_THRESHOLD,
+    )
+
+  private def stepTargetedPathogen(
+      load: Float,
+      competence: Float,
+      immuneActive: Boolean,
+      drugConc: Float,
+      slowThreshold: Float,
+      suppressThreshold: Float,
+  ): Float = {
+    if (load <= 0f) {
+      0f
+    } else {
+      val baseGrowth = GROWTH_RATE * load * (1f - load / ModelConstants.MAX_PATHOGEN)
+      val immuneClearance = if (immuneActive || load > ModelConstants.IMMUNITY_ACTIVATION_LOAD) {
+        baseGrowth * competence + CLEARANCE_BASE_RATE * competence
+      } else {
+        0f
+      }
+
+      if (drugConc >= suppressThreshold) {
+        // 完全不生长，持续下降：药物直接提供杀灭清除速率
+        val drugClearance = CLEARANCE_BASE_RATE * 1.5f * (drugConc / suppressThreshold)
+        clamp(load - immuneClearance - drugClearance, 0f, ModelConstants.MAX_PATHOGEN)
+      } else if (drugConc > slowThreshold) {
+        // 生长速度降低（配合免疫系统可以更快压制）
+        val slowRatio = clamp((drugConc - slowThreshold) / (suppressThreshold - slowThreshold), 0f, 1f)
+        val reducedGrowth = baseGrowth * (1f - 0.75f * slowRatio)
+        clamp(load + reducedGrowth - immuneClearance, 0f, ModelConstants.MAX_PATHOGEN)
+      } else {
+        clamp(load + baseGrowth - immuneClearance, 0f, ModelConstants.MAX_PATHOGEN)
+      }
+    }
+  }
 
   private def stepPathogen(load: Float, competence: Float, immuneActive: Boolean): Float = {
     if (load <= 0f) {
@@ -808,6 +870,14 @@ object Physiology {
 
   def hasHasteFromEphedrine(state: ModelState): Boolean =
     state.ephedrine > ModelConstants.EPHEDRINE_HASTE_THRESHOLD
+
+  /** Adds berberine (黄连素), capped at [ModelConstants.BERBERINE_CAP]. */
+  def addBerberine(state: ModelState, amount: Float): ModelState =
+    state.withBerberine(clamp(state.berberine + amount, 0f, ModelConstants.BERBERINE_CAP))
+
+  /** Adds glycyrrhizin (甘草酸), capped at [ModelConstants.GLYCYRRHIZIN_CAP]. */
+  def addGlycyrrhizin(state: ModelState, amount: Float): ModelState =
+    state.withGlycyrrhizin(clamp(state.glycyrrhizin + amount, 0f, ModelConstants.GLYCYRRHIZIN_CAP))
 
   /**
    * Raises or lowers the fever so that the body *peaks* at `degrees` Celsius.

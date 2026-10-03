@@ -383,6 +383,9 @@ $blockEntries = [ordered]@{
     'condenser_pipe'          = 'Glass Condenser Pipe'
     'alcohol_cauldron'        = 'Alcohol Cauldron'
     'ephedra'                 = 'Ephedra'
+    'coptis'                  = 'Coptis'
+    'phellodendron'           = 'Phellodendron'
+    'licorice'                = 'Licorice'
 }
 
 $itemEntries = [ordered]@{
@@ -420,6 +423,15 @@ $itemEntries = [ordered]@{
     'ephedra'                      = 'Ephedra'
     'crushed_ephedra'              = 'Crushed Ephedra'
     'ephedrine'                    = 'Ephedrine Potion'
+    'coptis'                       = 'Coptis'
+    'crushed_coptis'               = 'Crushed Coptis'
+    'coptis_potion'                = 'Coptis Potion'
+    'phellodendron'                = 'Phellodendron'
+    'crushed_phellodendron'        = 'Crushed Phellodendron'
+    'phellodendron_potion'         = 'Phellodendron Potion'
+    'licorice'                     = 'Licorice'
+    'crushed_licorice'             = 'Crushed Licorice'
+    'licorice_potion'              = 'Licorice Potion'
 }
 
 # the two boats are plain items that also have entity names, like vanilla's
@@ -2190,6 +2202,154 @@ Write-Json "data/$ns/recipe/crushed_ephedra_from_shears.json" @"
   "category": "misc"
 }
 "@
+
+# 7. Traditional Herbs: Coptis, Phellodendron, Licorice
+$traditionalHerbs = @('coptis', 'phellodendron', 'licorice')
+foreach ($herb in $traditionalHerbs) {
+    Write-Json "assets/$ns/blockstates/$herb.json" @"
+{
+  "variants": {
+    "age=0": { "model": "$ns`:block/${herb}_stage0" },
+    "age=1": { "model": "$ns`:block/${herb}_stage1" },
+    "age=2": { "model": "$ns`:block/${herb}_stage2" },
+    "age=3": { "model": "$ns`:block/${herb}_stage3" }
+  }
+}
+"@
+
+    foreach ($stage in 0..3) {
+        Write-Json "assets/$ns/models/block/${herb}_stage$stage.json" @"
+{
+  "parent": "minecraft:block/cross",
+  "textures": {
+    "cross": "$ns`:block/${herb}_stage$stage"
+  }
+}
+"@
+    }
+
+    Write-Json "assets/$ns/models/item/$herb.json" @"
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "$ns`:item/$herb"
+  }
+}
+"@
+    Write-Json "assets/$ns/items/$herb.json" @"
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "$ns`:item/$herb"
+  }
+}
+"@
+
+    Write-Json "assets/$ns/models/item/crushed_$herb.json" @"
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "$ns`:item/crushed_$herb"
+  }
+}
+"@
+    Write-Json "assets/$ns/items/crushed_$herb.json" @"
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "$ns`:item/crushed_$herb"
+  }
+}
+"@
+
+    Write-Json "assets/$ns/models/item/${herb}_potion.json" @"
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "$ns`:item/${herb}_potion"
+  }
+}
+"@
+    Write-Json "assets/$ns/items/${herb}_potion.json" @"
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "$ns`:item/${herb}_potion"
+  }
+}
+"@
+
+    Write-Json "data/$ns/loot_table/blocks/$herb.json" @"
+{
+  "type": "minecraft:block",
+  "modifier": {
+    "type": "minecraft:explosion_decay"
+  },
+  "pools": [
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "$ns`:$herb"
+        }
+      ],
+      "modifier": [
+        {
+          "type": "minecraft:set_count",
+          "count": {
+            "type": "minecraft:uniform",
+            "min": 1,
+            "max": 2
+          },
+          "condition": {
+            "type": "minecraft:match_block",
+            "blocks": "$ns`:$herb",
+            "state": {
+              "age": "3"
+            }
+          }
+        },
+        {
+          "type": "minecraft:apply_bonus",
+          "enchantment": "minecraft:fortune",
+          "formula": "minecraft:uniform_bonus_count",
+          "parameters": {
+            "bonusMultiplier": 1
+          },
+          "condition": {
+            "type": "minecraft:match_block",
+            "blocks": "$ns`:$herb",
+            "state": {
+              "age": "3"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "random_sequence": "$ns`:blocks/$herb"
+}
+"@
+
+    Write-Json "data/$ns/recipe/${herb}_potion.json" @"
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    [
+      "minecraft:potion",
+      "minecraft:glass_bottle"
+    ],
+    "$ns`:crushed_$herb"
+  ],
+  "result": {
+    "count": 1,
+    "id": "$ns`:${herb}_potion"
+  }
+}
+"@
+}
 
 Write-Json "data/$ns/worldgen/feature/ephedra.json" @"
 {

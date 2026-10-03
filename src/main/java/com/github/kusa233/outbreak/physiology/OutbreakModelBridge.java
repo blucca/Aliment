@@ -4,6 +4,7 @@ import com.github.kusa233.outbreak.physiology.model.ElectrolyteDefaults;
 import com.github.kusa233.outbreak.physiology.model.MediatorLevels;
 import com.github.kusa233.outbreak.physiology.model.MineralRanges;
 import com.github.kusa233.outbreak.physiology.model.ModelConstants;
+import com.github.kusa233.outbreak.physiology.model.ModelDrugs;
 import com.github.kusa233.outbreak.physiology.model.ModelElectrolytes;
 import com.github.kusa233.outbreak.physiology.model.ModelMediators;
 import com.github.kusa233.outbreak.physiology.model.ModelMineral;
@@ -201,6 +202,32 @@ public final class OutbreakModelBridge {
     public static final int EPHEDRINE_METABOLISM_TICKS = ModelConstants.EPHEDRINE_METABOLISM_TICKS();
     public static final float EPHEDRINE_DECAY_PER_TICK = ModelConstants.EPHEDRINE_DECAY_PER_TICK();
 
+    // ---------------------------------------------------------------- berberine & glycyrrhizin
+
+    /** The maximum berberine (黄连素) concentration (0..7). */
+    public static final float BERBERINE_CAP = ModelConstants.BERBERINE_CAP();
+
+    /** Concentration threshold above which bacterial growth rate is reduced. */
+    public static final float BERBERINE_SLOW_THRESHOLD = ModelConstants.BERBERINE_SLOW_THRESHOLD();
+
+    /** Concentration threshold above which bacteria are suppressed (growth stops, count decays). */
+    public static final float BERBERINE_SUPPRESS_THRESHOLD = ModelConstants.BERBERINE_SUPPRESS_THRESHOLD();
+
+    public static final int BERBERINE_METABOLISM_TICKS = ModelConstants.BERBERINE_METABOLISM_TICKS();
+    public static final float BERBERINE_DECAY_PER_TICK = ModelConstants.BERBERINE_DECAY_PER_TICK();
+
+    /** The maximum glycyrrhizin (甘草酸) concentration (0..7). */
+    public static final float GLYCYRRHIZIN_CAP = ModelConstants.GLYCYRRHIZIN_CAP();
+
+    /** Concentration threshold above which viral growth rate is reduced. */
+    public static final float GLYCYRRHIZIN_SLOW_THRESHOLD = ModelConstants.GLYCYRRHIZIN_SLOW_THRESHOLD();
+
+    /** Concentration threshold above which viruses are suppressed (growth stops, count decays). */
+    public static final float GLYCYRRHIZIN_SUPPRESS_THRESHOLD = ModelConstants.GLYCYRRHIZIN_SUPPRESS_THRESHOLD();
+
+    public static final int GLYCYRRHIZIN_METABOLISM_TICKS = ModelConstants.GLYCYRRHIZIN_METABOLISM_TICKS();
+    public static final float GLYCYRRHIZIN_DECAY_PER_TICK = ModelConstants.GLYCYRRHIZIN_DECAY_PER_TICK();
+
     // ================================================================== the reference ranges
 
     /**
@@ -349,7 +376,9 @@ public final class OutbreakModelBridge {
                 0f,
                 0f,
                 0f,
-                false);
+                false,
+                0f,
+                0f);
     }
 
     // ================================================================== derived values
@@ -569,6 +598,16 @@ public final class OutbreakModelBridge {
         return Physiology.hasHasteFromEphedrine(toModel(data));
     }
 
+    /** Adds berberine, capped. */
+    public static OutbreakData addBerberine(OutbreakData data, float amount) {
+        return fromModel(Physiology.addBerberine(toModel(data), amount));
+    }
+
+    /** Adds glycyrrhizin, capped. */
+    public static OutbreakData addGlycyrrhizin(OutbreakData data, float amount) {
+        return fromModel(Physiology.addGlycyrrhizin(toModel(data), amount));
+    }
+
     // ================================================================== the conversion
     //
     // The only place a Kotlin `OutbreakData` becomes the model's `ModelState` or back. Everything
@@ -576,6 +615,17 @@ public final class OutbreakModelBridge {
     // representations mean.
 
     private static ModelState toModel(OutbreakData data) {
+        ModelDrugs drugs = new ModelDrugs(
+                data.getSalicin(),
+                data.getDexamethasone(),
+                data.getScopolamine(),
+                data.getAtropine(),
+                data.getPsilocybin(),
+                data.getPsilocin(),
+                data.getEphedrine(),
+                data.getBerberine(),
+                data.getGlycyrrhizin());
+
         return new ModelState(
                 toModel(data.getMediators()),
                 data.getBacteria(),
@@ -583,19 +633,14 @@ public final class OutbreakModelBridge {
                 data.getWater(),
                 toModel(data.getElectrolytes()),
                 toModel(data.getTraceElements()),
-                data.getSalicin(),
-                data.getDexamethasone(),
                 data.getTemperature(),
                 data.getPyrogen(),
-                data.getScopolamine(),
-                data.getAtropine(),
-                data.getPsilocybin(),
-                data.getPsilocin(),
-                data.getEphedrine(),
-                data.getImmuneActive());
+                data.getImmuneActive(),
+                drugs);
     }
 
     private static OutbreakData fromModel(ModelState state) {
+        ModelDrugs drugs = state.getDrugs();
         return new OutbreakData(
                 fromModel(state.getMediators()),
                 state.getBacteria(),
@@ -603,16 +648,18 @@ public final class OutbreakModelBridge {
                 state.getWater(),
                 fromModel(state.getElectrolytes()),
                 fromModel(state.getTraceElements()),
-                state.getSalicin(),
-                state.getDexamethasone(),
+                drugs.getSalicin(),
+                drugs.getDexamethasone(),
                 state.getTemperature(),
                 state.getPyrogen(),
-                state.getScopolamine(),
-                state.getAtropine(),
-                state.getPsilocybin(),
-                state.getPsilocin(),
-                state.getEphedrine(),
-                state.getImmuneActive());
+                drugs.getScopolamine(),
+                drugs.getAtropine(),
+                drugs.getPsilocybin(),
+                drugs.getPsilocin(),
+                drugs.getEphedrine(),
+                state.getImmuneActive(),
+                drugs.getBerberine(),
+                drugs.getGlycyrrhizin());
     }
 
     private static ModelMediators toModel(Mediators mediators) {

@@ -21,6 +21,9 @@ object OutbreakGrinding {
         OutbreakBlocks.ROCK_SALT_ORE.asItem() to (OutbreakItems.CRUDE_SALT to 9),
         OutbreakItems.CRUDE_SALT to (OutbreakItems.CRUDE_SALT_POWDER to 1),
         OutbreakItems.EPHEDRA to (OutbreakItems.CRUSHED_EPHEDRA to 1),
+        OutbreakItems.COPTIS to (OutbreakItems.CRUSHED_COPTIS to 1),
+        OutbreakItems.PHELLODENDRON to (OutbreakItems.CRUSHED_PHELLODENDRON to 1),
+        OutbreakItems.LICORICE to (OutbreakItems.CRUSHED_LICORICE to 1),
     )
 
     /** True when the grindstone has something to do with this item. */

@@ -1788,6 +1788,100 @@ class OutbreakPhysiologySelfTest : ModInitializer {
         repeat(12000) { decaySim = OutbreakPhysiology.tick(decaySim) }
         check("ephedrine at 24000 ticks is completely cleared to 0", decaySim.ephedrine == 0f)
 
+        // Traditional herbs: Coptis, Phellodendron, Licorice
+        player.setAttached(OutbreakAttachments.DATA, OutbreakData.HEALTHY)
+        check("healthy player has 0 berberine", player.getAttachedOrCreate(OutbreakAttachments.DATA).berberine == 0f)
+        check("healthy player has 0 glycyrrhizin", player.getAttachedOrCreate(OutbreakAttachments.DATA).glycyrrhizin == 0f)
+
+        // Eating raw herbs
+        ItemStack(OutbreakItems.COPTIS, 1).finishUsingItem(level, player)
+        val afterCoptis = player.getAttachedOrCreate(OutbreakAttachments.DATA)
+        logger.info("PHYS coptis eaten: berberine {}", afterCoptis.berberine)
+        check("eating coptis adds 1.1 berberine", abs(afterCoptis.berberine - 1.1f) < 0.001f)
+
+        ItemStack(OutbreakItems.PHELLODENDRON, 1).finishUsingItem(level, player)
+        val afterPhel = player.getAttachedOrCreate(OutbreakAttachments.DATA)
+        logger.info("PHYS phellodendron eaten: berberine {}", afterPhel.berberine)
+        check("eating phellodendron adds 0.6 berberine", abs(afterPhel.berberine - 1.7f) < 0.001f)
+
+        ItemStack(OutbreakItems.LICORICE, 1).finishUsingItem(level, player)
+        val afterLic = player.getAttachedOrCreate(OutbreakAttachments.DATA)
+        logger.info("PHYS licorice eaten: glycyrrhizin {}", afterLic.glycyrrhizin)
+        check("eating licorice adds 1.1 glycyrrhizin", abs(afterLic.glycyrrhizin - 1.1f) < 0.001f)
+
+        // Potions
+        player.setAttached(OutbreakAttachments.DATA, OutbreakData.HEALTHY)
+        ItemStack(OutbreakItems.COPTIS_POTION, 1).finishUsingItem(level, player)
+        val afterCoptisPot = player.getAttachedOrCreate(OutbreakAttachments.DATA)
+        check("drinking coptis potion adds 2.5 berberine", abs(afterCoptisPot.berberine - 2.5f) < 0.001f)
+
+        player.setAttached(OutbreakAttachments.DATA, OutbreakData.HEALTHY)
+        ItemStack(OutbreakItems.PHELLODENDRON_POTION, 1).finishUsingItem(level, player)
+        val afterPhelPot = player.getAttachedOrCreate(OutbreakAttachments.DATA)
+        check("drinking phellodendron potion adds 1.5 berberine", abs(afterPhelPot.berberine - 1.5f) < 0.001f)
+
+        player.setAttached(OutbreakAttachments.DATA, OutbreakData.HEALTHY)
+        ItemStack(OutbreakItems.LICORICE_POTION, 1).finishUsingItem(level, player)
+        val afterLicPot = player.getAttachedOrCreate(OutbreakAttachments.DATA)
+        check("drinking licorice potion adds 2.5 glycyrrhizin", abs(afterLicPot.glycyrrhizin - 2.5f) < 0.001f)
+
+        // Caps
+        val cappedBerb = OutbreakPhysiology.addBerberine(OutbreakData.HEALTHY, 15f)
+        check("berberine is capped at 7.0", cappedBerb.berberine == OutbreakData.BERBERINE_CAP)
+        val cappedGly = OutbreakPhysiology.addGlycyrrhizin(OutbreakData.HEALTHY, 15f)
+        check("glycyrrhizin is capped at 7.0", cappedGly.glycyrrhizin == OutbreakData.GLYCYRRHIZIN_CAP)
+
+        // Berberine & glycyrrhizin metabolism decay (24000 ticks for full clearance)
+        var decayBerbSim = OutbreakData.HEALTHY.copy(berberine = 7.0f, glycyrrhizin = 7.0f)
+        repeat(12000) { decayBerbSim = OutbreakPhysiology.tick(decayBerbSim) }
+        check("berberine at 12000 ticks is halfway (3.5)", abs(decayBerbSim.berberine - 3.5f) < 0.02f)
+        check("glycyrrhizin at 12000 ticks is halfway (3.5)", abs(decayBerbSim.glycyrrhizin - 3.5f) < 0.02f)
+        repeat(12000) { decayBerbSim = OutbreakPhysiology.tick(decayBerbSim) }
+        check("berberine at 24000 ticks is cleared to 0", decayBerbSim.berberine == 0f)
+        check("glycyrrhizin at 24000 ticks is cleared to 0", decayBerbSim.glycyrrhizin == 0f)
+
+        // Pharmacological pathogen dynamics
+        // 1. Berberine vs Bacteria
+        // Case A: berberine <= 1.5 (e.g. 1.0) -> normal growth
+        val b0 = OutbreakData.HEALTHY.copy(bacteria = 10f, berberine = 0f)
+        val b0Ticked = OutbreakPhysiology.tick(b0)
+        val b1 = OutbreakData.HEALTHY.copy(bacteria = 10f, berberine = 1.0f)
+        val b1Ticked = OutbreakPhysiology.tick(b1)
+        check("berberine <= 1.5 has same growth as no drug", abs(b0Ticked.bacteria - b1Ticked.bacteria) < 0.0001f)
+
+        // Case B: berberine > 1.5 (e.g. 2.0) -> growth slowdown
+        val bSlow = OutbreakData.HEALTHY.copy(bacteria = 10f, berberine = 2.0f)
+        val bSlowTicked = OutbreakPhysiology.tick(bSlow)
+        check("berberine > 1.5 slows bacterial growth", bSlowTicked.bacteria < b0Ticked.bacteria && bSlowTicked.bacteria > 10f)
+
+        // Case C: berberine >= 3.0 (e.g. 3.5) -> complete growth arrest & continuous decay
+        val bSuppress = OutbreakData.HEALTHY.copy(bacteria = 10f, berberine = 3.5f)
+        val bSuppressTicked = OutbreakPhysiology.tick(bSuppress)
+        check("berberine >= 3.0 arrests bacterial growth and decays load", bSuppressTicked.bacteria < 10f)
+
+        // 2. Glycyrrhizin vs Virus
+        val v0 = OutbreakData.HEALTHY.copy(virus = 10f, glycyrrhizin = 0f)
+        val v0Ticked = OutbreakPhysiology.tick(v0)
+        val v1 = OutbreakData.HEALTHY.copy(virus = 10f, glycyrrhizin = 1.0f)
+        val v1Ticked = OutbreakPhysiology.tick(v1)
+        check("glycyrrhizin <= 1.5 has same growth as no drug", abs(v0Ticked.virus - v1Ticked.virus) < 0.0001f)
+
+        val vSlow = OutbreakData.HEALTHY.copy(virus = 10f, glycyrrhizin = 2.0f)
+        val vSlowTicked = OutbreakPhysiology.tick(vSlow)
+        check("glycyrrhizin > 1.5 slows viral growth", vSlowTicked.virus < v0Ticked.virus && vSlowTicked.virus > 10f)
+
+        val vSuppress = OutbreakData.HEALTHY.copy(virus = 10f, glycyrrhizin = 3.5f)
+        val vSuppressTicked = OutbreakPhysiology.tick(vSuppress)
+        check("glycyrrhizin >= 3.0 arrests viral growth and decays load", vSuppressTicked.virus < 10f)
+
+        // Grindstone recipes
+        val grindCoptis = OutbreakGrinding.outputFor(ItemStack(OutbreakItems.COPTIS))
+        check("grindstone accepts coptis", grindCoptis != null && grindCoptis.first == OutbreakItems.CRUSHED_COPTIS && grindCoptis.second == 1)
+        val grindPhel = OutbreakGrinding.outputFor(ItemStack(OutbreakItems.PHELLODENDRON))
+        check("grindstone accepts phellodendron", grindPhel != null && grindPhel.first == OutbreakItems.CRUSHED_PHELLODENDRON && grindPhel.second == 1)
+        val grindLic = OutbreakGrinding.outputFor(ItemStack(OutbreakItems.LICORICE))
+        check("grindstone accepts licorice", grindLic != null && grindLic.first == OutbreakItems.CRUSHED_LICORICE && grindLic.second == 1)
+
         // PlayerMixin scales food exhaustion.
         player.setAttached(OutbreakAttachments.DATA, OutbreakData.HEALTHY)
         val healthyMultiplier = OutbreakSymptoms.exhaustionMultiplier(player)

@@ -2,6 +2,7 @@ package com.github.kusa233.outbreak.physiology
 
 import com.github.kusa233.outbreak.registry.Registration
 import com.mojang.serialization.Codec
+import com.mojang.serialization.MapCodec
 import com.mojang.serialization.codecs.RecordCodecBuilder
 import net.fabricmc.fabric.api.attachment.v1.AttachmentRegistry
 import net.fabricmc.fabric.api.attachment.v1.AttachmentSyncPredicate
@@ -219,6 +220,10 @@ data class OutbreakData(
     val ephedrine: Float = 0f,
     /** Whether the active immune response has been triggered (once pathogen load > 20). */
     val immuneActive: Boolean = false,
+    /** Berberine (黄连素), antimicrobial alkaloid targeting bacteria, 0..[BERBERINE_CAP]. */
+    val berberine: Float = 0f,
+    /** Glycyrrhizin (甘草酸), antiviral saponin targeting viruses, 0..[GLYCYRRHIZIN_CAP]. */
+    val glycyrrhizin: Float = 0f,
 ) {
 
     val inflammation: Float
@@ -360,6 +365,10 @@ data class OutbreakData(
     fun withEphedrine(value: Float): OutbreakData = this.copy(ephedrine = value)
 
     fun withImmuneActive(value: Boolean): OutbreakData = this.copy(immuneActive = value)
+
+    fun withBerberine(value: Float): OutbreakData = this.copy(berberine = value)
+
+    fun withGlycyrrhizin(value: Float): OutbreakData = this.copy(glycyrrhizin = value)
 
     companion object {
 
@@ -508,8 +517,52 @@ data class OutbreakData(
         @JvmField val EPHEDRINE_METABOLISM_TICKS: Int = OutbreakModelBridge.EPHEDRINE_METABOLISM_TICKS
         @JvmField val EPHEDRINE_DECAY_PER_TICK: Float = OutbreakModelBridge.EPHEDRINE_DECAY_PER_TICK
 
+        // ---------------------------------------------------------------- berberine & glycyrrhizin
+
+        /** The most berberine a body can carry, 0..7. */
+        @JvmField val BERBERINE_CAP: Float = OutbreakModelBridge.BERBERINE_CAP
+        @JvmField val BERBERINE_SLOW_THRESHOLD: Float = OutbreakModelBridge.BERBERINE_SLOW_THRESHOLD
+        @JvmField val BERBERINE_SUPPRESS_THRESHOLD: Float = OutbreakModelBridge.BERBERINE_SUPPRESS_THRESHOLD
+        @JvmField val BERBERINE_METABOLISM_TICKS: Int = OutbreakModelBridge.BERBERINE_METABOLISM_TICKS
+        @JvmField val BERBERINE_DECAY_PER_TICK: Float = OutbreakModelBridge.BERBERINE_DECAY_PER_TICK
+
+        /** The most glycyrrhizin a body can carry, 0..7. */
+        @JvmField val GLYCYRRHIZIN_CAP: Float = OutbreakModelBridge.GLYCYRRHIZIN_CAP
+        @JvmField val GLYCYRRHIZIN_SLOW_THRESHOLD: Float = OutbreakModelBridge.GLYCYRRHIZIN_SLOW_THRESHOLD
+        @JvmField val GLYCYRRHIZIN_SUPPRESS_THRESHOLD: Float = OutbreakModelBridge.GLYCYRRHIZIN_SUPPRESS_THRESHOLD
+        @JvmField val GLYCYRRHIZIN_METABOLISM_TICKS: Int = OutbreakModelBridge.GLYCYRRHIZIN_METABOLISM_TICKS
+        @JvmField val GLYCYRRHIZIN_DECAY_PER_TICK: Float = OutbreakModelBridge.GLYCYRRHIZIN_DECAY_PER_TICK
+
         /** What a healthy player looks like. */
         @JvmField val HEALTHY: OutbreakData = OutbreakModelBridge.healthy()
+
+        private data class Compounds(
+            val salicin: Float,
+            val dexamethasone: Float,
+            val scopolamine: Float,
+            val atropine: Float,
+            val psilocybin: Float,
+            val psilocin: Float,
+            val ephedrine: Float,
+            val berberine: Float,
+            val glycyrrhizin: Float,
+        ) {
+            companion object {
+                val MAP_CODEC: MapCodec<Compounds> = RecordCodecBuilder.mapCodec { instance ->
+                    instance.group(
+                        Codec.FLOAT.optionalFieldOf("salicin", 0f).forGetter { it.salicin },
+                        Codec.FLOAT.optionalFieldOf("dexamethasone", 0f).forGetter { it.dexamethasone },
+                        Codec.FLOAT.optionalFieldOf("scopolamine", 0f).forGetter { it.scopolamine },
+                        Codec.FLOAT.optionalFieldOf("atropine", 0f).forGetter { it.atropine },
+                        Codec.FLOAT.optionalFieldOf("psilocybin", 0f).forGetter { it.psilocybin },
+                        Codec.FLOAT.optionalFieldOf("psilocin", 0f).forGetter { it.psilocin },
+                        Codec.FLOAT.optionalFieldOf("ephedrine", 0f).forGetter { it.ephedrine },
+                        Codec.FLOAT.optionalFieldOf("berberine", 0f).forGetter { it.berberine },
+                        Codec.FLOAT.optionalFieldOf("glycyrrhizin", 0f).forGetter { it.glycyrrhizin },
+                    ).apply(instance, ::Compounds)
+                }
+            }
+        }
 
         val CODEC: Codec<OutbreakData> = RecordCodecBuilder.create { instance ->
             instance.group(
@@ -519,19 +572,44 @@ data class OutbreakData(
                 Codec.FLOAT.fieldOf("water").forGetter { it.water },
                 Electrolytes.CODEC.fieldOf("electrolytes").forGetter { it.electrolytes },
                 TraceElements.CODEC.fieldOf("trace_elements").forGetter { it.traceElements },
-                Codec.FLOAT.fieldOf("salicin").forGetter { it.salicin },
-                Codec.FLOAT.fieldOf("dexamethasone").forGetter { it.dexamethasone },
-                // Optional with a default so that a world saved before temperature existed loads as a
-                // healthy player instead of being thrown away.
                 Codec.FLOAT.optionalFieldOf("temperature", TEMPERATURE_NORMAL).forGetter { it.temperature },
                 Codec.FLOAT.optionalFieldOf("pyrogen", 0f).forGetter { it.pyrogen },
-                Codec.FLOAT.optionalFieldOf("scopolamine", 0f).forGetter { it.scopolamine },
-                Codec.FLOAT.optionalFieldOf("atropine", 0f).forGetter { it.atropine },
-                Codec.FLOAT.optionalFieldOf("psilocybin", 0f).forGetter { it.psilocybin },
-                Codec.FLOAT.optionalFieldOf("psilocin", 0f).forGetter { it.psilocin },
-                Codec.FLOAT.optionalFieldOf("ephedrine", 0f).forGetter { it.ephedrine },
                 Codec.BOOL.optionalFieldOf("immune_active", false).forGetter { it.immuneActive },
-            ).apply(instance, ::OutbreakData)
+                Compounds.MAP_CODEC.forGetter {
+                    Compounds(
+                        it.salicin,
+                        it.dexamethasone,
+                        it.scopolamine,
+                        it.atropine,
+                        it.psilocybin,
+                        it.psilocin,
+                        it.ephedrine,
+                        it.berberine,
+                        it.glycyrrhizin,
+                    )
+                },
+            ).apply(instance) { mediators, bacteria, virus, water, electrolytes, traceElements, temperature, pyrogen, immuneActive, compounds ->
+                OutbreakData(
+                    mediators = mediators,
+                    bacteria = bacteria,
+                    virus = virus,
+                    water = water,
+                    electrolytes = electrolytes,
+                    traceElements = traceElements,
+                    salicin = compounds.salicin,
+                    dexamethasone = compounds.dexamethasone,
+                    temperature = temperature,
+                    pyrogen = pyrogen,
+                    scopolamine = compounds.scopolamine,
+                    atropine = compounds.atropine,
+                    psilocybin = compounds.psilocybin,
+                    psilocin = compounds.psilocin,
+                    ephedrine = compounds.ephedrine,
+                    immuneActive = immuneActive,
+                    berberine = compounds.berberine,
+                    glycyrrhizin = compounds.glycyrrhizin,
+                )
+            }
         }
     }
 }

@@ -79,6 +79,24 @@ object OutbreakIngestion {
     /** Ephedrine delivered by consuming purified ephedrine extract. */
     private const val EPHEDRINE_PURIFIED = 2.5f
 
+    /** Berberine delivered by consuming raw coptis herb. */
+    private const val COPTIS_BERBERINE = 1.1f
+
+    /** Berberine delivered by consuming raw phellodendron bark. */
+    private const val PHELLODENDRON_BERBERINE = 0.6f
+
+    /** Glycyrrhizin delivered by consuming raw licorice herb. */
+    private const val LICORICE_GLYCYRRHIZIN = 1.1f
+
+    /** Berberine delivered by coptis potion. */
+    private const val COPTIS_POTION_BERBERINE = 2.5f
+
+    /** Berberine delivered by phellodendron potion. */
+    private const val PHELLODENDRON_POTION_BERBERINE = 1.5f
+
+    /** Glycyrrhizin delivered by licorice potion. */
+    private const val LICORICE_POTION_GLYCYRRHIZIN = 2.5f
+
     /** How much pathogen a single successful roll adds. */
     private const val BACTERIA_SEED = 6f
 
@@ -187,6 +205,26 @@ object OutbreakIngestion {
             OutbreakItems.EPHEDRINE -> {
                 data = OutbreakPhysiology.addEphedrine(data, EPHEDRINE_PURIFIED)
             }
+
+            // Traditional herbs: coptis, phellodendron, licorice
+            OutbreakItems.COPTIS -> {
+                data = OutbreakPhysiology.addBerberine(data, COPTIS_BERBERINE)
+            }
+            OutbreakItems.COPTIS_POTION -> {
+                data = OutbreakPhysiology.addBerberine(data, COPTIS_POTION_BERBERINE)
+            }
+            OutbreakItems.PHELLODENDRON -> {
+                data = OutbreakPhysiology.addBerberine(data, PHELLODENDRON_BERBERINE)
+            }
+            OutbreakItems.PHELLODENDRON_POTION -> {
+                data = OutbreakPhysiology.addBerberine(data, PHELLODENDRON_POTION_BERBERINE)
+            }
+            OutbreakItems.LICORICE -> {
+                data = OutbreakPhysiology.addGlycyrrhizin(data, LICORICE_GLYCYRRHIZIN)
+            }
+            OutbreakItems.LICORICE_POTION -> {
+                data = OutbreakPhysiology.addGlycyrrhizin(data, LICORICE_POTION_GLYCYRRHIZIN)
+            }
             else -> Unit
         }
 
@@ -202,6 +240,11 @@ object OutbreakIngestion {
     /** Anything the player drinks, which counts towards the water index. */
     fun isDrink(item: Item): Boolean = item === Items.POTION ||
         item === Items.MUSHROOM_STEW ||
+        item === OutbreakItems.WINE ||
+        item === OutbreakItems.EPHEDRINE ||
+        item === OutbreakItems.COPTIS_POTION ||
+        item === OutbreakItems.PHELLODENDRON_POTION ||
+        item === OutbreakItems.LICORICE_POTION ||
         item === OutbreakItems.RAW_WILLOW_BARK_SOUP_BOTTLE ||
         item === OutbreakItems.RAW_WILLOW_BARK_SOUP_BOWL ||
         item === OutbreakItems.WILLOW_BARK_SOUP_BOTTLE ||

@@ -356,11 +356,84 @@ object OutbreakItems {
             .stacksTo(16),
     ) { Item(it) }
 
+    // ---------------------------------------------------------------- coptis (黄连)
+
+    /** Coptis (黄连): medicinal herb containing berberine (+1.1), edible or plantable. */
+    val COPTIS: Item = Registration.registerItem(
+        "coptis",
+        Item.Properties().food(herbFood()),
+    ) { BlockItem(OutbreakBlocks.COPTIS, it) }
+
+    /** Crushed Coptis (碎黄连): ground coptis herb flakes. */
+    val CRUSHED_COPTIS: Item = Registration.registerItem(
+        "crushed_coptis",
+        Item.Properties(),
+    ) { Item(it) }
+
+    /** Coptis Potion (黄连药水): concentrated berberine potion brewed with crushed coptis. */
+    val COPTIS_POTION: Item = Registration.registerItem(
+        "coptis_potion",
+        Item.Properties()
+            .food(potionFood(), Consumables.defaultDrink().build())
+            .usingConvertsTo(Items.GLASS_BOTTLE)
+            .stacksTo(16),
+    ) { Item(it) }
+
+    // ---------------------------------------------------------------- phellodendron (黄柏)
+
+    /** Phellodendron (黄柏): medicinal bark/shrub containing berberine (+0.6), edible or plantable. */
+    val PHELLODENDRON: Item = Registration.registerItem(
+        "phellodendron",
+        Item.Properties().food(herbFood()),
+    ) { BlockItem(OutbreakBlocks.PHELLODENDRON, it) }
+
+    /** Crushed Phellodendron (碎黄柏): ground phellodendron herb flakes. */
+    val CRUSHED_PHELLODENDRON: Item = Registration.registerItem(
+        "crushed_phellodendron",
+        Item.Properties(),
+    ) { Item(it) }
+
+    /** Phellodendron Potion (黄柏药水): berberine potion brewed with crushed phellodendron. */
+    val PHELLODENDRON_POTION: Item = Registration.registerItem(
+        "phellodendron_potion",
+        Item.Properties()
+            .food(potionFood(), Consumables.defaultDrink().build())
+            .usingConvertsTo(Items.GLASS_BOTTLE)
+            .stacksTo(16),
+    ) { Item(it) }
+
+    // ---------------------------------------------------------------- licorice (甘草)
+
+    /** Licorice (甘草): medicinal herb containing glycyrrhizin (+1.1), edible or plantable. */
+    val LICORICE: Item = Registration.registerItem(
+        "licorice",
+        Item.Properties().food(herbFood()),
+    ) { BlockItem(OutbreakBlocks.LICORICE, it) }
+
+    /** Crushed Licorice (碎甘草): ground licorice herb flakes. */
+    val CRUSHED_LICORICE: Item = Registration.registerItem(
+        "crushed_licorice",
+        Item.Properties(),
+    ) { Item(it) }
+
+    /** Licorice Potion (甘草药水): concentrated glycyrrhizin potion brewed with crushed licorice. */
+    val LICORICE_POTION: Item = Registration.registerItem(
+        "licorice_potion",
+        Item.Properties()
+            .food(potionFood(), Consumables.defaultDrink().build())
+            .usingConvertsTo(Items.GLASS_BOTTLE)
+            .stacksTo(16),
+    ) { Item(it) }
+
     fun createWine(concentration: Float): ItemStack = WineItem.createStack(WINE, concentration)
 
     private fun ephedraFood(): FoodProperties = buildFood(1, 0.2f, alwaysEdible = true)
 
     private fun ephedrineFood(): FoodProperties = buildFood(0, 0f, alwaysEdible = true)
+
+    private fun herbFood(): FoodProperties = buildFood(1, 0.2f, alwaysEdible = true)
+
+    private fun potionFood(): FoodProperties = buildFood(0, 0f, alwaysEdible = true)
 
     /**
      * Food written the way a player reads it off the tooltip: hunger first, saturation points second.

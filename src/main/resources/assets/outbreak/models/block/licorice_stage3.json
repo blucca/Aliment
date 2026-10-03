@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cross",
+  "textures": {
+    "cross": "outbreak:block/licorice_stage3"
+  }
+}
