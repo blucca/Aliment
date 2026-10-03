@@ -333,7 +333,8 @@ public final class AlimentModelBridge {
             "MAGNESIUM", new MineralSpec(MineralRanges.MAGNESIUM()),
             "CHLORIDE", new MineralSpec(MineralRanges.CHLORIDE()),
             "CALCIUM", new MineralSpec(MineralRanges.CALCIUM()),
-            "IODINE", new MineralSpec(MineralRanges.IODINE()));
+            "IODINE", new MineralSpec(MineralRanges.IODINE()),
+            "VITAMIN_C", new MineralSpec(MineralRanges.VITAMIN_C()));
 
     /** The reference range of the mineral Kotlin calls {@code mineral}. */
     public static MineralSpec spec(Mineral mineral) {
@@ -587,6 +588,11 @@ public final class AlimentModelBridge {
         return fromModel(Physiology.iodine(toModel(data), amount));
     }
 
+    /** Adds vitamin C, in umol/L, from plant foods. */
+    public static AlimentData vitaminC(AlimentData data, float amount) {
+        return fromModel(Physiology.vitaminC(toModel(data), amount));
+    }
+
     /** Adds the two tropane alkaloids a mandrake carries, capped. */
     public static AlimentData anticholinergic(AlimentData data, float scopolamine, float atropine) {
         return fromModel(Physiology.anticholinergic(toModel(data), scopolamine, atropine));
@@ -715,10 +721,10 @@ public final class AlimentModelBridge {
     }
 
     private static ModelTraceElements toModel(TraceElements traceElements) {
-        return new ModelTraceElements(traceElements.getIodine());
+        return new ModelTraceElements(traceElements.getIodine(), traceElements.getVitaminC());
     }
 
     private static TraceElements fromModel(ModelTraceElements traceElements) {
-        return new TraceElements(traceElements.getIodine());
+        return new TraceElements(traceElements.getIodine(), traceElements.getVitaminC());
     }
 }

@@ -796,12 +796,19 @@ object Physiology {
    * away faster.
    */
   private def stepTraceElements(state: ModelState): ModelTraceElements = {
-    val mineral = MineralRanges.IODINE
+    val iodineMineral = MineralRanges.IODINE
     val flush = mineralFlush(state) + mineralSweat(state)
 
-    val loss = (IODINE_DRAIN_FRACTION + flush * EXCRETION_IODINE) * mineral.normal
+    val iodineLoss = (IODINE_DRAIN_FRACTION + flush * EXCRETION_IODINE) * iodineMineral.normal
+    val newIodine = iodineMineral.clamp(state.traceElements.iodine - iodineLoss)
 
-    new ModelTraceElements(mineral.clamp(state.traceElements.iodine - loss))
+    // Vitamin C excretion: first-order elimination (rate proportional to concentration).
+    // Starting at safeHigh (80 umol/L), reaches safeLow (40 umol/L) in exactly 5 in-game days.
+    val vitCMineral = MineralRanges.VITAMIN_C
+    val vitCLoss = state.traceElements.vitaminC * ModelConstants.VITAMIN_C_DECAY_RATE
+    val newVitaminC = vitCMineral.clamp(state.traceElements.vitaminC - vitCLoss)
+
+    new ModelTraceElements(newIodine, newVitaminC)
   }
 
   // ------------------------------------------------------------------ external inputs
@@ -844,6 +851,12 @@ object Physiology {
   def iodine(state: ModelState, amount: Float): ModelState =
     state.withTraceElements(
       state.traceElements.withIodine(MineralRanges.IODINE.clamp(state.traceElements.iodine + amount)),
+    )
+
+  /** Adds vitamin C (ascorbic acid), in umol/L, from plant foods (fruits, carrots, pumpkins, etc.). */
+  def vitaminC(state: ModelState, amount: Float): ModelState =
+    state.withTraceElements(
+      state.traceElements.withVitaminC(MineralRanges.VITAMIN_C.clamp(state.traceElements.vitaminC + amount)),
     )
 
   /**

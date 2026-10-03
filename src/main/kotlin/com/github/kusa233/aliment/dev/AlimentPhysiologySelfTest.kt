@@ -108,6 +108,7 @@ class AlimentPhysiologySelfTest : ModInitializer {
         drinkingDilutesElectrolytes()
         dehydrationStopsWhenDrinking()
         iodineDepletion()
+        vitaminCDepletion()
         anticholinergics()
         psilocybinAndPsilocin()
         temperatureHomeostasis()
@@ -456,6 +457,25 @@ class AlimentPhysiologySelfTest : ModInitializer {
             sober.traceElements.iodine, feverish.traceElements.iodine,
         )
         check("a fever drains iodine faster than the leak alone", feverish.traceElements.iodine < sober.traceElements.iodine)
+    }
+
+    private fun vitaminCDepletion() {
+        val vitC = Mineral.VITAMIN_C
+        // Starting at safeHigh (80 umol/L), excretion decays to safeLow (40 umol/L) in exactly 5 in-game days (120,000 ticks).
+        var data = AlimentData.HEALTHY.copy(traceElements = TraceElements(Mineral.IODINE.normal, vitC.safeHigh))
+        logger.info("PHYS starting vitamin C: {}", data.traceElements.vitaminC)
+        check("starts at safeHigh (80)", abs(data.traceElements.vitaminC - 80f) < 0.001f)
+
+        // Halfway (2.5 in-game days, 60,000 ticks)
+        repeat(60_000) { data = AlimentPhysiology.tick(data) }
+        val halfDecayTarget = (80f * Math.sqrt(0.5)).toFloat() // ~56.57 umol/L
+        logger.info("PHYS vitamin C after 2.5 game days: {} (expected ~{})", data.traceElements.vitaminC, halfDecayTarget)
+        check("vitamin C decays proportionally", abs(data.traceElements.vitaminC - halfDecayTarget) < 0.2f)
+
+        // At 5 in-game days (120,000 ticks total)
+        repeat(60_000) { data = AlimentPhysiology.tick(data) }
+        logger.info("PHYS vitamin C after 5 game days: {} (expected 40.0)", data.traceElements.vitaminC)
+        check("vitamin C drops from safeHigh (80) to safeLow (40) in exactly 5 game days", abs(data.traceElements.vitaminC - vitC.safeLow) < 0.1f)
     }
 
     // ================================================================== temperature
@@ -1098,6 +1118,13 @@ class AlimentPhysiologySelfTest : ModInitializer {
         expect(player, "thyrotoxicosis causes nausea", at(iodine, iodine.safeHigh + 0.01f), MobEffects.NAUSEA)
         expect(player, "and an appetite without weight gain", at(iodine, iodine.safeHigh + 0.01f), MobEffects.HUNGER)
 
+        val vitC = Mineral.VITAMIN_C
+        expect(player, "vitamin C deficiency causes mining fatigue", at(vitC, vitC.safeLow - 0.01f), MobEffects.MINING_FATIGUE)
+        expect(player, "severe vitamin C deficiency causes mining fatigue", at(vitC, vitC.severeLow - 0.01f), MobEffects.MINING_FATIGUE)
+        expect(player, "severe vitamin C deficiency adds weakness", at(vitC, vitC.severeLow - 0.01f), MobEffects.WEAKNESS)
+        applyWith(player, at(vitC, vitC.safeHigh + 10f))
+        check("vitamin C excess has no adverse symptoms", player.activeEffects.isEmpty())
+
         // The exhaustion multiplier picks up the minerals that genuinely raise metabolic cost.
         player.setAttached(AlimentAttachments.DATA, at(magnesium, magnesium.safeLow - 0.02f))
         check("low magnesium raises the metabolic cost", AlimentSymptoms.exhaustionMultiplier(player) > 1f)
@@ -1113,6 +1140,7 @@ class AlimentPhysiologySelfTest : ModInitializer {
         Mineral.CHLORIDE -> minerals(chloride = value)
         Mineral.CALCIUM -> minerals(calcium = value)
         Mineral.IODINE -> minerals(iodine = value)
+        Mineral.VITAMIN_C -> minerals(vitaminC = value)
     }
 
     private fun thermalSymptoms(player: ServerPlayer) {
@@ -1316,9 +1344,10 @@ class AlimentPhysiologySelfTest : ModInitializer {
         chloride: Float = Mineral.CHLORIDE.normal,
         calcium: Float = Mineral.CALCIUM.normal,
         iodine: Float = Mineral.IODINE.normal,
+        vitaminC: Float = Mineral.VITAMIN_C.normal,
     ): AlimentData = AlimentData.HEALTHY.copy(
         electrolytes = Electrolytes(sodium, potassium, magnesium, chloride, calcium),
-        traceElements = TraceElements(iodine),
+        traceElements = TraceElements(iodine, vitaminC),
     )
 
     /** The grindstone table, and the mixin entry points that read it. */
@@ -1657,6 +1686,34 @@ class AlimentPhysiologySelfTest : ModInitializer {
         ItemStack(AlimentItems.SEAWEED_IODIZED_SALT, 1).finishUsingItem(level, player)
         val afterSalt = player.getAttachedOrCreate(AlimentAttachments.DATA)
         check("seaweed iodized salt adds 0.40 umol/L of iodine", abs(afterSalt.traceElements.iodine - 0.70f) < 0.001f)
+
+        // Vitamin C plant food sources:
+        val vitCDeficient = AlimentData.HEALTHY.copy(
+            traceElements = TraceElements.HEALTHY.withVitaminC(30.0f),
+        )
+        player.setAttached(AlimentAttachments.DATA, vitCDeficient)
+        ItemStack(Items.APPLE, 1).finishUsingItem(level, player)
+        val afterApple = player.getAttachedOrCreate(AlimentAttachments.DATA).traceElements.vitaminC
+        logger.info("PHYS vitamin C from apple: {}", afterApple)
+        check("apple adds 12 umol/L of vitamin C", abs(afterApple - 42.0f) < 0.001f)
+
+        player.setAttached(AlimentAttachments.DATA, vitCDeficient)
+        ItemStack(Items.CARROT, 1).finishUsingItem(level, player)
+        val afterCarrot = player.getAttachedOrCreate(AlimentAttachments.DATA).traceElements.vitaminC
+        logger.info("PHYS vitamin C from carrot: {}", afterCarrot)
+        check("carrot adds 10 umol/L of vitamin C", abs(afterCarrot - 40.0f) < 0.001f)
+
+        player.setAttached(AlimentAttachments.DATA, vitCDeficient)
+        ItemStack(Items.PUMPKIN_PIE, 1).finishUsingItem(level, player)
+        val afterPumpkin = player.getAttachedOrCreate(AlimentAttachments.DATA).traceElements.vitaminC
+        logger.info("PHYS vitamin C from pumpkin pie: {}", afterPumpkin)
+        check("pumpkin pie adds 15 umol/L of vitamin C", abs(afterPumpkin - 45.0f) < 0.001f)
+
+        player.setAttached(AlimentAttachments.DATA, vitCDeficient)
+        ItemStack(Items.MELON_SLICE, 1).finishUsingItem(level, player)
+        val afterMelon = player.getAttachedOrCreate(AlimentAttachments.DATA).traceElements.vitaminC
+        logger.info("PHYS vitamin C from melon: {}", afterMelon)
+        check("melon slice adds 8 umol/L of vitamin C", abs(afterMelon - 38.0f) < 0.001f)
 
         // The mandrake, eaten: the fruit and the seeds both carry the two alkaloids.
         player.setAttached(AlimentAttachments.DATA, AlimentData.HEALTHY)

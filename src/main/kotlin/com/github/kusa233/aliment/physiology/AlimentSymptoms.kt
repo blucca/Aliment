@@ -499,5 +499,15 @@ object AlimentSymptoms {
             high = symptom(MobEffects.HUNGER to 0, MobEffects.NAUSEA to 0),
             excess = symptom(MobEffects.HUNGER to 0, MobEffects.NAUSEA to 0, MobEffects.WEAKNESS to 0),
         ),
+        // Vitamin C: deficiency (hypovitaminosis C / scurvy).
+        // Low: mining fatigue I; Severe deficit: mining fatigue I + weakness I.
+        MineralRule(
+            mineral = Mineral.VITAMIN_C,
+            of = { it.traceElements.vitaminC },
+            deficit = symptom(MobEffects.MINING_FATIGUE to 0, MobEffects.WEAKNESS to 0),
+            low = symptom(MobEffects.MINING_FATIGUE to 0),
+            high = symptom(),
+            excess = symptom(),
+        ),
     )
 }

@@ -84,6 +84,9 @@ object AlimentPhysiology {
     /** Adds iodine, in umol/L, which the body only gets from food - kelp, in this mod. */
     fun iodine(data: AlimentData, amount: Float): AlimentData = AlimentModelBridge.iodine(data, amount)
 
+    /** Adds vitamin C, in umol/L, from plant foods (fruits, carrots, pumpkins, etc.). */
+    fun vitaminC(data: AlimentData, amount: Float): AlimentData = AlimentModelBridge.vitaminC(data, amount)
+
     /**
      * Adds the two tropane alkaloids a mandrake carries, capped at
      * [AlimentData.ANTICHOLINERGIC_CAP] each. Past 1.5 of the two together the body runs a

@@ -72,6 +72,21 @@ object AlimentIngestion {
     private const val IODIZED_SALT_SODIUM = 1.5f
     private const val IODIZED_SALT_CHLORIDE = 1.5f
 
+    // ---------------------------------------------------------------- vitamin C
+    private const val APPLE_VITAMIN_C = 12.0f
+    private const val GOLDEN_APPLE_VITAMIN_C = 20.0f
+    private const val ENCHANTED_GOLDEN_APPLE_VITAMIN_C = 30.0f
+    private const val MELON_SLICE_VITAMIN_C = 8.0f
+    private const val BERRIES_VITAMIN_C = 6.0f
+    private const val CARROT_VITAMIN_C = 10.0f
+    private const val GOLDEN_CARROT_VITAMIN_C = 15.0f
+    private const val PUMPKIN_PIE_VITAMIN_C = 15.0f
+    private const val BEETROOT_VITAMIN_C = 6.0f
+    private const val BEETROOT_SOUP_VITAMIN_C = 16.0f
+    private const val MANDRAKE_FRUIT_VITAMIN_C = 10.0f
+    private const val SEAWEED_VITAMIN_C = 5.0f
+    private const val COOKED_SEAWEED_VITAMIN_C = 3.0f
+
     /** What one mandrake fruit carries, in dose units; the seeds are the same plant, watered down. */
     private const val FRUIT_SCOPOLAMINE = 1.0f
     private const val FRUIT_ATROPINE = 0.1f
@@ -246,6 +261,24 @@ object AlimentIngestion {
             AlimentItems.LICORICE_POTION -> {
                 data = AlimentPhysiology.addGlycyrrhizin(data, LICORICE_POTION_GLYCYRRHIZIN)
             }
+            else -> Unit
+        }
+
+        // Plant foods (fruits, carrots, pumpkins, etc.) provide dietary vitamin C.
+        when (stack.item) {
+            Items.APPLE -> data = AlimentPhysiology.vitaminC(data, APPLE_VITAMIN_C)
+            Items.GOLDEN_APPLE -> data = AlimentPhysiology.vitaminC(data, GOLDEN_APPLE_VITAMIN_C)
+            Items.ENCHANTED_GOLDEN_APPLE -> data = AlimentPhysiology.vitaminC(data, ENCHANTED_GOLDEN_APPLE_VITAMIN_C)
+            Items.MELON_SLICE -> data = AlimentPhysiology.vitaminC(data, MELON_SLICE_VITAMIN_C)
+            Items.SWEET_BERRIES, Items.GLOW_BERRIES -> data = AlimentPhysiology.vitaminC(data, BERRIES_VITAMIN_C)
+            Items.CARROT -> data = AlimentPhysiology.vitaminC(data, CARROT_VITAMIN_C)
+            Items.GOLDEN_CARROT -> data = AlimentPhysiology.vitaminC(data, GOLDEN_CARROT_VITAMIN_C)
+            Items.PUMPKIN_PIE -> data = AlimentPhysiology.vitaminC(data, PUMPKIN_PIE_VITAMIN_C)
+            Items.BEETROOT -> data = AlimentPhysiology.vitaminC(data, BEETROOT_VITAMIN_C)
+            Items.BEETROOT_SOUP -> data = AlimentPhysiology.vitaminC(data, BEETROOT_SOUP_VITAMIN_C)
+            AlimentItems.MANDRAKE_FRUIT -> data = AlimentPhysiology.vitaminC(data, MANDRAKE_FRUIT_VITAMIN_C)
+            AlimentItems.SEAWEED -> data = AlimentPhysiology.vitaminC(data, SEAWEED_VITAMIN_C)
+            AlimentItems.COOKED_SEAWEED -> data = AlimentPhysiology.vitaminC(data, COOKED_SEAWEED_VITAMIN_C)
             else -> Unit
         }
 

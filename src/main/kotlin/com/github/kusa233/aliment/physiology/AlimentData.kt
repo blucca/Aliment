@@ -101,6 +101,7 @@ data class Electrolytes(
         Mineral.CHLORIDE -> this.chloride
         Mineral.CALCIUM -> this.calcium
         Mineral.IODINE -> throw IllegalArgumentException("iodine is a trace element, not an electrolyte")
+        Mineral.VITAMIN_C -> throw IllegalArgumentException("vitamin C is a trace element/micronutrient, not an electrolyte")
     }
 
     /** How far the worst offender is outside its reference range, as a fraction of normal. */
@@ -150,15 +151,27 @@ data class Electrolytes(
  */
 data class TraceElements(
     val iodine: Float,
+    val vitaminC: Float = Mineral.VITAMIN_C.normal,
 ) {
 
-    /** How far outside its reference range iodine is, as a fraction of normal. */
-    val worstImbalance: Float get() = Mineral.IODINE.relativeDeviation(this.iodine)
+    /** How far outside its reference range the worst element is, as a fraction of normal. */
+    val worstImbalance: Float
+        get() = maxOf(
+            Mineral.IODINE.relativeDeviation(this.iodine),
+            Mineral.VITAMIN_C.relativeDeviation(this.vitaminC),
+        )
 
-    /** -1 for a deficit, 1 for an excess, 0 while iodine is inside the reference range. */
-    val direction: Int get() = Mineral.IODINE.direction(this.iodine)
+    /** -1 for a deficit, 1 for an excess, 0 while trace elements are inside the reference range. */
+    val direction: Int
+        get() = if (Mineral.IODINE.relativeDeviation(this.iodine) >= Mineral.VITAMIN_C.relativeDeviation(this.vitaminC)) {
+            Mineral.IODINE.direction(this.iodine)
+        } else {
+            Mineral.VITAMIN_C.direction(this.vitaminC)
+        }
 
     fun withIodine(value: Float): TraceElements = this.copy(iodine = value)
+
+    fun withVitaminC(value: Float): TraceElements = this.copy(vitaminC = value)
 
     companion object {
 
@@ -167,6 +180,7 @@ data class TraceElements(
         val CODEC: Codec<TraceElements> = RecordCodecBuilder.create { instance ->
             instance.group(
                 Codec.FLOAT.fieldOf("iodine").forGetter { it.iodine },
+                Codec.FLOAT.optionalFieldOf("vitamin_c", Mineral.VITAMIN_C.normal).forGetter { it.vitaminC },
             ).apply(instance, ::TraceElements)
         }
     }

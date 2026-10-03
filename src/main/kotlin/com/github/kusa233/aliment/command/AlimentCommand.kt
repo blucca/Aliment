@@ -28,7 +28,7 @@ object AlimentCommand {
     private val FIELDS = listOf(
         "water",
         "sodium", "potassium", "magnesium", "chloride", "calcium",
-        "iodine",
+        "iodine", "vitamin_c",
         "histamine", "prostaglandin", "leukotriene", "cytokine", "bradykinin",
         "bacteria", "virus",
         "salicin", "dexamethasone",
@@ -117,8 +117,9 @@ object AlimentCommand {
                 electrolytes,
                 if (data.hasElectrolyteImbalance) "  [out of range]" else "",
             ),
-            "  trace elements (umol/L)  I %s%s".format(
+            "  trace elements (umol/L)  I %s  VitC %s%s".format(
                 Mineral.IODINE.display(data.traceElements.iodine),
+                Mineral.VITAMIN_C.display(data.traceElements.vitaminC),
                 if (data.hasTraceElementImbalance) "  [out of range]" else "",
             ),
             "  temperature %.2f C  [%s]  pyrogen %+.2f".format(
@@ -165,6 +166,7 @@ object AlimentCommand {
         Mineral.CHLORIDE -> "Cl"
         Mineral.CALCIUM -> "Ca"
         Mineral.IODINE -> "I"
+        Mineral.VITAMIN_C -> "VitC"
     }
 
     private fun thermalName(tier: Int): String = when {
@@ -191,6 +193,7 @@ object AlimentCommand {
             "chloride" -> data.withElectrolytes(e.withChloride(Mineral.CHLORIDE.clamp(value)))
             "calcium" -> data.withElectrolytes(e.withCalcium(Mineral.CALCIUM.clamp(value)))
             "iodine" -> data.withTraceElements(data.traceElements.withIodine(Mineral.IODINE.clamp(value)))
+            "vitamin_c" -> data.withTraceElements(data.traceElements.withVitaminC(Mineral.VITAMIN_C.clamp(value)))
             "histamine" -> data.withMediators(m.withHistamine(clamp(value, Mediators.MAX)))
             "prostaglandin" -> data.withMediators(m.withProstaglandin(clamp(value, Mediators.MAX)))
             "leukotriene" -> data.withMediators(m.withLeukotriene(clamp(value, Mediators.MAX)))
@@ -230,6 +233,7 @@ object AlimentCommand {
             "chloride" -> Mineral.CHLORIDE.display(updated.electrolytes.chloride)
             "calcium" -> Mineral.CALCIUM.display(updated.electrolytes.calcium)
             "iodine" -> Mineral.IODINE.display(updated.traceElements.iodine)
+            "vitamin_c" -> Mineral.VITAMIN_C.display(updated.traceElements.vitaminC)
             else -> "$value"
         }
         context.source.sendSuccess({ Component.literal("$field = $landed") }, false)

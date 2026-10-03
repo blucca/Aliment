@@ -84,6 +84,9 @@ object MineralRanges {
 
   /** 0.40-0.80 umol/L of serum iodine. */
   val IODINE: ModelMineral = new ModelMineral("IODINE", "umol/L", 0.5f, 0.4f, 0.8f, 0.2f, 1.2f, 0.05f, 2f)
+
+  /** 40.0-80.0 umol/L of serum vitamin C (ascorbic acid). */
+  val VITAMIN_C: ModelMineral = new ModelMineral("VITAMIN_C", "umol/L", 60.0f, 40.0f, 80.0f, 15.0f, 120.0f, 0.0f, 150.0f)
 }
 
 /**
@@ -212,18 +215,27 @@ object ElectrolyteDefaults {
  * food - kelp, in this mod - and the regulation is one-sided: a deficit is corrected by hanging on
  * to what little there is rather than by manufacturing more.
  */
-final case class ModelTraceElements(@BeanProperty iodine: Float) {
-  def getWorstImbalance: Float = MineralRanges.IODINE.relativeDeviation(this.iodine)
+final case class ModelTraceElements(
+    @BeanProperty iodine: Float,
+    @BeanProperty vitaminC: Float = MineralRanges.VITAMIN_C.normal,
+) {
+  def getWorstImbalance: Float =
+    Math.max(MineralRanges.IODINE.relativeDeviation(this.iodine), MineralRanges.VITAMIN_C.relativeDeviation(this.vitaminC))
 
-  /** -1 for a deficit, 1 for an excess, 0 while iodine is inside the reference range. */
-  def getDirection: Int = MineralRanges.IODINE.direction(this.iodine)
+  /** -1 for a deficit, 1 for an excess, 0 while trace elements are inside the reference range. */
+  def getDirection: Int =
+    if (MineralRanges.IODINE.relativeDeviation(this.iodine) >= MineralRanges.VITAMIN_C.relativeDeviation(this.vitaminC))
+      MineralRanges.IODINE.direction(this.iodine)
+    else
+      MineralRanges.VITAMIN_C.direction(this.vitaminC)
 
   def withIodine(value: Float): ModelTraceElements = copy(iodine = value)
+  def withVitaminC(value: Float): ModelTraceElements = copy(vitaminC = value)
 }
 
 /** The trace element set a healthy player sits at. */
 object TraceElementDefaults {
-  val HEALTHY: ModelTraceElements = new ModelTraceElements(MineralRanges.IODINE.normal)
+  val HEALTHY: ModelTraceElements = new ModelTraceElements(MineralRanges.IODINE.normal, MineralRanges.VITAMIN_C.normal)
 }
 
 /**
@@ -436,6 +448,12 @@ object ModelConstants {
   /** Ethanol is metabolised over one in-game day (24000 ticks) from cap. */
   val ETHANOL_METABOLISM_TICKS: Int = 24000
   val ETHANOL_DECAY_PER_TICK: Float = ETHANOL_CAP / ETHANOL_METABOLISM_TICKS
+
+  // ---------------------------------------------------------------- vitamin C
+
+  /** Vitamin C excretion half-life: 5 in-game days (120,000 ticks) from safeHigh (80) to safeLow (40). */
+  val VITAMIN_C_HALF_LIFE_TICKS: Int = 5 * 24000
+  val VITAMIN_C_DECAY_RATE: Float = (Math.log(2.0) / (5.0 * 24000.0)).toFloat
 }
 
 /**

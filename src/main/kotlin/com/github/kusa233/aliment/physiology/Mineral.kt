@@ -26,7 +26,8 @@ enum class Mineral {
     MAGNESIUM,
     CHLORIDE,
     CALCIUM,
-    IODINE;
+    IODINE,
+    VITAMIN_C;
 
     /** The model's own reference range for this mineral. */
     private val spec: AlimentModelBridge.MineralSpec = AlimentModelBridge.spec(this)
