@@ -52,6 +52,7 @@ The mod is engineered with clinical fidelity and gameplay depth. Detailed techni
 | Build Tool | Gradle 9.7.1 + Fabric Loom 1.17.21 |
 
 ```powershell
+
 # Compile and build jar
 gradle build
 

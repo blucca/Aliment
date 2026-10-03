@@ -47,4 +47,3 @@ For detailed gameplay walkthroughs, mathematical formulas, and clinical referenc
   Contains item recipes, progression paths, symptom reference charts, and clinical tips.
 - **Mathematical and Biological Model**: [PHYSIOLOGY.md](https://github.com/cao-awa/Aliment/blob/main/PHYSIOLOGY.md)  
   Contains differential equations, pharmacokinetic clearance rates, clinical units, and model derivations.
-

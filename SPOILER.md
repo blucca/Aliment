@@ -244,7 +244,9 @@ Three infection vectors exist:
 * Proximity contact evaluates against all living `Mob` entities (cows, wolves, villagers, bats). Standing near dense livestock quickly spreads viral infection.
 * **Opportunistic Colonization**: Immunosuppression permits resident flora to colonize without external vectors.
 * **Sepsis Magic Damage (Load $\ge 60.0$)**: Deals unblockable magic damage every 2 seconds:
+
   $$\text{Damage}(L) = 1.0 + \frac{L - 60.0}{40.0}\quad (L \ge 60.0)$$
+
   At load 100, this deals 2 damage (1 full heart) every 10 seconds.
 
 ---
@@ -351,10 +353,13 @@ A wild herbaceous nightshade plant with four growth stages, **planted on soil bl
 
 ### Ingestion: Scopolamine and Atropine
 Edible when full. Fruits provide **+1.0 Scopolamine / +0.1 Atropine**; seeds provide **+0.75 Scopolamine / +0.1 Atropine**. Both clear linearly over 1 game day:
+
 $$\frac{dS_{\text{scop}}}{dt} = - \frac{5.0}{24000} \approx -2.083 \times 10^{-4}\text{ / tick}, \quad \frac{dA_{\text{atro}}}{dt} = - \frac{5.0}{24000} \approx -2.083 \times 10^{-4}\text{ / tick}$$
 
 Combined alkaloid load $\Sigma_{\text{alk}} = S_{\text{scop}} + A_{\text{atro}}$ elevates core body temperature independently of prostaglandins (**salicin cannot break mandrake fever**):
+
 $$\Delta T_{\text{anticholinergic}} = \begin{cases} 0\ ^\circ\text{C}, & \Sigma_{\text{alk}} < 1.5 \\ 1.0\ ^\circ\text{C} \implies T \to 38.0\ ^\circ\text{C}, & 1.5 \le \Sigma_{\text{alk}} < 2.5 \\ 2.5\ ^\circ\text{C} \implies T \to 39.5\ ^\circ\text{C}, & 2.5 \le \Sigma_{\text{alk}} < 4.0 \\ 4.0\ ^\circ\text{C} \implies T \to 41.0\ ^\circ\text{C}, & \Sigma_{\text{alk}} \ge 4.0 \end{cases}$$
+
 * Visual blur contracts view fog to 8 blocks when $S_{\text{scop}} \ge 2.3 \lor A_{\text{atro}} \ge 2.3 \lor \Sigma_{\text{alk}} \ge 2.7$.
 
 ---
@@ -374,8 +379,11 @@ A rust-colored wood-decay mushroom flourishing in damp, shady, and wooded biomes
 * **Raw Consumption**: Eating raw grants **1.3 Psilocybin + 1.3 Psilocin** (3 hunger / 4 saturation).
 * **Cooking**: Cooked in a furnace, smoker, or campfire yields **Cooked Gymnopilus** (4 hunger / 5 saturation) with zero psychedelic compounds (heat destroys alkaloids).
 * **Metabolic Kinetics**: Psilocybin is an inactive prodrug converted 1:1 into psilocin over half a game day. Psilocin clears at a constant zero-order rate of **1.3 per game day**:
+
   $$\frac{d[\text{Psilocybin}]}{dt} = - \min\left([\text{Psilocybin}], \frac{1.3}{12000}\right)$$
+
   $$\frac{d[\text{Psilocin}]}{dt} = \min\left([\text{Psilocybin}], \frac{1.3}{12000}\right) - \frac{1.3}{24000}$$
+
   Consuming 5 raw mushrooms extends the trip linearly to 10 game days.
 
 ### Visual Distortions
@@ -406,7 +414,9 @@ A rust-colored wood-decay mushroom flourishing in damp, shady, and wooded biomes
 * Drinking wine restores **10 hydration**.
 * Increases blood ethanol index (0.0 to 1.0): 7% wine adds +0.07; 40% distilled spirits add +0.40.
 * Elimination follows zero-order kinetics:
+
   $$\frac{d[\text{Ethanol}]}{dt} = - \frac{1.0}{24000} \approx -4.167 \times 10^{-5}\text{ / tick}$$
+
 * Intoxication thresholds:
   - $[\text{Ethanol}] \ge 0.35$: Nausea I and Slowness I.
   - $[\text{Ethanol}] \ge 0.70$: Nausea II and Slowness II.
@@ -438,7 +448,9 @@ A rust-colored wood-decay mushroom flourishing in damp, shady, and wooded biomes
 * **Ephedrine Potion**: Shapeless crafting with Glass Bottle + Crushed Ephedra (yields potion and restores bottle upon drinking).
 * **Pharmacology & Kinetics**: Ingesting raw twigs adds +0.5; drinking a potion adds +2.5 ephedrine (capped at 5.0).
 * **Elimination & Haste Effect**:
+
   $$\frac{d[\text{Ephedrine}]}{dt} = - \frac{5.0}{24000} \approx -2.083 \times 10^{-4}\text{ / tick}$$
+
   Concentrations $[\text{Ephedrine}] > 1.0$ grant **Haste I** (faster mining speed). A full dose (5.0) provides over 16 continuous minutes of Haste.
 
 ---
@@ -466,7 +478,9 @@ A rust-colored wood-decay mushroom flourishing in damp, shady, and wooded biomes
 
 ### Antimicrobial Actions
 For drug concentration $D \in [0.0, 7.0]$, deceleration threshold $D_{\text{slow}} = 1.5$, and suppression threshold $D_{\text{suppress}} = 3.0$:
+
 $$\frac{dL}{dt} = \begin{cases} \dfrac{dL_{\text{base}}}{dt} - C_{\text{immune}}, & D \le 1.5 \\[8pt] \dfrac{dL_{\text{base}}}{dt} \cdot \left(1.0 - 0.75 \cdot \dfrac{D - 1.5}{1.5}\right) - C_{\text{immune}}, & 1.5 < D < 3.0 \\[8pt] - \left( C_{\text{immune}} + c_{\text{suppress}} \cdot \dfrac{D}{3.0} \right), & D \ge 3.0  \end{cases}$$
+
 where $c_{\text{suppress}} = \frac{100.0}{1.5 \times 24000} \approx 2.778 \times 10^{-3}\text{ / tick}$.
 
 * **Berberine (0.0 – 7.0, Antibacterial)**:
@@ -503,7 +517,9 @@ where $c_{\text{suppress}} = \frac{100.0}{1.5 \times 24000} \approx 2.778 \times
   * Safe Range: **40.0 – 80.0 µmol/L**
   * Scurvy Threshold: **15.0 µmol/L**
 * **First-Order Clearance Kinetics**:
+
   $$\frac{dC}{dt} = -k \cdot C, \quad k = \frac{\ln(2)}{120000} \approx 5.776 \times 10^{-6}\text{ / tick}$$
+
   Decays from 80.0 to 40.0 µmol/L in **exactly 5 in-game days** (120,000 ticks) without plant food.
 * **Deficiency Pathology**:
   * Mild (< 40.0 µmol/L): **Mining Fatigue I**.

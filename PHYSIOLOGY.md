@@ -36,7 +36,9 @@ where:
 | Bradykinin `bradykinin` ($B$) | 0.15 | Pain, vascular permeability | Salicin |
 
 In a healthy resting state, the mediators sit at `(H, P, L_k, C, B) = (25.0, 30.0, 30.0, 20.0, 25.0)`, yielding a weighted sum of **exactly 25.0** (the center of the normal physiological safe zone):
+
 $$\mathcal{I}_{\text{resting}} = 0.15(25) + 0.20(30) + 0.15(30) + 0.35(20) + 0.15(25) = 25.0$$
+
 Detailed formulas are located in `ModelMediators.getInflammation` (weights defined in `MediatorLevels`).
 
 ### Serum Electrolytes `ModelElectrolytes` and Trace Elements `ModelTraceElements`
@@ -88,7 +90,9 @@ Without dietary iodine, plasma concentrations steadily drain at a fixed rate of 
 Vitamin C cannot be synthesized endogenously by humans. Serum reference values are **40.0 – 80.0 µmol/L** (baseline healthy homeostasis is **60.0 µmol/L**).
 
 * **First-Order Clearance Kinetics (Concentration-Dependent Excretion)**:
+
   $$\frac{dC}{dt} = -k \cdot C, \quad k = \frac{\ln(2)}{120000} \approx 5.776 \times 10^{-6}\text{ / tick}$$
+
   - **Excretion rate is directly proportional to current plasma concentration**: higher levels clear rapidly through the kidneys, while lower concentrations clear more slowly.
   - **Half-life is 5 in-game days (120,000 ticks)**: Starting from the upper safe boundary (**80.0 µmol/L**), it takes exactly **5 game days** of zero botanical intake to decay to the abnormal threshold line (**40.0 µmol/L**).
 * **Clinical Symptoms**:
@@ -153,7 +157,9 @@ Core temperature is governed by four contributing factors: **prostaglandins** fr
 | Dexamethasone `dexamethasone` | 1.0 | 2.0 | **2 game days** (linear) | Glucocorticoid; strongly suppresses cytokine and leukotriene transcription; arrests cytokine storms |
 
 * **Zero-Order Metabolic Elimination Rates**:
+
   $$\frac{d[\text{Salicin}]}{dt} = - \frac{3.0}{72000} = - \frac{1}{24000} \approx -4.167 \times 10^{-5}\text{ / tick}$$
+
   $$\frac{d[\text{Dex}]}{dt} = - \frac{2.0}{48000} = - \frac{1}{24000} \approx -4.167 \times 10^{-5}\text{ / tick}$$
 
 > **Critical Distinction**: **Neither salicin nor dexamethasone directly kills or clears pathogens.** Their clinical role is strictly **anti-inflammatory and immunosuppressive**:
@@ -163,6 +169,7 @@ Core temperature is governed by four contributing factors: **prostaglandins** fr
 ### Mandrake Alkaloids `scopolamine` / `atropine`
 
 Mandrake fruit and seeds introduce two independent alkaloids, each capped at **5.0**, **clearing linearly over 1 game day**:
+
 $$\frac{d S_{\text{scop}}}{dt} = - \frac{5.0}{24000} \approx -2.083 \times 10^{-4}\text{ / tick}, \quad \frac{d A_{\text{atro}}}{dt} = - \frac{5.0}{24000} \approx -2.083 \times 10^{-4}\text{ / tick}$$
 
 | Ingested Item | Scopolamine ($S_{\text{scop}}$) | Atropine ($A_{\text{atro}}$) |
@@ -171,10 +178,13 @@ $$\frac{d S_{\text{scop}}}{dt} = - \frac{5.0}{24000} \approx -2.083 \times 10^{-
 | `mandrake_seeds` | **+0.75** | **+0.1** |
 
 Their combined load $\Sigma_{\text{alk}} = S_{\text{scop}} + A_{\text{atro}}$ modulates **temperature** (elevates hypothalamic set point independently of prostaglandins, meaning **salicin cannot reduce mandrake fever**):
+
 $$\Delta T_{\text{anticholinergic}} = \begin{cases} 0\ ^\circ\text{C}, & \Sigma_{\text{alk}} < 1.5 \\ 1.0\ ^\circ\text{C} \implies T \to 38.0\ ^\circ\text{C}, & 1.5 \le \Sigma_{\text{alk}} < 2.5 \\ 2.5\ ^\circ\text{C} \implies T \to 39.5\ ^\circ\text{C}, & 2.5 \le \Sigma_{\text{alk}} < 4.0 \\ 4.0\ ^\circ\text{C} \implies T \to 41.0\ ^\circ\text{C}, & \Sigma_{\text{alk}} \ge 4.0 \end{cases}$$
 
 while individual and combined levels dictate **visual blur**:
+
 $$\text{Visual Blur Active} \iff S_{\text{scop}} \ge 2.3 \lor A_{\text{atro}} \ge 2.3 \lor \Sigma_{\text{alk}} \ge 2.7$$
+
 When active, render fog contracts down to **8 blocks**; distant blocks become blurred.
 
 Drug fever and visual blur operate independently and stack with infection effects: eating multiple mandrakes causes both severe hyperthermia and blurred vision.
@@ -189,8 +199,11 @@ Ingesting raw *Gymnopilus* (cooked mushrooms destroy both alkaloids) introduces 
 | Psilocin `psilocin` | Active psychedelic compound; visual distortions and drug fever | Fixed metabolic clearance rate of **1.3 per game day** (zero-order elimination) |
 
 * **Conversion and Elimination Dynamics**:
+
   $$\frac{d[\text{Psilocybin}]}{dt} = - \min\left([\text{Psilocybin}], \frac{1.3}{12000}\right)$$
+
   $$\frac{d[\text{Psilocin}]}{dt} = \min\left([\text{Psilocybin}], \frac{1.3}{12000}\right) - \frac{1.3}{24000}$$
+
   where $\frac{1.3}{12000} \approx 1.083 \times 10^{-4}\text{ / tick}$, and $\frac{1.3}{24000} \approx 5.417 \times 10^{-5}\text{ / tick}$.
 
 One raw mushroom yields **1.3 psilocybin and 1.3 psilocin** (total 2.6 units), clearing in **exactly two game days**. Because clearance is zero-order rather than exponential, consuming five mushrooms (13 units total) extends the trip linearly to **ten game days**.
@@ -252,11 +265,15 @@ The physiological model integrates per tick (`AlimentPhysiology.tick(data)`), de
 ### Infection Dynamics and Immune Competence
 
 The baseline logistic proliferation rate of pathogens per tick:
+
 $$\frac{dL_{\text{base}}}{dt} = r \cdot L \cdot \left(1 - \frac{L}{K}\right)$$
+
 where $r = 0.0004\text{ / tick}$ and carrying capacity $K = 100.0$.
 
 The active immune clearance rate:
+
 $$C_{\text{immune}} = \begin{cases} 0, & \text{if } \neg\text{immuneActive} \land L \le 20.0 \\ \left(\dfrac{dL_{\text{base}}}{dt} + c_0\right) \cdot \eta(\mathcal{I}), & \text{otherwise} \end{cases}$$
+
 where $c_0 = \dfrac{20.0}{48000} \approx 4.1667 \times 10^{-4}\text{ / tick}$, and $\eta(\mathcal{I})$ is the immune competence function of composite inflammation $\mathcal{I}$.
 
 - **Covert Growth Phase ($L \le 20.0$)**:
@@ -274,6 +291,7 @@ where $c_0 = \dfrac{20.0}{48000} \approx 4.1667 \times 10^{-4}\text{ / tick}$, a
   - Temperature ceiling unlocks to $42.0\ ^\circ\text{C}$, and septic magic damage is inflicted directly on the player.
 
 The immune competence $\eta(\mathcal{I})$ follows an asymmetric Gaussian bell curve centered at $\mathcal{I}_{\text{optimal}} = 25.0$:
+
 $$\eta(\mathcal{I}) = \begin{cases} \exp\left(-\dfrac{(\mathcal{I} - 25.0)^2}{2 \cdot 10.0^2}\right), & \mathcal{I} < 25.0 \\[8pt] \exp\left(-\dfrac{(\mathcal{I} - 25.0)^2}{2 \cdot 15.0^2}\right), & \mathcal{I} \ge 25.0 \end{cases}$$
 
 | Inflammation $\mathcal{I}$ | 0 | 6 | 12 | 25 | 40 | 50 | 75 | 100 |
@@ -285,21 +303,30 @@ $$\eta(\mathcal{I}) = \begin{cases} \exp\left(-\dfrac{(\mathcal{I} - 25.0)^2}{2 
 ### Mediator Kinetics
 
 Biological inflammatory stimulus $S(L)$ as a function of total pathogen load $L$:
+
 $$S(L) = \begin{cases} 0, & \text{if } \neg\text{immuneActive} \land L \le 20.0 \\ \dfrac{L - 20.0}{35.0}, & \text{if } 20.0 < L \le 55.0 \\ 1.0 + 2.5 \cdot \dfrac{L - 55.0}{45.0}, & \text{if } L > 55.0 \end{cases}$$
 
 Pharmacological suppression and damping (Salicin & Dexamethasone):
 Let $D_{\text{sal}}$ and $D_{\text{dex}}$ be current active concentrations ($D_{\text{sal,eff}} = 1.0, D_{\text{dex,eff}} = 1.0$):
+
 $$s_{\text{sal}} = \frac{D_{\text{sal}}}{1.0}, \quad s_{\text{dex}} = \frac{D_{\text{dex}}}{1.0}$$
+
 $$f_{\text{sal}} = \min(s_{\text{sal}}, 1.0), \quad f_{\text{dex}} = \min(s_{\text{dex}}, 1.0)$$
+
 $$\delta_{\text{damp}} = \max\left(1.0 - 0.88 \cdot \max(f_{\text{sal}}, f_{\text{dex}}), 0.05\right)$$
+
 $$\text{Overdose} = \max(s_{\text{sal}} - 1.0, 0) + \max(s_{\text{dex}} - 1.0, 0)$$
+
 $$\beta_{\text{base}} = \max(1.0 - 0.5 \cdot \text{Overdose}, 0.0)$$
 
 Target mediator asymptotic values ($M_{i,\text{target}}$):
+
 $$\begin{aligned} C_{\text{target}} &= C_{\text{base}} \cdot \beta_{\text{base}} + 100.0 \cdot S(L) \cdot \delta_{\text{damp}} \cdot (1.0 - 0.4 \cdot f_{\text{dex}}) \\ H_{\text{target}} &= H_{\text{base}} \cdot \beta_{\text{base}} + 45.0 \cdot S(L) \cdot \delta_{\text{damp}} \\ B_{\text{target}} &= B_{\text{base}} \cdot \beta_{\text{base}} + 60.0 \cdot S(L) \cdot \delta_{\text{damp}} \\ P_{\text{target}} &= P_{\text{base}} \cdot \beta_{\text{base}} + \left(0.5 \cdot C_{\text{target}} + 25.0 \cdot S(L)\right) \cdot \delta_{\text{damp}} \cdot (1.0 - 0.5 \cdot f_{\text{sal}}) \\ L_{k,\text{target}} &= L_{k,\text{base}} \cdot \beta_{\text{base}} + \left(0.5 \cdot C_{\text{target}} + 20.0 \cdot S(L)\right) \cdot \delta_{\text{damp}} \cdot (1.0 - 0.4 \cdot f_{\text{dex}}) \end{aligned}$$
+
 where resting baseline values are $(H_{\text{base}}, P_{\text{base}}, L_{k,\text{base}}, C_{\text{base}}, B_{\text{base}}) = (25.0, 30.0, 30.0, 20.0, 25.0)$.
 
 Each mediator approaches its target value via exponential relaxation:
+
 $$\frac{dM_i}{dt} = k_m \cdot (M_{i,\text{target}} - M_i), \quad k_m = 0.002\text{ / tick}$$
 
 Prostaglandins ($P$) and leukotrienes ($L_k$) are **downstream products induced by cytokines ($C$)**, explaining why dexamethasone (acting upstream) and salicin (acting downstream) possess distinct clinical profiles.
@@ -309,28 +336,37 @@ Prostaglandins ($P$) and leukotrienes ($L_k$) are **downstream products induced 
 Unlike symptomatic anti-inflammatories, **Berberine** and **Glycyrrhizin** directly attack and clear pathogens:
 
 For targeted drug concentration $D \in [0.0, 7.0]$, with deceleration threshold $D_{\text{slow}} = 1.5$ and suppression threshold $D_{\text{suppress}} = 3.0$:
+
 $$\frac{dL}{dt} = \begin{cases} \dfrac{dL_{\text{base}}}{dt} - C_{\text{immune}}, & D \le 1.5 \\[6pt] \dfrac{dL_{\text{base}}}{dt} \cdot \left(1.0 - 0.75 \cdot \dfrac{D - 1.5}{1.5}\right) - C_{\text{immune}}, & 1.5 < D < 3.0 \\[6pt] - \left( C_{\text{immune}} + C_{\text{drug}} \right), & D \ge 3.0 \end{cases}$$
+
 where:
+
 $$C_{\text{drug}} = c_{\text{suppress}} \cdot \frac{D}{D_{\text{suppress}}}, \quad c_{\text{suppress}} = \frac{100.0}{1.5 \times 24000} \approx 2.778 \times 10^{-3}\text{ / tick}$$
 
 - **Berberine ($0.0 \sim 7.0$)**: Specifically targets **Bacteria** ($L = \text{Bacteria}$)
   - Clears from peak 7.0 over **2.5 game days (60,000 ticks)**:
+
     $$\frac{d[\text{Berberine}]}{dt} = - \frac{7.0}{60000} \approx -1.167 \times 10^{-4}\text{ / tick}$$
 
 - **Glycyrrhizin ($0.0 \sim 7.0$)**: Specifically targets **Viruses** ($L = \text{Virus}$)
   - Clears from peak 7.0 over **2.0 game days (48,000 ticks)**:
+
     $$\frac{d[\text{Glycyrrhizin}]}{dt} = - \frac{7.0}{48000} \approx -1.458 \times 10^{-4}\text{ / tick}$$
 
 ### Hydration and Sweating Model
 
 Total hydration $W$ depletion per tick:
+
 $$\frac{dW}{dt} = - (\Phi_{\text{renal}} + \Phi_{\text{sweat}})$$
 
 Kidney diuresis $\Phi_{\text{renal}}$ accelerates when overhydrated ($W > 100.0$):
+
 $$\Phi_{\text{renal}} = k_w \cdot \left(1.0 + 0.01 \cdot \max(W - 100.0, 0)\right) \cdot \gamma_{\text{Na}} \cdot \gamma_{\text{Ca}}$$
+
 where $k_w = \frac{100.0}{5.0 \times 24000.0} = \frac{1}{1200} \approx 8.333 \times 10^{-4}\text{ / tick}$, $\gamma_{\text{Na}} = 1.3$ if $[\text{Na}] > 150.0$, and $\gamma_{\text{Ca}} = 1.2$ if $[\text{Ca}] > 3.0$.
 
 Diaphoresis $\Phi_{\text{sweat}}$ activates when core temperature $T > 38.25\ ^\circ\text{C}$ ($\Delta T = T - 37.0 > 1.25$):
+
 $$\Phi_{\text{sweat}} = a \cdot \Delta T + b \cdot (\Delta T)^2, \quad a = -\frac{1}{3360}, \quad b = \frac{1}{4200}$$
 
 Total Water Depletion Benchmarks:
@@ -341,10 +377,15 @@ Total Water Depletion Benchmarks:
 ### Electrolyte Clearance and Homeostasis
 
 The dynamics of each serum electrolyte $E_i$:
+
 $$\frac{dE_i}{dt} = k_h \cdot (E_{i,\text{norm}} - E_i) - (\Lambda_{\text{flush}} + \Lambda_{\text{sweat}}) \cdot \xi_i \cdot E_{i,\text{norm}}$$
+
 where:
+
 $$\Lambda_{\text{flush}} = \text{clamp}\left(\frac{\max(W - 100.0, 0)}{100.0}, 0, 1\right) \cdot 9 \times 10^{-6}\text{ / tick}$$
+
 $$\Lambda_{\text{sweat}} = \begin{cases} \max(T - 37.0, 0) \cdot 2 \times 10^{-6}\text{ / tick}, & T > 38.25\ ^\circ\text{C} \\ 0, & T \le 38.25\ ^\circ\text{C} \end{cases}$$
+
 $$k_h = 0.00005\text{ / tick} \quad (\approx 20,000\text{ ticks restoration half-life})$$
 
 Relative clearance coefficients: $\xi = (\text{Na}: 1.0, \text{Cl}: 1.0, \text{K}: 0.7, \text{Mg}: 0.4, \text{Ca}: 0.4)$.
@@ -353,13 +394,19 @@ Sodium and chloride wash out fastest; over-drinking fresh water quickly triggers
 ### Thermal Balance
 
 Target core temperature $T_{\text{target}}$:
+
 $$T_{\text{target}} = 37.0 + \Delta T_{\text{fever}} + P_{\text{pyrogen}} + \Delta T_{\text{thyroid}} + \Delta T_{\text{anticholinergic}} + \Delta T_{\text{psilocin}} + \Delta T_{\text{ambient}}$$
+
 where:
+
 $$\Delta T_{\text{fever}} = \begin{cases} \min\left(0.05 \cdot \max(P - 30.0, 0), 2.5\right), & L \le 55.0 \\ \min\left(0.05 \cdot \max(P - 30.0, 0), 4.0\right), & L > 55.0 \end{cases}$$
+
 $$\Delta T_{\text{thyroid}} = \text{clamp}\left(2.0 \cdot \frac{I - I_{\text{safe}}}{0.50}, -0.8, 0.8\right)$$
+
 $$\Delta T_{\text{ambient}} = 0.6 \cdot (T_{\text{ambient}} - 37.0)$$
 
 Thermal relaxation rate toward target:
+
 $$\frac{dT}{dt} = k_T \cdot (T_{\text{target}} - T), \quad k_T = 0.0004\text{ / tick}$$
 
 | Ambient Condition | Thermal Offset (°C) |

@@ -56,6 +56,7 @@ A Minecraft mod about **physiology, disease, pharmacology and contagion**.
 | 构建工具 | Gradle 9.7.1 + Fabric Loom 1.17.21 |
 
 ```powershell
+
 # 编译构建
 gradle build
 
