@@ -177,21 +177,21 @@ class OutbreakPhysiologySelfTest : ModInitializer {
     }
 
     private fun untreatedInfectionRunsAway() {
-        // When immunity is suppressed (e.g. dexamethasone overdose), bacteria continues growing to 40+
+        // When immunity is suppressed (e.g. dexamethasone overdose), bacteria continues growing to 55+
         var data = OutbreakPhysiology.seed(OutbreakData.HEALTHY, bacteria = 6f)
         data = OutbreakPhysiology.inject(data, 2.0f) // full dexamethasone to suppress immunity
-        var reachedForty = false
+        var reachedStressThreshold = false
         var peakInflammation = 0f
         repeat(48_000) {
             data = OutbreakPhysiology.tick(data)
             if (data.bacteria >= OutbreakData.IMMUNE_STRESS_LOAD) {
-                reachedForty = true
+                reachedStressThreshold = true
             }
             peakInflammation = maxOf(peakInflammation, data.inflammation)
         }
-        logger.info("PHYS abnormal immunity: final load {} reachedForty {} peak inflammation {}", data.bacteria, reachedForty, peakInflammation)
-        check("abnormal immunity lets infection grow past 40", reachedForty)
-        check("past 40 immune system enters stress and inflammation escalates", peakInflammation >= OutbreakData.IMMUNE_STORM_THRESHOLD)
+        logger.info("PHYS abnormal immunity: final load {} reachedStressThreshold {} peak inflammation {}", data.bacteria, reachedStressThreshold, peakInflammation)
+        check("abnormal immunity lets infection grow past 55", reachedStressThreshold)
+        check("past 55 immune system enters stress and inflammation escalates", peakInflammation >= OutbreakData.IMMUNE_STORM_THRESHOLD)
     }
 
     private fun drugsSuppressImmunityNotDirectlyKill() {
@@ -1831,14 +1831,23 @@ class OutbreakPhysiologySelfTest : ModInitializer {
         val cappedGly = OutbreakPhysiology.addGlycyrrhizin(OutbreakData.HEALTHY, 15f)
         check("glycyrrhizin is capped at 7.0", cappedGly.glycyrrhizin == OutbreakData.GLYCYRRHIZIN_CAP)
 
-        // Berberine & glycyrrhizin metabolism decay (24000 ticks for full clearance)
+        // Berberine metabolism decay: 2.5 game days (60000 ticks) from cap 7.0 to 0
+        // Glycyrrhizin metabolism decay: 2.0 game days (48000 ticks) from cap 7.0 to 0
         var decayBerbSim = OutbreakData.HEALTHY.copy(berberine = 7.0f, glycyrrhizin = 7.0f)
+        repeat(24000) { decayBerbSim = OutbreakPhysiology.tick(decayBerbSim) }
+        check("glycyrrhizin at 24000 ticks is halfway (3.5)", abs(decayBerbSim.glycyrrhizin - 3.5f) < 0.02f)
+        check("berberine at 24000 ticks is 4.2", abs(decayBerbSim.berberine - 4.2f) < 0.02f)
+        repeat(6000) { decayBerbSim = OutbreakPhysiology.tick(decayBerbSim) }
+        check("berberine at 30000 ticks is halfway (3.5)", abs(decayBerbSim.berberine - 3.5f) < 0.02f)
+        repeat(18000) { decayBerbSim = OutbreakPhysiology.tick(decayBerbSim) }
+        check("glycyrrhizin at 48000 ticks is cleared to 0", decayBerbSim.glycyrrhizin == 0f)
         repeat(12000) { decayBerbSim = OutbreakPhysiology.tick(decayBerbSim) }
-        check("berberine at 12000 ticks is halfway (3.5)", abs(decayBerbSim.berberine - 3.5f) < 0.02f)
-        check("glycyrrhizin at 12000 ticks is halfway (3.5)", abs(decayBerbSim.glycyrrhizin - 3.5f) < 0.02f)
-        repeat(12000) { decayBerbSim = OutbreakPhysiology.tick(decayBerbSim) }
-        check("berberine at 24000 ticks is cleared to 0", decayBerbSim.berberine == 0f)
-        check("glycyrrhizin at 24000 ticks is cleared to 0", decayBerbSim.glycyrrhizin == 0f)
+        check("berberine at 60000 ticks is cleared to 0", decayBerbSim.berberine == 0f)
+
+        // Lower concentrations decay at identical fixed rates per tick
+        var lowBerbSim = OutbreakData.HEALTHY.copy(berberine = 3.5f)
+        repeat(30000) { lowBerbSim = OutbreakPhysiology.tick(lowBerbSim) }
+        check("berberine from 3.5 clears in 30000 ticks (identical rate)", lowBerbSim.berberine == 0f)
 
         // Pharmacological pathogen dynamics
         // 1. Berberine vs Bacteria
@@ -1859,6 +1868,22 @@ class OutbreakPhysiologySelfTest : ModInitializer {
         val bSuppressTicked = OutbreakPhysiology.tick(bSuppress)
         check("berberine >= 3.0 arrests bacterial growth and decays load", bSuppressTicked.bacteria < 10f)
 
+        // Case D: high bacterial load (> 40, e.g. 60) still continuously suppressed downwards
+        val bHigh = OutbreakData.HEALTHY.copy(bacteria = 60f, berberine = 3.5f)
+        val bHighTicked = OutbreakPhysiology.tick(bHigh)
+        check("berberine >= 3.0 suppresses bacteria even when load > 40", bHighTicked.bacteria < 60f)
+
+        // Higher drug concentration means faster decay rate
+        val bHigherDrug = OutbreakData.HEALTHY.copy(bacteria = 60f, berberine = 5.0f)
+        val bHigherDrugTicked = OutbreakPhysiology.tick(bHigherDrug)
+        check("higher berberine decays bacteria faster", (60f - bHigherDrugTicked.bacteria) > (60f - bHighTicked.bacteria))
+
+        // Decay clears to 0 within 1.5 game days (36000 ticks) from max load 100 at threshold 3.0
+        val clearRateAt3 = 100f / (1.5f * 24000f)
+        val bMax = OutbreakData.HEALTHY.copy(bacteria = 100f, berberine = 3.0f)
+        val bMaxTicked = OutbreakPhysiology.tick(bMax)
+        check("at threshold 3.0 clears at least 100/36000 per tick", (100f - bMaxTicked.bacteria) >= clearRateAt3 - 0.0001f)
+
         // 2. Glycyrrhizin vs Virus
         val v0 = OutbreakData.HEALTHY.copy(virus = 10f, glycyrrhizin = 0f)
         val v0Ticked = OutbreakPhysiology.tick(v0)
@@ -1873,6 +1898,18 @@ class OutbreakPhysiologySelfTest : ModInitializer {
         val vSuppress = OutbreakData.HEALTHY.copy(virus = 10f, glycyrrhizin = 3.5f)
         val vSuppressTicked = OutbreakPhysiology.tick(vSuppress)
         check("glycyrrhizin >= 3.0 arrests viral growth and decays load", vSuppressTicked.virus < 10f)
+
+        val vHigh = OutbreakData.HEALTHY.copy(virus = 60f, glycyrrhizin = 3.5f)
+        val vHighTicked = OutbreakPhysiology.tick(vHigh)
+        check("glycyrrhizin >= 3.0 suppresses virus even when load > 40", vHighTicked.virus < 60f)
+
+        val vHigherDrug = OutbreakData.HEALTHY.copy(virus = 60f, glycyrrhizin = 5.0f)
+        val vHigherDrugTicked = OutbreakPhysiology.tick(vHigherDrug)
+        check("higher glycyrrhizin decays virus faster", (60f - vHigherDrugTicked.virus) > (60f - vHighTicked.virus))
+
+        val vMax = OutbreakData.HEALTHY.copy(virus = 100f, glycyrrhizin = 3.0f)
+        val vMaxTicked = OutbreakPhysiology.tick(vMax)
+        check("at threshold 3.0 clears virus at least 100/36000 per tick", (100f - vMaxTicked.virus) >= clearRateAt3 - 0.0001f)
 
         // Grindstone recipes
         val grindCoptis = OutbreakGrinding.outputFor(ItemStack(OutbreakItems.COPTIS))

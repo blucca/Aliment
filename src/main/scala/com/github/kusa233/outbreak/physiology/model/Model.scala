@@ -277,7 +277,7 @@ object ModelConstants {
   val MAX_PATHOGEN: Float = 100f
   val SYMPTOM_THRESHOLD: Float = 8f
   val IMMUNITY_ACTIVATION_LOAD: Float = 20f
-  val IMMUNE_STRESS_LOAD: Float = 40f
+  val IMMUNE_STRESS_LOAD: Float = 55f
   val SEVERE_LOAD: Float = 60f
 
   val WATER_MIN: Float = 0f
@@ -409,7 +409,8 @@ object ModelConstants {
   /** Concentration threshold above which bacteria are suppressed (growth stops, count decays). */
   val BERBERINE_SUPPRESS_THRESHOLD: Float = 3.0f
 
-  val BERBERINE_METABOLISM_TICKS: Int = 24000
+  /** Berberine is completely metabolised within 2.5 in-game days (60000 ticks) from cap. */
+  val BERBERINE_METABOLISM_TICKS: Int = 60000
   val BERBERINE_DECAY_PER_TICK: Float = BERBERINE_CAP / BERBERINE_METABOLISM_TICKS
 
   /** The maximum glycyrrhizin (甘草酸) concentration, 0..7. */
@@ -421,7 +422,8 @@ object ModelConstants {
   /** Concentration threshold above which viruses are suppressed (growth stops, count decays). */
   val GLYCYRRHIZIN_SUPPRESS_THRESHOLD: Float = 3.0f
 
-  val GLYCYRRHIZIN_METABOLISM_TICKS: Int = 24000
+  /** Glycyrrhizin is completely metabolised within 2 in-game days (48000 ticks) from cap. */
+  val GLYCYRRHIZIN_METABOLISM_TICKS: Int = 48000
   val GLYCYRRHIZIN_DECAY_PER_TICK: Float = GLYCYRRHIZIN_CAP / GLYCYRRHIZIN_METABOLISM_TICKS
 }
 

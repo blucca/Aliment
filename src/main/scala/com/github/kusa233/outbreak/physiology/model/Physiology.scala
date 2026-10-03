@@ -76,6 +76,12 @@ object Physiology {
    */
   private final val CLEARANCE_BASE_RATE = 20f / (2f * 24000f)
 
+  /**
+   * Base drug clearance rate when pathogen is suppressed (drug >= suppressThreshold).
+   * Brings maximum pathogen load (100) down to 0 in 1.5 in-game days (36,000 ticks) at threshold.
+   */
+  private final val DRUG_SUPPRESS_CLEARANCE_RATE = ModelConstants.MAX_PATHOGEN / (1.5f * 24000f)
+
   private final val COMPETENCE_SIGMA = 15f
 
   // ------------------------------------------------------------------ water
@@ -622,8 +628,8 @@ object Physiology {
       }
 
       if (drugConc >= suppressThreshold) {
-        // 完全不生长，持续下降：药物直接提供杀灭清除速率
-        val drugClearance = CLEARANCE_BASE_RATE * 1.5f * (drugConc / suppressThreshold)
+        // 完全不生长，持续向下抑制：药物指标越高下降速率越快，在1.5游戏日内降至0
+        val drugClearance = DRUG_SUPPRESS_CLEARANCE_RATE * (drugConc / suppressThreshold)
         clamp(load - immuneClearance - drugClearance, 0f, ModelConstants.MAX_PATHOGEN)
       } else if (drugConc > slowThreshold) {
         // 生长速度降低（配合免疫系统可以更快压制）
