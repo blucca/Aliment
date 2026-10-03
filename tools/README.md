@@ -1,6 +1,6 @@
-﻿# tools
+# tools
 
-Helper scripts used while developing the Aliment willow (柳树) content. None of them are part
+Helper scripts used while developing the Aliment willow content. None of them are part
 of the built mod — they only regenerate files under `src/main/resources`.
 
 | script | what it does |
