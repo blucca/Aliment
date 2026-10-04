@@ -5,8 +5,10 @@ import com.github.kusa233.aliment.physiology.AlimentIngestion
 import com.github.kusa233.aliment.registry.AlimentBlocks
 import com.github.kusa233.aliment.registry.AlimentItems
 import com.github.kusa233.aliment.world.AlimentGrinding
+import com.github.kusa233.aliment.world.block.AlcoholCauldronBlock
 import com.github.kusa233.aliment.world.block.BrineCauldronBlock
 import com.github.kusa233.aliment.world.block.WillowSoupCauldronBlock
+import com.github.kusa233.aliment.world.item.WineItem
 import net.fabricmc.fabric.api.event.player.UseBlockCallback
 import net.fabricmc.fabric.api.event.player.UseItemCallback
 import net.minecraft.core.BlockPos
@@ -75,6 +77,7 @@ object AlimentInteractions {
             stripWithAxe(level, pos, state, stack, player, hand)
                 ?: grind(level, pos, state, stack, player)
                 ?: fillCauldron(level, pos, state, stack)
+                ?: fillAlcoholCauldron(level, pos, state, stack, player, hand)
                 ?: stirBrine(level, pos, state, stack, player, hand)
                 ?: fillBottleAt(player, level, hand, pos)
                 ?: InteractionResult.PASS
@@ -334,6 +337,38 @@ object AlimentInteractions {
         }
 
         return null
+    }
+
+    // ---------------------------------------------------------------- alcohol / wine cauldron
+
+    private fun fillAlcoholCauldron(
+        level: Level,
+        pos: BlockPos,
+        state: BlockState,
+        stack: ItemStack,
+        player: Player,
+        hand: InteractionHand,
+    ): InteractionResult? {
+        if (!state.`is`(Blocks.CAULDRON) || !stack.`is`(AlimentItems.WINE)) {
+            return null
+        }
+
+        val bottleConc = AlcoholCauldronBlock.AlcoholConcentration.fromFraction(WineItem.getConcentration(stack))
+        if (!level.isClientSide) {
+            val targetState = AlimentBlocks.ALCOHOL_CAULDRON.defaultBlockState()
+                .setValue(AlcoholCauldronBlock.LEVEL, 1)
+                .setValue(AlcoholCauldronBlock.CONCENTRATION, bottleConc)
+            level.setBlockAndUpdate(pos, targetState)
+
+            if (!player.isCreative) {
+                player.setItemInHand(hand, ItemUtils.createFilledResult(stack, player, ItemStack(Items.GLASS_BOTTLE)))
+            }
+            level.playSound(null, pos, SoundEvents.BOTTLE_EMPTY, SoundSource.BLOCKS, 1.0f, 1.0f)
+            level.gameEvent(null, GameEvent.FLUID_PLACE, pos)
+            player.swing(hand, stack.interactAnimation, true)
+            (targetState.block as? AlcoholCauldronBlock)?.startDistillationIfHeated(targetState, level, pos)
+        }
+        return InteractionResult.SUCCESS
     }
 
     // ---------------------------------------------------------------- stirring brine

@@ -64,6 +64,7 @@
     "item.aliment.cooked_gymnopilus":  "Cooked Gymnopilus",
     "item.aliment.brewer_yeast":  "Brewer\u0027s Yeast",
     "item.aliment.wine":  "Wine",
+    "item.aliment.alcohol":  "Alcohol",
     "item.aliment.beer":  "Beer",
     "item.aliment.ephedra":  "Ephedra",
     "item.aliment.crushed_ephedra":  "Crushed Ephedra",
@@ -102,5 +103,6 @@
     "advancements.aliment.extreme_fever.title":  "Hyperpyrexia",
     "advancements.aliment.extreme_fever.description":  "Core body temperature exceeds 40 C",
     "tooltip.aliment.wine.concentration":  "Ethanol: %s",
+    "tooltip.aliment.alcohol.concentration":  "Ethanol: %s",
     "gui.aliment.jei.category.grindstone": "Grindstone Crushing"
 }

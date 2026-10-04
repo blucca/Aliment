@@ -12,13 +12,23 @@ import net.minecraft.world.item.component.TooltipDisplay
 import java.util.function.Consumer
 
 /**
- * Wine item.
+ * Wine & Alcohol item.
  *
  * Brewed in the glass fermentation tank (7% ethanol) or distilled through the glass
- * condenser pipe into a cauldron (40% ethanol). Uses NBT (`concentration` float) to record
- * ethanol concentration.
+ * condenser pipe into a cauldron (40% ethanol). Further distillation in a heated cauldron
+ * yields 75% and 98% alcohol.
+ * When concentration >= 70%, the item name is "Alcohol" (酒精) instead of "Wine" (酒).
  */
 class WineItem(properties: Properties) : Item(properties) {
+
+    override fun getName(stack: ItemStack): Component {
+        val concentration = getConcentration(stack)
+        return if (concentration >= 0.70f) {
+            Component.translatable("item.aliment.alcohol")
+        } else {
+            Component.translatable("item.aliment.wine")
+        }
+    }
 
     @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
     override fun appendHoverText(
@@ -31,8 +41,9 @@ class WineItem(properties: Properties) : Item(properties) {
         super.appendHoverText(stack, context, tooltipDisplay, tooltip, flag)
         val concentration = getConcentration(stack)
         val percentage = (concentration * 100).toInt()
+        val key = if (concentration >= 0.70f) "tooltip.aliment.alcohol.concentration" else "tooltip.aliment.wine.concentration"
         tooltip.accept(
-            Component.translatable("tooltip.aliment.wine.concentration", "$percentage%")
+            Component.translatable(key, "$percentage%")
                 .withStyle(ChatFormatting.GOLD),
         )
     }
@@ -40,6 +51,8 @@ class WineItem(properties: Properties) : Item(properties) {
     companion object {
         const val DEFAULT_FERMENTED_CONCENTRATION: Float = 0.07f
         const val DISTILLED_CONCENTRATION: Float = 0.40f
+        const val ALCOHOL_75_CONCENTRATION: Float = 0.75f
+        const val ALCOHOL_98_CONCENTRATION: Float = 0.98f
 
         fun getConcentration(stack: ItemStack): Float {
             val customData = stack.get(DataComponents.CUSTOM_DATA) ?: return DEFAULT_FERMENTED_CONCENTRATION

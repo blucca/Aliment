@@ -19,6 +19,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Distilling the fermented wheat mash over a campfire through a condenser pipe into an empty cauldron produces a Beer Cauldron (`aliment:beer_cauldron`).
   - Bottling the beer cauldron with a glass bottle yields Beer (`aliment:beer`, 5% ethanol), providing hydration and mild alcoholic effect when consumed.
   - Added full visual textures and models for beer item, beer cauldron, and fermentation tank liquid states (`wheat` and `beer`).
+- Add multi-tier alcohol cauldron distillation pipeline and dynamic alcohol naming:
+  - 7% wine and 40% wine can now be poured into a cauldron.
+  - Heating an alcohol cauldron over a lit campfire with a condenser pipe above it distills the liquid into a collection cauldron:
+    - 7% wine distills through the condenser pipe into 40% wine.
+    - 40% wine distills through the condenser pipe into 75% alcohol.
+    - 75% alcohol can be poured back into a cauldron and distilled into 98% alcohol.
+  - Dynamic naming: Items with ethanol concentration >= 70% (75% and 98%) are named "Alcohol" instead of "Wine".
+  - Added dedicated visual models for 7% wine cauldron (rich reddish liquid) and clear distilled alcohol cauldrons (40%, 75%, 98%).
+- Add full Korean language localization support (`ko_kr.json`) covering all blocks, items, entities, creative tabs, advancements, tooltips, and JEI recipes.
 
 ### Changed
 - Redraw potion and beer textures adhering to authentic vanilla Minecraft item style:

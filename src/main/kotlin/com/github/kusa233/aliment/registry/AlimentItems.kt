@@ -466,6 +466,9 @@ object AlimentItems {
     fun createBeer(concentration: Float = BeerItem.DEFAULT_BEER_CONCENTRATION): ItemStack =
         BeerItem.createStack(BEER, concentration)
 
+    fun createAlcohol(concentration: Float = WineItem.ALCOHOL_75_CONCENTRATION): ItemStack =
+        WineItem.createStack(WINE, concentration)
+
     private fun seaweedFood(): FoodProperties = buildFood(1, 0.2f, alwaysEdible = true)
 
     private fun cookedSeaweedFood(): FoodProperties = buildFood(3, 0.6f, alwaysEdible = true)

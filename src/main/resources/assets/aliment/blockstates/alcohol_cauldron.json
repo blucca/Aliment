@@ -1,7 +1,16 @@
 {
   "variants": {
-    "level=1": { "model": "aliment:block/alcohol_cauldron_1" },
-    "level=2": { "model": "aliment:block/alcohol_cauldron_2" },
-    "level=3": { "model": "aliment:block/alcohol_cauldron_3" }
+    "concentration=7,level=1": { "model": "aliment:block/wine_cauldron_1" },
+    "concentration=7,level=2": { "model": "aliment:block/wine_cauldron_2" },
+    "concentration=7,level=3": { "model": "aliment:block/wine_cauldron_3" },
+    "concentration=40,level=1": { "model": "aliment:block/alcohol_cauldron_1" },
+    "concentration=40,level=2": { "model": "aliment:block/alcohol_cauldron_2" },
+    "concentration=40,level=3": { "model": "aliment:block/alcohol_cauldron_3" },
+    "concentration=75,level=1": { "model": "aliment:block/alcohol_cauldron_1" },
+    "concentration=75,level=2": { "model": "aliment:block/alcohol_cauldron_2" },
+    "concentration=75,level=3": { "model": "aliment:block/alcohol_cauldron_3" },
+    "concentration=98,level=1": { "model": "aliment:block/alcohol_cauldron_1" },
+    "concentration=98,level=2": { "model": "aliment:block/alcohol_cauldron_2" },
+    "concentration=98,level=3": { "model": "aliment:block/alcohol_cauldron_3" }
   }
 }

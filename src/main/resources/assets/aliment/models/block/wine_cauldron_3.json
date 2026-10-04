@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/template_cauldron_full",
+  "textures": {
+    "content": "aliment:block/tank_liquid_wine"
+  }
+}

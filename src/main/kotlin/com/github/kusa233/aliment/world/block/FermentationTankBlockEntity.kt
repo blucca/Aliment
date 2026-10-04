@@ -255,6 +255,7 @@ class FermentationTankBlockEntity(pos: BlockPos, state: BlockState) :
                                     } else {
                                         AlimentBlocks.ALCOHOL_CAULDRON.defaultBlockState()
                                             .setValue(AlcoholCauldronBlock.LEVEL, 1)
+                                            .setValue(AlcoholCauldronBlock.CONCENTRATION, AlcoholCauldronBlock.AlcoholConcentration.P40)
                                     }
                                     level.setBlockAndUpdate(cauldronPos, targetState)
                                     level.playSound(
@@ -289,7 +290,9 @@ class FermentationTankBlockEntity(pos: BlockPos, state: BlockState) :
                                     )
                                     collected = true
                                     break
-                                } else if (!isBeer && cauldronState.`is`(AlimentBlocks.ALCOHOL_CAULDRON)) {
+                                } else if (!isBeer && cauldronState.`is`(AlimentBlocks.ALCOHOL_CAULDRON) &&
+                                    cauldronState.getValue(AlcoholCauldronBlock.CONCENTRATION) == AlcoholCauldronBlock.AlcoholConcentration.P40
+                                ) {
                                     val currentLevel = cauldronState.getValue(AlcoholCauldronBlock.LEVEL)
                                     if (currentLevel < 3) {
                                         level.setBlockAndUpdate(

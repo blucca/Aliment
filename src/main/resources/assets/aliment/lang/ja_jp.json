@@ -64,6 +64,7 @@
     "item.aliment.cooked_gymnopilus":  "焼きオオワライタケ",
     "item.aliment.brewer_yeast":  "醸造酵母",
     "item.aliment.wine":  "酒",
+    "item.aliment.alcohol":  "アルコール",
     "item.aliment.beer":  "ビール",
     "item.aliment.ephedra":  "マオウ",
     "item.aliment.crushed_ephedra":  "砕いたマオウ",
@@ -102,5 +103,6 @@
     "advancements.aliment.extreme_fever.title":  "超高熱",
     "advancements.aliment.extreme_fever.description":  "深部体温が40℃を超える",
     "tooltip.aliment.wine.concentration":  "アルコール度数: %s",
+    "tooltip.aliment.alcohol.concentration":  "アルコール度数: %s",
     "gui.aliment.jei.category.grindstone": "砥石粉砕"
 }

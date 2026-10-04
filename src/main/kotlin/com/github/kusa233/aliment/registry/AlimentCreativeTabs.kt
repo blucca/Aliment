@@ -126,7 +126,18 @@ object AlimentCreativeTabs {
         CreativeModeTab.builder(CreativeModeTab.Row.TOP, TAB_COLUMN)
             .title(Component.translatable("itemGroup.aliment.main"))
             .icon { ItemStack(AlimentBlocks.WILLOW_SAPLING) }
-            .displayItems { _, output -> CONTENT.forEach(output::accept) }
+            .displayItems { _, output ->
+                CONTENT.forEach { itemLike ->
+                    if (itemLike === AlimentItems.WINE) {
+                        output.accept(AlimentItems.createWine(0.07f))
+                        output.accept(AlimentItems.createWine(0.40f))
+                        output.accept(AlimentItems.createAlcohol(0.75f))
+                        output.accept(AlimentItems.createAlcohol(0.98f))
+                    } else {
+                        output.accept(itemLike)
+                    }
+                }
+            }
             .build(),
     )
 

@@ -17,6 +17,7 @@ import com.github.kusa233.aliment.world.block.WillowSoupCauldronBlock
 import com.github.kusa233.aliment.world.item.BeerItem
 import com.github.kusa233.aliment.world.item.WineItem
 import com.github.kusa233.aliment.world.recipe.ShearEphedraRecipe
+import net.minecraft.network.chat.contents.TranslatableContents
 import net.fabricmc.api.ModInitializer
 import net.fabricmc.fabric.api.entity.FakePlayer
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
@@ -697,9 +698,114 @@ class AlimentSelfTest : ModInitializer {
             level.setBlockAndUpdate(cauldronPos, Blocks.AIR.defaultBlockState())
         }
 
+        // 6. Wine & Alcohol multi-tier cauldron distillation pipeline (7% -> 40% -> 75% -> 98%) and dynamic naming
+        // Test dynamic item naming
+        val wine7 = AlimentItems.createWine(0.07f)
+        val wine40 = AlimentItems.createWine(0.40f)
+        val alc75 = AlimentItems.createAlcohol(0.75f)
+        val alc98 = AlimentItems.createAlcohol(0.98f)
+
+        val name7Key = ((wine7.item as WineItem).getName(wine7).contents as? TranslatableContents)?.key
+        val name40Key = ((wine40.item as WineItem).getName(wine40).contents as? TranslatableContents)?.key
+        val name75Key = ((alc75.item as WineItem).getName(alc75).contents as? TranslatableContents)?.key
+        val name98Key = ((alc98.item as WineItem).getName(alc98).contents as? TranslatableContents)?.key
+
+        check("7% item is named wine", name7Key == "item.aliment.wine")
+        check("40% item is named wine", name40Key == "item.aliment.wine")
+        check("75% item is named alcohol", name75Key == "item.aliment.alcohol")
+        check("98% item is named alcohol", name98Key == "item.aliment.alcohol")
+
+        // Test pouring 7% wine into empty cauldron
+        level.setBlockAndUpdate(cauldronPos, Blocks.CAULDRON.defaultBlockState())
+        player.inventory.clearContent()
+        player.setItemInHand(InteractionHand.MAIN_HAND, wine7.copy())
+        useOn(level, player, cauldronPos)
+        val cState7 = level.getBlockState(cauldronPos)
+        check(
+            "adding 7% wine to empty cauldron produces alcohol cauldron level 1 concentration 7%",
+            cState7.`is`(AlimentBlocks.ALCOHOL_CAULDRON) &&
+                cState7.getValue(AlcoholCauldronBlock.LEVEL) == 1 &&
+                cState7.getValue(AlcoholCauldronBlock.CONCENTRATION) == AlcoholCauldronBlock.AlcoholConcentration.P07,
+        )
+
+        // Add second bottle of 7% wine
+        player.setItemInHand(InteractionHand.MAIN_HAND, wine7.copy())
+        useOn(level, player, cauldronPos)
+        check("adding second 7% wine increases level to 2", level.getBlockState(cauldronPos).getValue(AlcoholCauldronBlock.LEVEL) == 2)
+
+        // Set up heated cauldron distillation at tankPos
+        level.setBlockAndUpdate(firePos, Blocks.CAMPFIRE.defaultBlockState().setValue(CampfireBlock.LIT, true))
+        level.setBlockAndUpdate(riserPos, AlimentBlocks.CONDENSER_PIPE.defaultBlockState())
+        level.setBlockAndUpdate(sidePos, AlimentBlocks.CONDENSER_PIPE.defaultBlockState())
+        level.setBlockAndUpdate(cauldronPos, Blocks.CAULDRON.defaultBlockState())
+
+        // Distill 7% cauldron -> 40% cauldron
+        level.setBlockAndUpdate(
+            tankPos,
+            AlimentBlocks.ALCOHOL_CAULDRON.defaultBlockState()
+                .setValue(AlcoholCauldronBlock.LEVEL, 1)
+                .setValue(AlcoholCauldronBlock.CONCENTRATION, AlcoholCauldronBlock.AlcoholConcentration.P07),
+        )
+        val cauldronBlock = level.getBlockState(tankPos).block as AlcoholCauldronBlock
+        cauldronBlock.tick(level.getBlockState(tankPos), level, tankPos, level.random)
+        check("source 7% cauldron boiled down to empty cauldron", level.getBlockState(tankPos).`is`(Blocks.CAULDRON))
+        val dest40State = level.getBlockState(cauldronPos)
+        check(
+            "distilling 7% cauldron produces 40% wine cauldron",
+            dest40State.`is`(AlimentBlocks.ALCOHOL_CAULDRON) &&
+                dest40State.getValue(AlcoholCauldronBlock.CONCENTRATION) == AlcoholCauldronBlock.AlcoholConcentration.P40,
+        )
+
+        // Distill 40% cauldron -> 75% alcohol cauldron
+        level.setBlockAndUpdate(
+            tankPos,
+            AlimentBlocks.ALCOHOL_CAULDRON.defaultBlockState()
+                .setValue(AlcoholCauldronBlock.LEVEL, 1)
+                .setValue(AlcoholCauldronBlock.CONCENTRATION, AlcoholCauldronBlock.AlcoholConcentration.P40),
+        )
+        level.setBlockAndUpdate(cauldronPos, Blocks.CAULDRON.defaultBlockState())
+        cauldronBlock.tick(level.getBlockState(tankPos), level, tankPos, level.random)
+        check("source 40% cauldron boiled down to empty cauldron", level.getBlockState(tankPos).`is`(Blocks.CAULDRON))
+        val dest75State = level.getBlockState(cauldronPos)
+        check(
+            "distilling 40% cauldron produces 75% alcohol cauldron",
+            dest75State.`is`(AlimentBlocks.ALCOHOL_CAULDRON) &&
+                dest75State.getValue(AlcoholCauldronBlock.CONCENTRATION) == AlcoholCauldronBlock.AlcoholConcentration.P75,
+        )
+
+        // Distill 75% cauldron -> 98% alcohol cauldron
+        level.setBlockAndUpdate(
+            tankPos,
+            AlimentBlocks.ALCOHOL_CAULDRON.defaultBlockState()
+                .setValue(AlcoholCauldronBlock.LEVEL, 1)
+                .setValue(AlcoholCauldronBlock.CONCENTRATION, AlcoholCauldronBlock.AlcoholConcentration.P75),
+        )
+        level.setBlockAndUpdate(cauldronPos, Blocks.CAULDRON.defaultBlockState())
+        cauldronBlock.tick(level.getBlockState(tankPos), level, tankPos, level.random)
+        check("source 75% cauldron boiled down to empty cauldron", level.getBlockState(tankPos).`is`(Blocks.CAULDRON))
+        val dest98State = level.getBlockState(cauldronPos)
+        check(
+            "distilling 75% cauldron produces 98% alcohol cauldron",
+            dest98State.`is`(AlimentBlocks.ALCOHOL_CAULDRON) &&
+                dest98State.getValue(AlcoholCauldronBlock.CONCENTRATION) == AlcoholCauldronBlock.AlcoholConcentration.P98,
+        )
+
+        // Scoop 98% alcohol with glass bottle
+        player.inventory.clearContent()
+        player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(Items.GLASS_BOTTLE))
+        useOn(level, player, cauldronPos)
+        val scooped98 = player.inventory.getItem(0)
+        check("scooped item from 98% cauldron is alcohol", scooped98.`is`(AlimentItems.WINE) && WineItem.getConcentration(scooped98) == 0.98f)
+        check(
+            "scooped 98% item name is alcohol",
+            ((scooped98.item as WineItem).getName(scooped98).contents as? TranslatableContents)?.key == "item.aliment.alcohol",
+        )
+        check("cauldron reverted to plain cauldron after scooping", level.getBlockState(cauldronPos).`is`(Blocks.CAULDRON))
+
         // Clean up test area
         level.setBlockAndUpdate(tankPos, Blocks.AIR.defaultBlockState())
         level.setBlockAndUpdate(riserPos, Blocks.AIR.defaultBlockState())
+        level.setBlockAndUpdate(sidePos, Blocks.AIR.defaultBlockState())
         level.setBlockAndUpdate(firePos, Blocks.STONE.defaultBlockState())
         level.setBlockAndUpdate(cauldronPos, Blocks.AIR.defaultBlockState())
     }
