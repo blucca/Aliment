@@ -191,6 +191,21 @@ object AlimentSymptoms {
     }
 
     /**
+     * True while the player's stimulant load is too high for sleep. Used by `PlayerSleepMixin`.
+     *
+     * A frozen (creative) body is left alone like everything else, so a player cannot dodge the
+     * restriction by switching game mode.
+     */
+    @JvmStatic
+    fun isTooStimulatedToSleep(player: Player): Boolean {
+        if (isFrozen(player)) {
+            return false
+        }
+        val data = player.getAttachedOrElse(AlimentAttachments.DATA, AlimentData.HEALTHY)
+        return AlimentModelBridge.isTooStimulatedToSleep(data)
+    }
+
+    /**
      * Everything that has to be refreshed rather than set once: sepsis, the storm, the water, the
      * six minerals, and the body temperature.
      *

@@ -482,6 +482,7 @@ A rust-colored wood-decay mushroom flourishing in damp, shady, and wooded biomes
   ```
 
   Concentrations `ephedrine > 1.0` grant **Haste I** (faster mining speed). A full dose (5.0) provides over 16 continuous minutes of Haste.
+* **Sleep Restriction**: A sympathomimetic load above **0.5** keeps the nervous system from settling, so `ephedrine > 0.5` **prevents sleeping**. Right-clicking a bed shows *"You cannot sleep while stimulated"* instead of lying down. One raw twig (+0.5) is exactly on the threshold and still sleeps; a second twig or any potion is not. The restriction lifts by itself as the drug is metabolised.
 
 ---
 

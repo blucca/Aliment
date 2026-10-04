@@ -350,6 +350,10 @@ data class AlimentData(
     val hasHasteFromEphedrine: Boolean
         get() = AlimentModelBridge.hasHasteFromEphedrine(this)
 
+    /** True when ephedrine is high enough that this body cannot fall asleep. */
+    val isTooStimulatedToSleep: Boolean
+        get() = AlimentModelBridge.isTooStimulatedToSleep(this)
+
     fun withMediators(value: Mediators): AlimentData = this.copy(mediators = value)
 
     fun withElectrolytes(value: Electrolytes): AlimentData = this.copy(electrolytes = value)
@@ -532,6 +536,10 @@ data class AlimentData(
         /** The most ephedrine a body can carry, 0..5. */
         @JvmField val EPHEDRINE_CAP: Float = AlimentModelBridge.EPHEDRINE_CAP
         @JvmField val EPHEDRINE_HASTE_THRESHOLD: Float = AlimentModelBridge.EPHEDRINE_HASTE_THRESHOLD
+
+        /** Above this ephedrine level the player cannot fall asleep. */
+        @JvmField val EPHEDRINE_SLEEP_BLOCK_THRESHOLD: Float = AlimentModelBridge.EPHEDRINE_SLEEP_BLOCK_THRESHOLD
+
         @JvmField val EPHEDRINE_METABOLISM_TICKS: Int = AlimentModelBridge.EPHEDRINE_METABOLISM_TICKS
         @JvmField val EPHEDRINE_DECAY_PER_TICK: Float = AlimentModelBridge.EPHEDRINE_DECAY_PER_TICK
 

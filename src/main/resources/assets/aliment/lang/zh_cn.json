@@ -33,6 +33,7 @@
     "block.aliment.coptis":  "黄连",
     "block.aliment.phellodendron":  "黄柏",
     "block.aliment.licorice":  "甘草",
+    "block.aliment.bed.too_stimulated":  "你无法在兴奋剂状态下睡觉",
     "item.aliment.willow_bark":  "柳树树皮",
     "item.aliment.willow_bark_pieces":  "柳树皮碎片",
     "item.aliment.raw_willow_bark_soup_bottle":  "生柳树皮汤",

@@ -33,6 +33,7 @@
     "block.aliment.coptis":  "オウレン",
     "block.aliment.phellodendron":  "オウバク",
     "block.aliment.licorice":  "カンゾウ",
+    "block.aliment.bed.too_stimulated":  "興奮状態では眠れません",
     "item.aliment.willow_bark":  "ヤナギの樹皮",
     "item.aliment.willow_bark_pieces":  "ヤナギの樹皮の破片",
     "item.aliment.raw_willow_bark_soup_bottle":  "生のヤナギ樹皮スープ入り瓶",

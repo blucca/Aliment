@@ -8,7 +8,8 @@
     "GrindstoneMenuMixin",
     "GrindstoneResultSlotMixin",
     "ItemMixin",
-    "PlayerMixin"
+    "PlayerMixin",
+    "PlayerSleepMixin"
   ],
   "injectors": {
     "defaultRequire": 1

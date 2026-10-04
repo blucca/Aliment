@@ -892,6 +892,12 @@ object Physiology {
   def hasHasteFromEphedrine(state: ModelState): Boolean =
     state.ephedrine > ModelConstants.EPHEDRINE_HASTE_THRESHOLD
 
+  /**
+   * True while the stimulant load is high enough to keep the body from falling asleep.
+   */
+  def isTooStimulatedToSleep(state: ModelState): Boolean =
+    state.ephedrine > ModelConstants.EPHEDRINE_SLEEP_BLOCK_THRESHOLD
+
   /** Adds berberine, capped at [ModelConstants.BERBERINE_CAP]. */
   def addBerberine(state: ModelState, amount: Float): ModelState =
     state.withBerberine(clamp(state.berberine + amount, 0f, ModelConstants.BERBERINE_CAP))

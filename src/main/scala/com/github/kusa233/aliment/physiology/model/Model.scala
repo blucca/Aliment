@@ -408,6 +408,14 @@ object ModelConstants {
   /** Ephedrine threshold above which Haste I is granted. */
   val EPHEDRINE_HASTE_THRESHOLD: Float = 1f
 
+  /**
+   * Ephedrine threshold above which the nervous system is too aroused to settle into sleep.
+   *
+   * One raw ephedra carries exactly this much, so a single twig is survivable but a second dose -
+   * or the purified injection - keeps a body awake.
+   */
+  val EPHEDRINE_SLEEP_BLOCK_THRESHOLD: Float = 0.5f
+
   /** Ephedrine is completely metabolised within one in-game day (24000 ticks). */
   val EPHEDRINE_METABOLISM_TICKS: Int = 24000
   val EPHEDRINE_DECAY_PER_TICK: Float = EPHEDRINE_CAP / EPHEDRINE_METABOLISM_TICKS

@@ -33,6 +33,7 @@
     "block.aliment.coptis":  "Coptis",
     "block.aliment.phellodendron":  "Phellodendron",
     "block.aliment.licorice":  "Licorice",
+    "block.aliment.bed.too_stimulated":  "You cannot sleep while stimulated",
     "item.aliment.willow_bark":  "Willow Bark",
     "item.aliment.willow_bark_pieces":  "Willow Bark Pieces",
     "item.aliment.raw_willow_bark_soup_bottle":  "Raw Willow Bark Soup",

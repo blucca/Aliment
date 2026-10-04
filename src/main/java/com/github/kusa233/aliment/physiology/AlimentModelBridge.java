@@ -198,6 +198,9 @@ public final class AlimentModelBridge {
     /** Threshold for Haste I effect. */
     public static final float EPHEDRINE_HASTE_THRESHOLD = ModelConstants.EPHEDRINE_HASTE_THRESHOLD();
 
+    /** Above this ephedrine level the player is too stimulated to fall asleep. */
+    public static final float EPHEDRINE_SLEEP_BLOCK_THRESHOLD = ModelConstants.EPHEDRINE_SLEEP_BLOCK_THRESHOLD();
+
     /** Ephedrine is completely metabolised within one in-game day. */
     public static final int EPHEDRINE_METABOLISM_TICKS = ModelConstants.EPHEDRINE_METABOLISM_TICKS();
     public static final float EPHEDRINE_DECAY_PER_TICK = ModelConstants.EPHEDRINE_DECAY_PER_TICK();
@@ -611,6 +614,11 @@ public final class AlimentModelBridge {
     /** True if ephedrine is above the threshold for Haste I. */
     public static boolean hasHasteFromEphedrine(AlimentData data) {
         return Physiology.hasHasteFromEphedrine(toModel(data));
+    }
+
+    /** True if ephedrine is high enough to prevent the player from sleeping. */
+    public static boolean isTooStimulatedToSleep(AlimentData data) {
+        return Physiology.isTooStimulatedToSleep(toModel(data));
     }
 
     /** Adds berberine, capped. */

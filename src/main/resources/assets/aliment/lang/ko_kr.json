@@ -33,6 +33,7 @@
     "block.aliment.coptis":  "황련",
     "block.aliment.phellodendron":  "황벽",
     "block.aliment.licorice":  "감초",
+    "block.aliment.bed.too_stimulated":  "각성 상태에서는 잠들 수 없습니다",
     "item.aliment.willow_bark":  "버드나무 껍질",
     "item.aliment.willow_bark_pieces":  "버드나무 껍질 조각",
     "item.aliment.raw_willow_bark_soup_bottle":  "설익은 버드나무 껍질 수프",

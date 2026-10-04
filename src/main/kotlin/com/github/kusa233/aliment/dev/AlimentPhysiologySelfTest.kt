@@ -19,6 +19,7 @@ import com.github.kusa233.aliment.world.AlimentGrinding
 import com.github.kusa233.aliment.world.AlimentLoot
 import com.github.kusa233.aliment.world.item.WineItem
 import com.google.gson.JsonParser
+import com.mojang.datafixers.util.Either
 import net.fabricmc.api.ModInitializer
 import net.fabricmc.fabric.api.entity.FakePlayer
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
@@ -26,6 +27,7 @@ import net.minecraft.core.Holder
 import net.minecraft.core.Registry
 import net.minecraft.core.component.DataComponents
 import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.network.chat.Component
 import net.minecraft.resources.Identifier
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
@@ -36,11 +38,15 @@ import net.minecraft.world.entity.EntitySpawnReason
 import net.minecraft.world.entity.EntityTypes
 import net.minecraft.world.entity.Mob
 import net.minecraft.world.entity.ai.attributes.Attributes
+import net.minecraft.world.entity.player.Player
 import net.minecraft.world.inventory.GrindstoneMenu
+import net.minecraft.world.item.DyeColor
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraft.world.level.GameType
+import net.minecraft.world.level.block.AbstractBedBlock
+import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.storage.loot.LootParams
 import net.minecraft.world.level.storage.loot.LootTable
 import net.minecraft.world.level.storage.loot.parameters.LootContextParamSets
@@ -75,11 +81,13 @@ class AlimentPhysiologySelfTest : ModInitializer {
             try {
                 runAll()
                 translationChecks()
+                languageParity()
                 mixinChecks(server.overworld())
                 symptomChecks(server.overworld())
                 grinding(server.overworld())
                 chestLoot(server.overworld())
                 creativeIsFrozen(server.overworld())
+                sleepRestriction(server.overworld())
                 // Last, because it makes the server hand out a second player object.
                 deathResetsTheBody(server.overworld())
             } catch (t: Throwable) {
@@ -1485,6 +1493,129 @@ class AlimentPhysiologySelfTest : ModInitializer {
         logger.info("PHYS back in survival after a tick: bacteria {} temperature {}", resumed.bacteria, resumed.temperature)
         check("going back to survival resumes the model", resumed.bacteria < frozen.bacteria || resumed.temperature != frozen.temperature)
         check("and the fever shimmer comes back", player.getPostEffects().contains(AlimentSymptoms.HEAT_HAZE))
+    }
+
+    /**
+     * The stimulant keeps a body awake, and the refusal is the vanilla one.
+     *
+     * The gate is a mixin on `Player.startSleepInBed`, so the check runs the real method rather than
+     * the predicate behind it: a bed is placed, the player is put in reach of it, and the `Either` is
+     * inspected. What is asserted is the whole contract - `Either.left` with our own message above the
+     * threshold, `Either.right` below it - because "the player cannot sleep" is only true if vanilla's
+     * own path is what returns it.
+     */
+    private fun sleepRestriction(level: ServerLevel) {
+        check(
+            "one ephedra is below the sleep block threshold",
+            0.5f <= AlimentData.EPHEDRINE_SLEEP_BLOCK_THRESHOLD,
+        )
+        check(
+            "the sleep threshold is below the haste threshold, so a wired body can still be awake",
+            AlimentData.EPHEDRINE_SLEEP_BLOCK_THRESHOLD < AlimentData.EPHEDRINE_HASTE_THRESHOLD,
+        )
+
+        val player = FakePlayer.get(level)
+        player.setGameMode(GameType.SURVIVAL)
+
+        // A bed, in reach, with room above it: the vanilla checks that run before the mixin.
+        val feet = player.blockPosition()
+        val bedPos = feet.offset(1, 0, 0)
+        level.setBlockAndUpdate(bedPos, Blocks.BED.pick(DyeColor.RED).defaultBlockState())
+        player.snapTo(bedPos.x + 0.5, bedPos.y.toDouble(), bedPos.z + 0.5)
+
+        val bed = level.getBlockState(bedPos)
+        val bedBlock = bed.block as AbstractBedBlock
+        val rule = bedBlock.getBedRule(level, bedPos)
+
+        fun attempt(): Either<Player.BedSleepingProblem, net.minecraft.util.Unit> {
+            player.stopSleepInBed(true, true)
+            return player.startSleepInBed(bedBlock, bed, rule, bedPos)
+        }
+
+        // --- below the threshold: vanilla decides, and it does not refuse on our account
+        player.setAttached(AlimentAttachments.DATA, AlimentData.HEALTHY.copy(ephedrine = 0.4f))
+        check("0.4 ephedrine is not too stimulated to sleep", !AlimentSymptoms.isTooStimulatedToSleep(player))
+        val allowed = attempt()
+        logger.info("PHYS sleep at 0.4 ephedrine: {}", allowed)
+        check(
+            "below the threshold the refusal is never ours",
+            allowed.left().map { it.message() }.orElse(null)?.string !=
+                Component.translatable("block.aliment.bed.too_stimulated").string,
+        )
+        player.stopSleepInBed(true, true)
+
+        // --- exactly on the threshold: the model is strict, so this is still allowed
+        player.setAttached(AlimentAttachments.DATA, AlimentData.HEALTHY.copy(ephedrine = 0.5f))
+        check("exactly 0.5 ephedrine is not too stimulated to sleep", !AlimentSymptoms.isTooStimulatedToSleep(player))
+
+        // --- above the threshold: our refusal, with our own message
+        player.setAttached(AlimentAttachments.DATA, AlimentData.HEALTHY.copy(ephedrine = 0.6f))
+        check("0.6 ephedrine is too stimulated to sleep", AlimentSymptoms.isTooStimulatedToSleep(player))
+        val refused = attempt()
+        logger.info("PHYS sleep at 0.6 ephedrine: {}", refused)
+        check("a stimulated body does not enter the bed", refused.left().isPresent)
+        check("and it is not sleeping", !player.isSleeping)
+        val message = refused.left().map { it.message() }.orElse(null)
+        check(
+            "the refusal carries our message, so the HUD line comes from vanilla's own path",
+            message != null && message.string == Component.translatable("block.aliment.bed.too_stimulated").string,
+        )
+
+        // --- the potion lands well above it, so a real dose is enough
+        player.setAttached(AlimentAttachments.DATA, AlimentData.HEALTHY)
+        ItemStack(AlimentItems.EPHEDRA, 1).finishUsingItem(level, player)
+        check(
+            "a single ephedra does not block sleep",
+            !AlimentSymptoms.isTooStimulatedToSleep(player),
+        )
+        ItemStack(AlimentItems.EPHEDRA, 1).finishUsingItem(level, player)
+        check(
+            "two ephedra do block sleep",
+            AlimentSymptoms.isTooStimulatedToSleep(player),
+        )
+
+        // --- creative stays frozen, like every other symptom
+        player.setGameMode(GameType.CREATIVE)
+        check("a creative body is never held awake by the model", !AlimentSymptoms.isTooStimulatedToSleep(player))
+        player.setGameMode(GameType.SURVIVAL)
+
+        // --- and it clears itself as the drug is metabolised
+        var decaySim = AlimentData.HEALTHY.copy(ephedrine = 5.0f)
+        var clearTick = -1
+        repeat(24000) { tick ->
+            decaySim = AlimentPhysiology.tick(decaySim)
+            if (clearTick < 0 && !decaySim.isTooStimulatedToSleep) {
+                clearTick = tick
+            }
+        }
+        logger.info("PHYS ephedrine stops blocking sleep after {} ticks", clearTick)
+        check("a full dose stops blocking sleep within one in-game day", clearTick in 1..24000)
+    }
+
+    /**
+     * Every shipped language file carries the same keys.
+     *
+     * A missing key is not a crash - Minecraft falls back to the raw key - so nothing else would
+     * catch a language that quietly fell behind. The sleep refusal is exactly the kind of line that
+     * gets added to one locale and forgotten in the others.
+     */
+    private fun languageParity() {
+        val languages = listOf("en_us", "zh_cn", "ja_jp", "ko_kr")
+        val names = languages.associateWith(::languageKeys)
+        val reference = names.getValue("en_us")
+
+        for ((language, keys) in names) {
+            val missing = (reference - keys).sorted()
+            val extra = (keys - reference).sorted()
+            logger.info("PHYS language {}: missing {} extra {}", language, missing, extra)
+            check("$language defines every key en_us does", missing.isEmpty())
+            check("$language defines no key en_us does not", extra.isEmpty())
+        }
+
+        check(
+            "the sleep refusal is translated in every language",
+            languages.all { "block.aliment.bed.too_stimulated" in names.getValue(it) },
+        )
     }
 
     /**

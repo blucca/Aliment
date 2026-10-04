@@ -28,6 +28,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Dynamic naming: Items with ethanol concentration >= 70% (75% and 98%) are named "Alcohol" instead of "Wine".
   - Added dedicated visual models for 7% wine cauldron (rich reddish liquid) and clear distilled alcohol cauldrons (40%, 75%, 98%).
 - Add full Korean language localization support (`ko_kr.json`) covering all blocks, items, entities, creative tabs, advancements, tooltips, and JEI recipes.
+- Add a stimulant sleep restriction: a player whose ephedrine concentration exceeds 0.5 can no longer fall asleep, and attempting to use a bed shows "You cannot sleep while stimulated".
+  - The threshold lives in the Scala model (`EPHEDRINE_SLEEP_BLOCK_THRESHOLD`), is re-exported through `AlimentModelBridge`, and is mirrored in `AlimentData`.
+  - The restriction is enforced by `PlayerSleepMixin`, which injects into `Player.startSleepInBed` and returns a vanilla `BedSleepingProblem` carrying the message, so the refusal reuses vanilla's own display path (the same one that reports an occupied bed) with no extra HUD code.
+  - Creative players stay frozen and are unaffected; sleep becomes possible again as the ephedrine is metabolised (fully cleared within one in-game day).
 
 ### Changed
 - Redraw potion and beer textures adhering to authentic vanilla Minecraft item style:

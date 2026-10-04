@@ -108,9 +108,16 @@ the mod actually adds, freezes a creative player and respawns a dead one, and ch
 multiplier, the mining penalty and the synced client state. It also exercises the ephedra
 and ephedrine system: eating ephedra (+0.5 ephedrine), purified ephedrine (+2.5 ephedrine),
 capping at 5.0, granting Haste I when > 1.0, and 1-game-day (24000 ticks) linear metabolism decay.
-It also enumerates every item and entity
+It also places a real bed and calls `startSleepInBed` itself, to prove the stimulant sleep
+restriction returns vanilla's own `BedSleepingProblem` carrying our message above 0.5 ephedrine and
+nothing of ours at or below it. It also enumerates every item and entity
 type the mod registers and fails, naming the key, if any of them has no name in `en_us.json` or
-`zh_cn.json` or `ja_jp.json`. 381 checks.
+`zh_cn.json` or `ja_jp.json`, and asserts that all four shipped languages (`en_us`, `zh_cn`,
+`ja_jp`, `ko_kr`) define exactly the same key set. 457 checks.
+
+Twelve checks fail on a clean checkout too, in the thyroid, water-depletion, berberine and ethanol
+areas; they are pre-existing and unrelated. A run is compared against that baseline rather than
+against zero: baseline 435 passed / 12 failed, with this change 457 passed / 12 failed.
 
 ### Running either one
 
