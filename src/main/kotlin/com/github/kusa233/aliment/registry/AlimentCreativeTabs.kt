@@ -94,6 +94,7 @@ object AlimentCreativeTabs {
         AlimentBlocks.CONDENSER_PIPE,
         AlimentItems.BREWER_YEAST,
         AlimentItems.WINE,
+        AlimentItems.BEER,
         // ephedra & ephedrine
         AlimentItems.EPHEDRA,
         AlimentItems.CRUSHED_EPHEDRA,

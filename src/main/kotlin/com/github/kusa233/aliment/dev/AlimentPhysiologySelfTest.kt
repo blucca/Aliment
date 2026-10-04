@@ -2012,6 +2012,15 @@ class AlimentPhysiologySelfTest : ModInitializer {
         check("drinking distilled wine adds 0.40 ethanol (0.07 -> 0.47)", abs(afterDistilled.ethanol - 0.47f) < 0.001f)
         check("drinking distilled wine adds 10 water (90 -> 100)", abs(afterDistilled.water - 100f) < 0.001f)
 
+        // Beer (5% ethanol, 10 water)
+        player.setAttached(AlimentAttachments.DATA, AlimentData.HEALTHY)
+        val defaultBeer = ItemStack(AlimentItems.BEER, 1)
+        defaultBeer.finishUsingItem(level, player)
+        val afterBeer = player.getAttachedOrCreate(AlimentAttachments.DATA)
+        logger.info("PHYS beer drunk: ethanol {} water {}", afterBeer.ethanol, afterBeer.water)
+        check("drinking 5% beer adds 0.05 ethanol", abs(afterBeer.ethanol - 0.05f) < 0.001f)
+        check("drinking beer adds 10 water (80 -> 90)", abs(afterBeer.water - 90f) < 0.001f)
+
         // Ethanol decay: cleared over 1 game day (24000 ticks) from 1.0 to 0
         var decayEthSim = AlimentData.HEALTHY.copy(ethanol = 1.0f)
         repeat(12000) { decayEthSim = AlimentPhysiology.tick(decayEthSim) }

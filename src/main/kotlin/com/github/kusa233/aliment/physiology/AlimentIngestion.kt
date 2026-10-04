@@ -2,6 +2,7 @@ package com.github.kusa233.aliment.physiology
 
 import com.github.kusa233.aliment.advancement.AlimentAdvancements
 import com.github.kusa233.aliment.registry.AlimentItems
+import com.github.kusa233.aliment.world.item.BeerItem
 import com.github.kusa233.aliment.world.item.WineItem
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.effect.MobEffectInstance
@@ -160,12 +161,15 @@ object AlimentIngestion {
         data = AlimentInfection.rollRiskyFood(player, data, stack)
 
         if (isDrink(stack.item)) {
-            val water = if (stack.item === AlimentItems.WINE) WINE_WATER else WATER_PER_DRINK
+            val water = if (stack.item === AlimentItems.WINE || stack.item === AlimentItems.BEER) WINE_WATER else WATER_PER_DRINK
             data = AlimentPhysiology.drink(data, water)
         }
 
         if (stack.item === AlimentItems.WINE) {
             val concentration = WineItem.getConcentration(stack)
+            data = AlimentPhysiology.addEthanol(data, concentration)
+        } else if (stack.item === AlimentItems.BEER) {
+            val concentration = BeerItem.getConcentration(stack)
             data = AlimentPhysiology.addEthanol(data, concentration)
         }
 
@@ -295,6 +299,7 @@ object AlimentIngestion {
     fun isDrink(item: Item): Boolean = item === Items.POTION ||
         item === Items.MUSHROOM_STEW ||
         item === AlimentItems.WINE ||
+        item === AlimentItems.BEER ||
         item === AlimentItems.EPHEDRINE ||
         item === AlimentItems.COPTIS_POTION ||
         item === AlimentItems.PHELLODENDRON_POTION ||

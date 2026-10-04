@@ -1,6 +1,7 @@
 package com.github.kusa233.aliment.registry
 
 import com.github.kusa233.aliment.Aliment
+import com.github.kusa233.aliment.world.item.BeerItem
 import com.github.kusa233.aliment.world.item.WineItem
 import net.minecraft.core.Direction
 import net.minecraft.world.effect.MobEffectInstance
@@ -333,6 +334,15 @@ object AlimentItems {
             .stacksTo(16),
     ) { WineItem(it) }
 
+    /** Beer brewed from fermented wheat and distilled into a cauldron. */
+    val BEER: Item = Registration.registerItem(
+        "beer",
+        Item.Properties()
+            .food(buildFood(2, 0.6f, alwaysEdible = true), Consumables.defaultDrink().build())
+            .usingConvertsTo(Items.GLASS_BOTTLE)
+            .stacksTo(16),
+    ) { BeerItem(it) }
+
     // ---------------------------------------------------------------- ephedra & ephedrine
 
     /** Ephedra: herbal twigs, edible or plantable into soil/sand. */
@@ -452,6 +462,9 @@ object AlimentItems {
     ) { Item(it) }
 
     fun createWine(concentration: Float): ItemStack = WineItem.createStack(WINE, concentration)
+
+    fun createBeer(concentration: Float = BeerItem.DEFAULT_BEER_CONCENTRATION): ItemStack =
+        BeerItem.createStack(BEER, concentration)
 
     private fun seaweedFood(): FoodProperties = buildFood(1, 0.2f, alwaysEdible = true)
 

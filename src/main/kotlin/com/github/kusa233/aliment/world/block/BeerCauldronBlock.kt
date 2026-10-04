@@ -25,12 +25,12 @@ import net.minecraft.world.level.gameevent.GameEvent
 import net.minecraft.world.phys.BlockHitResult
 
 /**
- * Distilled alcohol cauldron.
+ * Distilled beer cauldron.
  *
- * Placed beside the fermentation tank underneath the condenser pipe outlet to collect distilled alcohol.
- * Fills up to 3 levels. Using a glass bottle on it yields wine with distilled concentration (40%).
+ * Placed beside the fermentation tank underneath the condenser pipe outlet to collect distilled beer.
+ * Fills up to 3 levels. Using a glass bottle on it yields beer (5% ethanol).
  */
-class AlcoholCauldronBlock(properties: BlockBehaviour.Properties) :
+class BeerCauldronBlock(properties: BlockBehaviour.Properties) :
     AbstractCauldronBlock(properties, CauldronInteractions.EMPTY) {
 
     init {
@@ -60,8 +60,8 @@ class AlcoholCauldronBlock(properties: BlockBehaviour.Properties) :
         }
 
         if (!level.isClientSide) {
-            val wine = AlimentItems.createWine(DISTILLED_ETHANOL)
-            player.setItemInHand(hand, ItemUtils.createFilledResult(stack, player, wine))
+            val beer = AlimentItems.createBeer()
+            player.setItemInHand(hand, ItemUtils.createFilledResult(stack, player, beer))
             player.awardStat(Stats.USE_CAULDRON)
             player.awardStat(Stats.ITEM_USED.get(Items.GLASS_BOTTLE))
 
@@ -74,7 +74,7 @@ class AlcoholCauldronBlock(properties: BlockBehaviour.Properties) :
 
             level.playSound(null, pos, SoundEvents.BOTTLE_FILL, SoundSource.BLOCKS, 1.0f, 1.0f)
             level.gameEvent(null, GameEvent.FLUID_PICKUP, pos)
-            player.swing(hand, stack.interactAnimation, true)
+            player.swing(hand, stack.getInteractAnimation(), true)
         }
 
         return InteractionResult.SUCCESS
@@ -82,6 +82,6 @@ class AlcoholCauldronBlock(properties: BlockBehaviour.Properties) :
 
     companion object {
         val LEVEL: IntegerProperty = BlockStateProperties.LEVEL_CAULDRON
-        const val DISTILLED_ETHANOL: Float = 0.40f
+        const val BEER_ETHANOL: Float = 0.05f
     }
 }

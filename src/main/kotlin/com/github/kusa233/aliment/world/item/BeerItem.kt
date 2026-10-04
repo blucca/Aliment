@@ -12,13 +12,12 @@ import net.minecraft.world.item.component.TooltipDisplay
 import java.util.function.Consumer
 
 /**
- * Wine item.
+ * Beer item.
  *
- * Brewed in the glass fermentation tank (7% ethanol) or distilled through the glass
- * condenser pipe into a cauldron (40% ethanol). Uses NBT (`concentration` float) to record
- * ethanol concentration.
+ * Brewed in the glass fermentation tank with wheat and brewer's yeast,
+ * and collected by distilling through the glass condenser pipe into a cauldron (5% ethanol).
  */
-class WineItem(properties: Properties) : Item(properties) {
+class BeerItem(properties: Properties) : Item(properties) {
 
     @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
     override fun appendHoverText(
@@ -38,15 +37,14 @@ class WineItem(properties: Properties) : Item(properties) {
     }
 
     companion object {
-        const val DEFAULT_FERMENTED_CONCENTRATION: Float = 0.07f
-        const val DISTILLED_CONCENTRATION: Float = 0.40f
+        const val DEFAULT_BEER_CONCENTRATION: Float = 0.05f
 
         fun getConcentration(stack: ItemStack): Float {
-            val customData = stack.get(DataComponents.CUSTOM_DATA) ?: return DEFAULT_FERMENTED_CONCENTRATION
-            return customData.copyTag().getFloatOr("concentration", DEFAULT_FERMENTED_CONCENTRATION)
+            val customData = stack.get(DataComponents.CUSTOM_DATA) ?: return DEFAULT_BEER_CONCENTRATION
+            return customData.copyTag().getFloatOr("concentration", DEFAULT_BEER_CONCENTRATION)
         }
 
-        fun createStack(item: Item, concentration: Float): ItemStack {
+        fun createStack(item: Item, concentration: Float = DEFAULT_BEER_CONCENTRATION): ItemStack {
             val stack = ItemStack(item)
             val tag = CompoundTag()
             tag.putFloat("concentration", concentration)

@@ -1,6 +1,7 @@
 package com.github.kusa233.aliment.registry
 
 import com.github.kusa233.aliment.world.block.AlcoholCauldronBlock
+import com.github.kusa233.aliment.world.block.BeerCauldronBlock
 import com.github.kusa233.aliment.world.block.BrineCauldronBlock
 import com.github.kusa233.aliment.world.block.CondenserPipeBlock
 import com.github.kusa233.aliment.world.block.CoptisBlock
@@ -470,6 +471,18 @@ object AlimentBlocks {
             .strength(2.0F)
             .noOcclusion(),
     ) { AlcoholCauldronBlock(it) }
+
+    /**
+     * Distilled Beer Cauldron to collect condensed beer from a condenser pipe.
+     */
+    val BEER_CAULDRON: Block = Registration.registerBlock(
+        "beer_cauldron",
+        BlockBehaviour.Properties.of()
+            .mapColor(MapColor.STONE)
+            .requiresCorrectToolForDrops()
+            .strength(2.0F)
+            .noOcclusion(),
+    ) { BeerCauldronBlock(it) }
 
     /** Touching this forces the whole object graph to be built. */
     fun initialize() {

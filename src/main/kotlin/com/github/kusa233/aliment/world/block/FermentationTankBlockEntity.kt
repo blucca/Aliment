@@ -8,6 +8,7 @@ import net.minecraft.core.particles.ParticleTypes
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.sounds.SoundEvents
 import net.minecraft.sounds.SoundSource
+import net.minecraft.util.StringRepresentable
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.CampfireBlock
@@ -19,12 +20,29 @@ import net.minecraft.world.level.storage.ValueOutput
 /**
  * Block entity for the glass fermentation tank.
  *
- * Tracks water level (0..3), presence of sugar and yeast, fermentation progress
- * (5 minutes = 6000 ticks for 7% ethanol), ethanol concentration, and distillation
- * progress (30 seconds = 600 ticks per water level over a campfire).
+ * Tracks water level (0..3), substrate (none, sugar, wheat), presence of yeast,
+ * fermentation progress (45 seconds = 900 ticks for 7% ethanol), ethanol concentration,
+ * fermented product type (wine or beer), and distillation progress (30 seconds = 600 ticks
+ * per water level over a campfire).
  */
 class FermentationTankBlockEntity(pos: BlockPos, state: BlockState) :
     BlockEntity(AlimentBlockEntities.FERMENTATION_TANK, pos, state) {
+
+    enum class Substrate(private val serialized: String) : StringRepresentable {
+        NONE("none"),
+        SUGAR("sugar"),
+        WHEAT("wheat");
+
+        override fun getSerializedName(): String = serialized
+    }
+
+    enum class FermentedProduct(private val serialized: String) : StringRepresentable {
+        NONE("none"),
+        WINE("wine"),
+        BEER("beer");
+
+        override fun getSerializedName(): String = serialized
+    }
 
     var waterLevel: Int = 0
         set(value) {
@@ -32,11 +50,27 @@ class FermentationTankBlockEntity(pos: BlockPos, state: BlockState) :
             updateBlockState()
         }
 
-    var hasSugar: Boolean = false
+    var substrate: Substrate = Substrate.NONE
         set(value) {
             field = value
             updateBlockState()
         }
+
+    var fermentedProduct: FermentedProduct = FermentedProduct.NONE
+        set(value) {
+            field = value
+            updateBlockState()
+        }
+
+    /** Backward-compatible sugar accessor. */
+    var hasSugar: Boolean
+        get() = substrate == Substrate.SUGAR
+        set(value) {
+            substrate = if (value) Substrate.SUGAR else if (substrate == Substrate.SUGAR) Substrate.NONE else substrate
+        }
+
+    val hasWheat: Boolean
+        get() = substrate == Substrate.WHEAT
 
     var hasYeast: Boolean = false
         set(value) {
@@ -55,7 +89,7 @@ class FermentationTankBlockEntity(pos: BlockPos, state: BlockState) :
     var distillProgress: Int = 0
 
     val isFermenting: Boolean
-        get() = waterLevel > 0 && hasSugar && hasYeast && ethanol <= 0f
+        get() = waterLevel > 0 && substrate != Substrate.NONE && hasYeast && ethanol <= 0f
 
     val isDistilling: Boolean
         get() = waterLevel > 0 && ethanol > 0f && isHeated
@@ -73,8 +107,11 @@ class FermentationTankBlockEntity(pos: BlockPos, state: BlockState) :
         val current = blockState
         if (current.block is FermentationTankBlock) {
             val liquidType = when {
+                fermentedProduct == FermentedProduct.BEER -> FermentationTankBlock.TankLiquid.BEER
+                fermentedProduct == FermentedProduct.WINE -> FermentationTankBlock.TankLiquid.WINE
                 ethanol > 0f -> FermentationTankBlock.TankLiquid.WINE
-                hasSugar -> FermentationTankBlock.TankLiquid.SUGAR
+                substrate == Substrate.WHEAT -> FermentationTankBlock.TankLiquid.WHEAT
+                substrate == Substrate.SUGAR -> FermentationTankBlock.TankLiquid.SUGAR
                 else -> FermentationTankBlock.TankLiquid.WATER
             }
             val updated = current
@@ -90,6 +127,8 @@ class FermentationTankBlockEntity(pos: BlockPos, state: BlockState) :
     override fun saveAdditional(output: ValueOutput) {
         super.saveAdditional(output)
         output.putInt("water", waterLevel)
+        output.putString("substrate", substrate.serializedName)
+        output.putString("product", fermentedProduct.serializedName)
         output.putBoolean("sugar", hasSugar)
         output.putBoolean("yeast", hasYeast)
         output.putInt("ferment_progress", fermentProgress)
@@ -100,7 +139,18 @@ class FermentationTankBlockEntity(pos: BlockPos, state: BlockState) :
     override fun loadAdditional(input: ValueInput) {
         super.loadAdditional(input)
         waterLevel = input.getIntOr("water", 0)
-        hasSugar = input.getBooleanOr("sugar", false)
+        val substrateStr = input.getStringOr("substrate", "")
+        substrate = when (substrateStr) {
+            "wheat" -> Substrate.WHEAT
+            "sugar" -> Substrate.SUGAR
+            else -> if (input.getBooleanOr("sugar", false)) Substrate.SUGAR else Substrate.NONE
+        }
+        val productStr = input.getStringOr("product", "")
+        fermentedProduct = when (productStr) {
+            "beer" -> FermentedProduct.BEER
+            "wine" -> FermentedProduct.WINE
+            else -> if (input.getFloatOr("ethanol", 0f) > 0f) FermentedProduct.WINE else FermentedProduct.NONE
+        }
         hasYeast = input.getBooleanOr("yeast", false)
         fermentProgress = input.getIntOr("ferment_progress", 0)
         ethanol = input.getFloatOr("ethanol", 0f)
@@ -141,7 +191,12 @@ class FermentationTankBlockEntity(pos: BlockPos, state: BlockState) :
                 if (entity.fermentProgress >= FERMENT_TICKS) {
                     entity.fermentProgress = 0
                     entity.ethanol = FERMENTED_ETHANOL
-                    entity.hasSugar = false
+                    entity.fermentedProduct = if (entity.substrate == Substrate.WHEAT) {
+                        FermentedProduct.BEER
+                    } else {
+                        FermentedProduct.WINE
+                    }
+                    entity.substrate = Substrate.NONE
                     entity.hasYeast = false
                     level.playSound(null, pos, SoundEvents.BREWING_STAND_BREW, SoundSource.BLOCKS, 1.0f, 1.0f)
                     level.sendParticles(
@@ -171,8 +226,11 @@ class FermentationTankBlockEntity(pos: BlockPos, state: BlockState) :
                 if (entity.distillProgress >= DISTILL_TICKS) {
                     entity.distillProgress = 0
                     entity.waterLevel--
+                    val isBeer = entity.fermentedProduct == FermentedProduct.BEER
                     if (entity.waterLevel == 0) {
                         entity.ethanol = 0f
+                        entity.fermentedProduct = FermentedProduct.NONE
+                        entity.substrate = Substrate.NONE
                     }
 
                     // Check condenser pipe system above the tank
@@ -191,11 +249,14 @@ class FermentationTankBlockEntity(pos: BlockPos, state: BlockState) :
                                 val cauldronState = level.getBlockState(cauldronPos)
 
                                 if (cauldronState.`is`(Blocks.CAULDRON)) {
-                                    level.setBlockAndUpdate(
-                                        cauldronPos,
+                                    val targetState = if (isBeer) {
+                                        AlimentBlocks.BEER_CAULDRON.defaultBlockState()
+                                            .setValue(BeerCauldronBlock.LEVEL, 1)
+                                    } else {
                                         AlimentBlocks.ALCOHOL_CAULDRON.defaultBlockState()
-                                            .setValue(AlcoholCauldronBlock.LEVEL, 1),
-                                    )
+                                            .setValue(AlcoholCauldronBlock.LEVEL, 1)
+                                    }
+                                    level.setBlockAndUpdate(cauldronPos, targetState)
                                     level.playSound(
                                         null, cauldronPos,
                                         SoundEvents.POINTED_DRIPSTONE_DRIP_WATER_INTO_CAULDRON,
@@ -208,7 +269,27 @@ class FermentationTankBlockEntity(pos: BlockPos, state: BlockState) :
                                     )
                                     collected = true
                                     break
-                                } else if (cauldronState.`is`(AlimentBlocks.ALCOHOL_CAULDRON)) {
+                                } else if (isBeer && cauldronState.`is`(AlimentBlocks.BEER_CAULDRON)) {
+                                    val currentLevel = cauldronState.getValue(BeerCauldronBlock.LEVEL)
+                                    if (currentLevel < 3) {
+                                        level.setBlockAndUpdate(
+                                            cauldronPos,
+                                            cauldronState.setValue(BeerCauldronBlock.LEVEL, currentLevel + 1),
+                                        )
+                                    }
+                                    level.playSound(
+                                        null, cauldronPos,
+                                        SoundEvents.POINTED_DRIPSTONE_DRIP_WATER_INTO_CAULDRON,
+                                        SoundSource.BLOCKS, 1.0f, 1.0f,
+                                    )
+                                    level.sendParticles(
+                                        ParticleTypes.DRIPPING_WATER,
+                                        cauldronPos.x + 0.5, cauldronPos.y + 0.9, cauldronPos.z + 0.5,
+                                        4, 0.1, 0.1, 0.1, 0.01,
+                                    )
+                                    collected = true
+                                    break
+                                } else if (!isBeer && cauldronState.`is`(AlimentBlocks.ALCOHOL_CAULDRON)) {
                                     val currentLevel = cauldronState.getValue(AlcoholCauldronBlock.LEVEL)
                                     if (currentLevel < 3) {
                                         level.setBlockAndUpdate(

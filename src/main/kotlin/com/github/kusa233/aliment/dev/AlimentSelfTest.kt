@@ -7,12 +7,14 @@ import com.github.kusa233.aliment.registry.AlimentWorldGen
 import com.github.kusa233.aliment.registry.Registration
 import com.github.kusa233.aliment.world.AlimentGrinding
 import com.github.kusa233.aliment.world.block.AlcoholCauldronBlock
+import com.github.kusa233.aliment.world.block.BeerCauldronBlock
 import com.github.kusa233.aliment.world.block.CondenserPipeBlock
 import com.github.kusa233.aliment.world.block.EphedraBlock
 import com.github.kusa233.aliment.world.block.FermentationTankBlock
 import com.github.kusa233.aliment.world.block.FermentationTankBlockEntity
 import com.github.kusa233.aliment.world.block.MandrakeBlock
 import com.github.kusa233.aliment.world.block.WillowSoupCauldronBlock
+import com.github.kusa233.aliment.world.item.BeerItem
 import com.github.kusa233.aliment.world.item.WineItem
 import com.github.kusa233.aliment.world.recipe.ShearEphedraRecipe
 import net.fabricmc.api.ModInitializer
@@ -621,6 +623,79 @@ class AlimentSelfTest : ModInitializer {
         FermentationTankBlockEntity.serverTick(level, tankPos, level.getBlockState(tankPos), entity)
         check("uncondensed distillation evaporates liquid from tank", entity.waterLevel == 0 && entity.ethanol == 0f)
         check("no alcohol went into cauldron when wasted", level.getBlockState(cauldronPos).`is`(Blocks.CAULDRON))
+
+        // 5. Wheat fermentation and distillation into beer
+        level.setBlockAndUpdate(tankPos, AlimentBlocks.FERMENTATION_TANK.defaultBlockState())
+        val wheatTankEntity = level.getBlockEntity(tankPos) as? FermentationTankBlockEntity
+        check("wheat tank entity exists", wheatTankEntity != null)
+        if (wheatTankEntity != null) {
+            // Fill water
+            player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(Items.WATER_BUCKET))
+            useOn(level, player, tankPos)
+            check("wheat tank filled with water", wheatTankEntity.waterLevel == 3)
+
+            // Add wheat (alternative to sugar)
+            player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(Items.WHEAT))
+            useOn(level, player, tankPos)
+            check("wheat added to tank as substrate", wheatTankEntity.substrate == FermentationTankBlockEntity.Substrate.WHEAT)
+            check("wheat tank liquid is wheat", level.getBlockState(tankPos).getValue(FermentationTankBlock.LIQUID) == FermentationTankBlock.TankLiquid.WHEAT)
+
+            // Add brewer's yeast
+            player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(AlimentItems.BREWER_YEAST))
+            useOn(level, player, tankPos)
+            check("yeast added to wheat tank", wheatTankEntity.hasYeast)
+            check("wheat tank is fermenting", wheatTankEntity.isFermenting)
+
+            // Complete fermentation
+            wheatTankEntity.fermentProgress = FermentationTankBlockEntity.FERMENT_TICKS - 1
+            FermentationTankBlockEntity.serverTick(level, tankPos, level.getBlockState(tankPos), wheatTankEntity)
+            check("wheat fermentation produces beer product", wheatTankEntity.fermentedProduct == FermentationTankBlockEntity.FermentedProduct.BEER)
+            check("wheat tank liquid turns to beer", level.getBlockState(tankPos).getValue(FermentationTankBlock.LIQUID) == FermentationTankBlock.TankLiquid.BEER)
+
+            // Proving that direct bottling is disabled for wheat (must be distilled)
+            player.inventory.clearContent()
+            player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(Items.GLASS_BOTTLE))
+            useOn(level, player, tankPos)
+            val bottledFromTank = (0 until player.inventory.containerSize)
+                .map { player.inventory.getItem(it) }
+                .firstOrNull { it.`is`(AlimentItems.BEER) || it.`is`(AlimentItems.WINE) }
+            check("direct bottling wheat mash from tank does not yield beer (requires distillation)", bottledFromTank == null && wheatTankEntity.waterLevel == 3)
+
+            // Set up distillation with condenser pipe and campfire
+            level.setBlockAndUpdate(firePos, Blocks.CAMPFIRE.defaultBlockState().setValue(CampfireBlock.LIT, true))
+            level.setBlockAndUpdate(riserPos, AlimentBlocks.CONDENSER_PIPE.defaultBlockState())
+            level.setBlockAndUpdate(sidePos, AlimentBlocks.CONDENSER_PIPE.defaultBlockState())
+            level.setBlockAndUpdate(cauldronPos, Blocks.CAULDRON.defaultBlockState())
+
+            check("wheat tank ready for distillation", wheatTankEntity.isDistilling)
+
+            wheatTankEntity.distillProgress = FermentationTankBlockEntity.DISTILL_TICKS - 1
+            FermentationTankBlockEntity.serverTick(level, tankPos, level.getBlockState(tankPos), wheatTankEntity)
+
+            val beerCauldronState = level.getBlockState(cauldronPos)
+            check(
+                "distillation of wheat into cauldron produces beer cauldron level 1",
+                beerCauldronState.`is`(AlimentBlocks.BEER_CAULDRON) && beerCauldronState.getValue(BeerCauldronBlock.LEVEL) == 1
+            )
+
+            // Bottle beer from cauldron
+            player.inventory.clearContent()
+            player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(Items.GLASS_BOTTLE))
+            useOn(level, player, cauldronPos)
+            val bottledBeer = (0 until player.inventory.containerSize)
+                .map { player.inventory.getItem(it) }
+                .firstOrNull { it.`is`(AlimentItems.BEER) }
+            check("bottling beer cauldron yields beer", bottledBeer != null)
+            check("beer has 5% concentration", bottledBeer != null && BeerItem.getConcentration(bottledBeer) == 0.05f)
+            check("cauldron reverted to plain cauldron after bottling", level.getBlockState(cauldronPos).`is`(Blocks.CAULDRON))
+
+            // Clean up
+            level.setBlockAndUpdate(tankPos, Blocks.AIR.defaultBlockState())
+            level.setBlockAndUpdate(riserPos, Blocks.AIR.defaultBlockState())
+            level.setBlockAndUpdate(sidePos, Blocks.AIR.defaultBlockState())
+            level.setBlockAndUpdate(firePos, Blocks.STONE.defaultBlockState())
+            level.setBlockAndUpdate(cauldronPos, Blocks.AIR.defaultBlockState())
+        }
 
         // Clean up test area
         level.setBlockAndUpdate(tankPos, Blocks.AIR.defaultBlockState())

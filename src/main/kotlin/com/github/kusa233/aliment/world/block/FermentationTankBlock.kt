@@ -4,6 +4,8 @@ import com.github.kusa233.aliment.registry.AlimentBlockEntities
 import com.github.kusa233.aliment.registry.AlimentItems
 import net.minecraft.core.BlockPos
 import net.minecraft.core.component.DataComponents
+import net.minecraft.core.particles.ParticleTypes
+import net.minecraft.server.level.ServerLevel
 import net.minecraft.sounds.SoundEvents
 import net.minecraft.sounds.SoundSource
 import net.minecraft.util.Prediction
@@ -88,18 +90,24 @@ class FermentationTankBlock(properties: BlockBehaviour.Properties) : BaseEntityB
         hand: InteractionHand,
         hit: BlockHitResult,
     ): InteractionResult {
-        val entity = level.getBlockEntity(pos) as? FermentationTankBlockEntity ?: return InteractionResult.PASS
+        val currentLevel = state.getValue(LEVEL)
+        val currentLiquid = state.getValue(LIQUID)
 
         // 1. Water Bucket -> fills directly to 3
         if (stack.`is`(Items.WATER_BUCKET)) {
-            if (entity.waterLevel < 3) {
+            if (currentLevel < 3) {
                 if (!level.isClientSide) {
+                    val entity = level.getBlockEntity(pos) as? FermentationTankBlockEntity ?: return InteractionResult.PASS
                     entity.waterLevel = 3
                     entity.setChanged()
                     if (!player.isCreative) {
                         player.setItemInHand(hand, ItemStack(Items.BUCKET))
                     }
                     level.playSound(null, pos, SoundEvents.BUCKET_EMPTY, SoundSource.BLOCKS, 1.0f, 1.0f)
+                    if (level is ServerLevel) {
+                        level.sendParticles(ParticleTypes.SPLASH, pos.x + 0.5, pos.y + 0.8, pos.z + 0.5, 8, 0.15, 0.1, 0.15, 0.05)
+                    }
+                    player.swing(hand, stack.getInteractAnimation(), true)
                 }
                 return InteractionResult.SUCCESS
             }
@@ -109,8 +117,9 @@ class FermentationTankBlock(properties: BlockBehaviour.Properties) : BaseEntityB
         // 2. Water Bottle -> adds 1 water level
         val potionContents = stack.get(DataComponents.POTION_CONTENTS)
         if (stack.`is`(Items.POTION) && potionContents?.`is`(Potions.WATER) == true) {
-            if (entity.waterLevel < 3) {
+            if (currentLevel < 3) {
                 if (!level.isClientSide) {
+                    val entity = level.getBlockEntity(pos) as? FermentationTankBlockEntity ?: return InteractionResult.PASS
                     entity.waterLevel++
                     entity.setChanged()
                     if (!player.isCreative) {
@@ -118,22 +127,58 @@ class FermentationTankBlock(properties: BlockBehaviour.Properties) : BaseEntityB
                         giveItem(player, ItemStack(Items.GLASS_BOTTLE))
                     }
                     level.playSound(null, pos, SoundEvents.BOTTLE_EMPTY, SoundSource.BLOCKS, 1.0f, 1.0f)
+                    if (level is ServerLevel) {
+                        level.sendParticles(ParticleTypes.SPLASH, pos.x + 0.5, pos.y + 0.8, pos.z + 0.5, 5, 0.1, 0.1, 0.1, 0.05)
+                    }
+                    player.swing(hand, stack.getInteractAnimation(), true)
                 }
                 return InteractionResult.SUCCESS
             }
             return InteractionResult.PASS
         }
 
-        // 3. Sugar -> add sugar
+        // 3a. Sugar -> add sugar
         if (stack.`is`(Items.SUGAR)) {
-            if (entity.waterLevel > 0 && !entity.hasSugar && entity.ethanol <= 0f) {
+            if (currentLevel > 0 && currentLiquid == TankLiquid.WATER) {
                 if (!level.isClientSide) {
-                    entity.hasSugar = true
+                    val entity = level.getBlockEntity(pos) as? FermentationTankBlockEntity ?: return InteractionResult.PASS
+                    if (entity.substrate != FermentationTankBlockEntity.Substrate.NONE || entity.ethanol > 0f) {
+                        return InteractionResult.PASS
+                    }
+                    entity.substrate = FermentationTankBlockEntity.Substrate.SUGAR
                     entity.setChanged()
                     if (!player.isCreative) {
                         stack.shrink(1)
                     }
                     level.playSound(null, pos, SoundEvents.SAND_PLACE, SoundSource.BLOCKS, 1.0f, 1.2f)
+                    if (level is ServerLevel) {
+                        level.sendParticles(ParticleTypes.WHITE_SMOKE, pos.x + 0.5, pos.y + 0.85, pos.z + 0.5, 6, 0.1, 0.05, 0.1, 0.02)
+                    }
+                    player.swing(hand, stack.getInteractAnimation(), true)
+                }
+                return InteractionResult.SUCCESS
+            }
+            return InteractionResult.PASS
+        }
+
+        // 3b. Wheat -> add wheat (alternative to sugar)
+        if (stack.`is`(Items.WHEAT)) {
+            if (currentLevel > 0 && currentLiquid == TankLiquid.WATER) {
+                if (!level.isClientSide) {
+                    val entity = level.getBlockEntity(pos) as? FermentationTankBlockEntity ?: return InteractionResult.PASS
+                    if (entity.substrate != FermentationTankBlockEntity.Substrate.NONE || entity.ethanol > 0f) {
+                        return InteractionResult.PASS
+                    }
+                    entity.substrate = FermentationTankBlockEntity.Substrate.WHEAT
+                    entity.setChanged()
+                    if (!player.isCreative) {
+                        stack.shrink(1)
+                    }
+                    level.playSound(null, pos, SoundEvents.CROP_PLANTED, SoundSource.BLOCKS, 1.0f, 1.0f)
+                    if (level is ServerLevel) {
+                        level.sendParticles(ParticleTypes.COMPOSTER, pos.x + 0.5, pos.y + 0.85, pos.z + 0.5, 5, 0.1, 0.05, 0.1, 0.02)
+                    }
+                    player.swing(hand, stack.getInteractAnimation(), true)
                 }
                 return InteractionResult.SUCCESS
             }
@@ -142,14 +187,22 @@ class FermentationTankBlock(properties: BlockBehaviour.Properties) : BaseEntityB
 
         // 4. Brewer's Yeast -> add yeast
         if (stack.`is`(AlimentItems.BREWER_YEAST)) {
-            if (entity.waterLevel > 0 && !entity.hasYeast && entity.ethanol <= 0f) {
+            if (currentLevel > 0 && (currentLiquid == TankLiquid.SUGAR || currentLiquid == TankLiquid.WHEAT)) {
                 if (!level.isClientSide) {
+                    val entity = level.getBlockEntity(pos) as? FermentationTankBlockEntity ?: return InteractionResult.PASS
+                    if (entity.substrate == FermentationTankBlockEntity.Substrate.NONE || entity.hasYeast || entity.ethanol > 0f) {
+                        return InteractionResult.PASS
+                    }
                     entity.hasYeast = true
                     entity.setChanged()
                     if (!player.isCreative) {
                         stack.shrink(1)
                     }
                     level.playSound(null, pos, SoundEvents.HONEY_BLOCK_PLACE, SoundSource.BLOCKS, 0.8f, 1.2f)
+                    if (level is ServerLevel) {
+                        level.sendParticles(ParticleTypes.FALLING_HONEY, pos.x + 0.5, pos.y + 0.85, pos.z + 0.5, 6, 0.1, 0.05, 0.1, 0.02)
+                    }
+                    player.swing(hand, stack.getInteractAnimation(), true)
                 }
                 return InteractionResult.SUCCESS
             }
@@ -158,8 +211,18 @@ class FermentationTankBlock(properties: BlockBehaviour.Properties) : BaseEntityB
 
         // 5. Glass Bottle -> bottle liquid
         if (stack.`is`(Items.GLASS_BOTTLE)) {
-            if (entity.waterLevel > 0) {
+            if (currentLevel > 0) {
+                // Fermented wheat mash cannot be bottled directly - it must be distilled to obtain beer!
+                if (currentLiquid == TankLiquid.BEER) {
+                    return InteractionResult.PASS
+                }
+
                 if (!level.isClientSide) {
+                    val entity = level.getBlockEntity(pos) as? FermentationTankBlockEntity ?: return InteractionResult.PASS
+                    if (entity.ethanol > 0f && entity.fermentedProduct == FermentationTankBlockEntity.FermentedProduct.BEER) {
+                        return InteractionResult.PASS
+                    }
+
                     val resultItem = if (entity.ethanol > 0f) {
                         AlimentItems.createWine(entity.ethanol)
                     } else {
@@ -169,6 +232,8 @@ class FermentationTankBlock(properties: BlockBehaviour.Properties) : BaseEntityB
                     entity.waterLevel--
                     if (entity.waterLevel == 0) {
                         entity.ethanol = 0f
+                        entity.fermentedProduct = FermentationTankBlockEntity.FermentedProduct.NONE
+                        entity.substrate = FermentationTankBlockEntity.Substrate.NONE
                     }
                     entity.setChanged()
 
@@ -179,6 +244,7 @@ class FermentationTankBlock(properties: BlockBehaviour.Properties) : BaseEntityB
                         giveItem(player, resultItem)
                     }
                     level.playSound(null, pos, SoundEvents.BOTTLE_FILL, SoundSource.BLOCKS, 1.0f, 1.0f)
+                    player.swing(hand, stack.getInteractAnimation(), true)
                 }
                 return InteractionResult.SUCCESS
             }
@@ -197,7 +263,9 @@ class FermentationTankBlock(properties: BlockBehaviour.Properties) : BaseEntityB
     enum class TankLiquid(private val serialized: String) : StringRepresentable {
         WATER("water"),
         SUGAR("sugar"),
-        WINE("wine");
+        WINE("wine"),
+        WHEAT("wheat"),
+        BEER("beer");
 
         override fun getSerializedName(): String = serialized
     }

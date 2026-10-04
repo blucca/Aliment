@@ -71,6 +71,54 @@
     },
     "fermenting=true,level=3,liquid=wine": {
       "model": "aliment:block/fermentation_tank_3_wine"
+    },
+    "fermenting=false,level=0,liquid=wheat": {
+      "model": "aliment:block/fermentation_tank_0"
+    },
+    "fermenting=false,level=0,liquid=beer": {
+      "model": "aliment:block/fermentation_tank_0"
+    },
+    "fermenting=false,level=1,liquid=wheat": {
+      "model": "aliment:block/fermentation_tank_1_wheat"
+    },
+    "fermenting=false,level=1,liquid=beer": {
+      "model": "aliment:block/fermentation_tank_1_beer"
+    },
+    "fermenting=false,level=2,liquid=wheat": {
+      "model": "aliment:block/fermentation_tank_2_wheat"
+    },
+    "fermenting=false,level=2,liquid=beer": {
+      "model": "aliment:block/fermentation_tank_2_beer"
+    },
+    "fermenting=false,level=3,liquid=wheat": {
+      "model": "aliment:block/fermentation_tank_3_wheat"
+    },
+    "fermenting=false,level=3,liquid=beer": {
+      "model": "aliment:block/fermentation_tank_3_beer"
+    },
+    "fermenting=true,level=0,liquid=wheat": {
+      "model": "aliment:block/fermentation_tank_0"
+    },
+    "fermenting=true,level=0,liquid=beer": {
+      "model": "aliment:block/fermentation_tank_0"
+    },
+    "fermenting=true,level=1,liquid=wheat": {
+      "model": "aliment:block/fermentation_tank_1_wheat"
+    },
+    "fermenting=true,level=1,liquid=beer": {
+      "model": "aliment:block/fermentation_tank_1_beer"
+    },
+    "fermenting=true,level=2,liquid=wheat": {
+      "model": "aliment:block/fermentation_tank_2_wheat"
+    },
+    "fermenting=true,level=2,liquid=beer": {
+      "model": "aliment:block/fermentation_tank_2_beer"
+    },
+    "fermenting=true,level=3,liquid=wheat": {
+      "model": "aliment:block/fermentation_tank_3_wheat"
+    },
+    "fermenting=true,level=3,liquid=beer": {
+      "model": "aliment:block/fermentation_tank_3_beer"
     }
   }
 }
