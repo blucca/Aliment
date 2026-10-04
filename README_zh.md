@@ -39,9 +39,10 @@ A Minecraft mod about **physiology, disease, pharmacology and contagion**.
 
 | 文档 | 描述与定位 |
 | --- | --- |
-| 📖 **[`SPOILER_zh.md`](SPOILER_zh.md)** / **[`SPOILER.md`](SPOILER.md)** | **完整玩法与机制剧透**：所有隐藏数值门槛、配方流程、方块物品清单、进度与调试指令 |
-| 🧬 **[`PHYSIOLOGY_zh.md`](PHYSIOLOGY_zh.md)** / **[`PHYSIOLOGY.md`](PHYSIOLOGY.md)** | **生理医学模型文档**：详细微分方程、微量元素参考范围、体温与病理学推演公式 |
-| 🛠️ **[`TECHNICAL_zh.md`](TECHNICAL_zh.md)** / **[`TECHNICAL.md`](TECHNICAL.md)** | **技术架构与开发文档**：Scala/Java/Kotlin 三层跨语言架构、Mixin 清单与编译器防踩坑说明 |
+| 📖 **[`docs/SPOILER_zh.md`](docs/SPOILER_zh.md)** / **[`docs/SPOILER.md`](docs/SPOILER.md)** | **完整玩法与机制剧透**：所有隐藏数值门槛、配方流程、方块物品清单、进度与调试指令 |
+| 🧬 **[`docs/PHYSIOLOGY_zh.md`](docs/PHYSIOLOGY_zh.md)** / **[`docs/PHYSIOLOGY.md`](docs/PHYSIOLOGY.md)** | **生理医学模型文档**：详细微分方程、微量元素参考范围、体温与病理学推演公式 |
+| 🛠️ **[`docs/TECHNICAL_zh.md`](docs/TECHNICAL_zh.md)** / **[`docs/TECHNICAL.md`](docs/TECHNICAL.md)** | **技术架构与开发文档**：Scala/Java/Kotlin 三层跨语言架构、Mixin 清单与编译器防踩坑说明 |
+| 📝 **[`docs/CHANGE_LOG_zh.md`](docs/CHANGE_LOG_zh.md)** / **[`docs/CHANGE_LOG.md`](docs/CHANGE_LOG.md)** | **更新日志**：按 Keep a Changelog 规范记录模组的历次重要变更 |
 | ⚙️ **[`tools/README.md`](tools/README.md)** | **工程工具与自检系统**：360+ 份 JSON 自动化生成、贴图算法及无头 FakePlayer 自动化测试 |
 
 ---

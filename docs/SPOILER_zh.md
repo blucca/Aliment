@@ -11,7 +11,7 @@
 相关文档：
 - 生理与医学数值模型：[`PHYSIOLOGY.md`](PHYSIOLOGY.md)
 - 技术架构与开发实现：[`TECHNICAL.md`](TECHNICAL.md)
-- 资源生成与开发自检：[`tools/README.md`](tools/README.md)
+- 资源生成与开发自检：[`tools/README.md`](../tools/README.md)
 
 ---
 

@@ -74,7 +74,7 @@ class BeerCauldronBlock(properties: BlockBehaviour.Properties) :
 
             level.playSound(null, pos, SoundEvents.BOTTLE_FILL, SoundSource.BLOCKS, 1.0f, 1.0f)
             level.gameEvent(null, GameEvent.FLUID_PICKUP, pos)
-            player.swing(hand, stack.getInteractAnimation(), true)
+            player.swing(hand, stack.interactAnimation, true)
         }
 
         return InteractionResult.SUCCESS

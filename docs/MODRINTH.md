@@ -43,7 +43,11 @@ Instead of treating player health as an abstract hitpoint bar that depletes inst
 
 For detailed gameplay walkthroughs, mathematical formulas, and clinical reference ranges:
 
-- **Mechanics and Spoilers Guide**: [SPOILER.md](https://github.com/cao-awa/Aliment/blob/main/SPOILER.md)  
+- **Mechanics and Spoilers Guide**: [SPOILER.md](https://github.com/cao-awa/Aliment/blob/main/docs/SPOILER.md)  
   Contains item recipes, progression paths, symptom reference charts, and clinical tips.
-- **Mathematical and Biological Model**: [PHYSIOLOGY.md](https://github.com/cao-awa/Aliment/blob/main/PHYSIOLOGY.md)  
+- **Mathematical and Biological Model**: [PHYSIOLOGY.md](https://github.com/cao-awa/Aliment/blob/main/docs/PHYSIOLOGY.md)  
   Contains differential equations, pharmacokinetic clearance rates, clinical units, and model derivations.
+- **Technical Architecture**: [TECHNICAL.md](https://github.com/cao-awa/Aliment/blob/main/docs/TECHNICAL.md)  
+  Contains the tri-language architecture notes, Mixin registry, and build/compiler guidance.
+- **Changelog**: [CHANGE_LOG.md](https://github.com/cao-awa/Aliment/blob/main/docs/CHANGE_LOG.md)  
+  Contains the notable changes to the mod, in Keep a Changelog format.

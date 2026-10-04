@@ -10,7 +10,7 @@ If you prefer discovering mechanics organically—such as discovering why drinki
 Related Technical Documents:
 - Mathematical and Biological Model: [`PHYSIOLOGY.md`](PHYSIOLOGY.md) ([中文版](PHYSIOLOGY_zh.md))
 - Architecture and Implementation: [`TECHNICAL.md`](TECHNICAL.md) ([中文版](TECHNICAL_zh.md))
-- Asset Generators and Tests: [`tools/README.md`](tools/README.md)
+- Asset Generators and Tests: [`tools/README.md`](../tools/README.md)
 
 ---
 

@@ -36,3 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Licorice Potion (`aliment:licorice_potion`): warm caramel-honey brown herbal potion based on vanilla potion bottle and grayscale overlay.
   - Beer (`aliment:beer`): vanilla bottle shape filled with golden-amber beer and frothy creamy foam at the neck.
 - Add hand-swing use animations, client prediction, and insertion particles (`WHITE_SMOKE`, `COMPOSTER`, `FALLING_HONEY`, `SPLASH`) when placing items into the glass fermentation tank and scooping liquid from cauldrons.
+- Consolidate all documentation into the `docs/` directory:
+  - Moved `SPOILER.md`, `PHYSIOLOGY.md`, `TECHNICAL.md`, `CHANGE_LOG.md`, and `MODRINTH.md` (with their `_zh` counterparts) from the repository root into `docs/`.
+  - `README.md` and `README_zh.md` stay at the root so GitHub renders them as the repository landing page.
+  - Updated every cross-reference in `README.md`, `README_zh.md`, `AGENTS.md`, `docs/MODRINTH.md`, `docs/SPOILER.md`, and `docs/SPOILER_zh.md`; all documentation links were re-verified to resolve.

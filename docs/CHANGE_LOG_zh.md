@@ -36,3 +36,7 @@
   - 甘草药水（`aliment:licorice_potion`）：基于原版药水瓶与灰度液体覆层，调配焦糖蜜棕色的草本汤剂药液。
   - 啤酒（`aliment:beer`）：规范为原版药水瓶风格，瓶身充盈金黄透亮的啤酒，瓶颈处呈现细腻洁白的泡沫层。
 - 为发酵罐投入物品交互增加手部挥动使用动画、客户端动作预测与粒子效果（投入糖冒白烟、投入小麦冒堆肥粒子、投入酵母掉落蜂蜜孢子、装水溅起水花）；在从大釜装瓶时同步增加使用动画。
+- 将全部文档整理归入 `docs/` 目录：
+  - 将仓库根目录下的 `SPOILER.md`、`PHYSIOLOGY.md`、`TECHNICAL.md`、`CHANGE_LOG.md`、`MODRINTH.md`（及各自的 `_zh` 中文版）移入 `docs/`。
+  - `README.md` 与 `README_zh.md` 保留在根目录，以便 GitHub 正常渲染为仓库首页。
+  - 同步更新 `README.md`、`README_zh.md`、`AGENTS.md`、`docs/MODRINTH.md`、`docs/SPOILER.md`、`docs/SPOILER_zh.md` 中的全部交叉引用，并已逐一校验所有文档链接均可正常跳转。

@@ -35,9 +35,10 @@ The mod is engineered with clinical fidelity and gameplay depth. Detailed techni
 
 | Document | Description |
 | --- | --- |
-| 📖 **[`SPOILER.md`](SPOILER.md)** ([中文版](SPOILER_zh.md)) | **Complete Gameplay and Spoilers Guide**: Hidden numerical thresholds, recipes, item rosters, advancements, and commands. |
-| 🧬 **[`PHYSIOLOGY.md`](PHYSIOLOGY.md)** ([中文版](PHYSIOLOGY_zh.md)) | **Medical Physiology Model Document**: Differential equations, reference ranges, thermal regulation, and pathology derivations. |
-| 🛠️ **[`TECHNICAL.md`](TECHNICAL.md)** ([中文版](TECHNICAL_zh.md)) | **Technical Architecture and Architecture Guide**: Tri-language architecture (Scala/Java/Kotlin), Mixin registry, and compiler notes. |
+| 📖 **[`docs/SPOILER.md`](docs/SPOILER.md)** ([中文版](docs/SPOILER_zh.md)) | **Complete Gameplay and Spoilers Guide**: Hidden numerical thresholds, recipes, item rosters, advancements, and commands. |
+| 🧬 **[`docs/PHYSIOLOGY.md`](docs/PHYSIOLOGY.md)** ([中文版](docs/PHYSIOLOGY_zh.md)) | **Medical Physiology Model Document**: Differential equations, reference ranges, thermal regulation, and pathology derivations. |
+| 🛠️ **[`docs/TECHNICAL.md`](docs/TECHNICAL.md)** ([中文版](docs/TECHNICAL_zh.md)) | **Technical Architecture and Architecture Guide**: Tri-language architecture (Scala/Java/Kotlin), Mixin registry, and compiler notes. |
+| 📝 **[`docs/CHANGE_LOG.md`](docs/CHANGE_LOG.md)** ([中文版](docs/CHANGE_LOG_zh.md)) | **Changelog**: Notable changes to the mod, in Keep a Changelog format. |
 | ⚙️ **[`tools/README.md`](tools/README.md)** | **Tooling and Automated Test Suite**: 360+ asset/data generators, procedural texture algorithms, and headless dev tests. |
 
 ---
