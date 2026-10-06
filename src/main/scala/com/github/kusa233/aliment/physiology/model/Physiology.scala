@@ -186,8 +186,12 @@ object Physiology {
    * extremes let the infection grow.
    */
   def immuneCompetence(inflammation: Float): Float = {
-    val delta = inflammation - ModelConstants.BASELINE_INFLAMMATION
-    val bell = Math.exp(-(delta * delta) / (2f * COMPETENCE_SIGMA * COMPETENCE_SIGMA)).toFloat
+    val delta =
+      if (inflammation < 20f) inflammation - 20f
+      else if (inflammation <= 40f) 0f
+      else inflammation - 40f
+    val sigma = if (inflammation < 20f) 10f else 15f
+    val bell = Math.exp(-(delta * delta) / (2f * sigma * sigma)).toFloat
     val lowEnd = clamp(inflammation / ModelConstants.IMMUNOSUPPRESSION_THRESHOLD, 0f, 1f)
     bell * lowEnd
   }
@@ -498,8 +502,8 @@ object Physiology {
 
     // 2. Pathogens grow logistically and are cleared in proportion to immune competence and targeted drugs.
     val competence = immuneCompetence(state.mediators.getInflammation)
-    val bacteria = stepBacteria(state.bacteria, competence, state.immuneActive, drugs.berberine)
-    val virus = stepVirus(state.virus, competence, state.immuneActive, drugs.glycyrrhizin)
+    val bacteria = stepBacteria(state.bacteria, competence, state.immuneActive, state.drugs.berberine)
+    val virus = stepVirus(state.virus, competence, state.immuneActive, state.drugs.glycyrrhizin)
 
     val currentLoad = pathogenLoad(bacteria, virus)
     val nextImmuneActive = if (state.immuneActive) {
@@ -538,7 +542,11 @@ object Physiology {
     val stimulus = if (!state.immuneActive && load <= ModelConstants.IMMUNITY_ACTIVATION_LOAD) {
       0f
     } else if (load <= ModelConstants.IMMUNE_STRESS_LOAD) {
-      clamp((load - ModelConstants.IMMUNITY_ACTIVATION_LOAD) / (ModelConstants.IMMUNE_STRESS_LOAD - ModelConstants.IMMUNITY_ACTIVATION_LOAD), 0f, 1f)
+      if (state.immuneActive && load <= ModelConstants.IMMUNITY_ACTIVATION_LOAD) {
+        (load / ModelConstants.IMMUNITY_ACTIVATION_LOAD) * 0.18f
+      } else {
+        clamp((load - ModelConstants.IMMUNITY_ACTIVATION_LOAD) / (ModelConstants.IMMUNE_STRESS_LOAD - ModelConstants.IMMUNITY_ACTIVATION_LOAD), 0f, 1f)
+      }
     } else {
       val stressRatio = (load - ModelConstants.IMMUNE_STRESS_LOAD) / (ModelConstants.MAX_PATHOGEN - ModelConstants.IMMUNE_STRESS_LOAD)
       1.0f + 2.5f * clamp(stressRatio, 0f, 1f)
