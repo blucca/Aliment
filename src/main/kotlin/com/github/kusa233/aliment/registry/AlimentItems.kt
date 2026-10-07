@@ -116,6 +116,46 @@ object AlimentItems {
         Item.Properties().stacksTo(8),
     ) { Item(it) }
 
+    // ---------------------------------------------------------------- the glucose chain
+
+    /**
+     * Insulin aspart, the fast-acting analogue.
+     *
+     * The one drug in the mod that makes a body worse on purpose: it lowers blood glucose, and
+     * unlike the body's own insulin it does not stop at the bottom of the reference range.
+     */
+    val INSULIN_INJECTION: Item = Registration.registerItem(
+        "insulin_injection",
+        Item.Properties().stacksTo(8),
+    ) { Item(it) }
+
+    /**
+     * The meter. Useless on its own: it needs a [BLOODIED_TEST_STRIP] in the other hand, and the
+     * strip needs a [MICRONEEDLE] within the last fifteen seconds.
+     */
+    val GLUCOSE_METER: Item = Registration.registerItem(
+        "glucose_meter",
+        Item.Properties().stacksTo(1),
+    ) { Item(it) }
+
+    /** A clean test strip. Right-clicking with one only works on a finger that is still bleeding. */
+    val GLUCOSE_TEST_STRIP: Item = Registration.registerItem(
+        "glucose_test_strip",
+        Item.Properties().stacksTo(64),
+    ) { Item(it) }
+
+    /** A strip that has taken up a drop of blood, and the only thing the meter will read. */
+    val BLOODIED_TEST_STRIP: Item = Registration.registerItem(
+        "bloodied_test_strip",
+        Item.Properties().stacksTo(64),
+    ) { Item(it) }
+
+    /** The lancet. One prick, and the finger bleeds for fifteen seconds. */
+    val MICRONEEDLE: Item = Registration.registerItem(
+        "microneedle",
+        Item.Properties().durability(16).stacksTo(1),
+    ) { Item(it) }
+
     // ---------------------------------------------------------------- salted food
 
     val CRUDE_SALT_WATER: Item = Registration.registerItem(

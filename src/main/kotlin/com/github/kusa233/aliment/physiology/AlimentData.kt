@@ -240,6 +240,29 @@ data class AlimentData(
     val glycyrrhizin: Float = 0f,
     /** Ethanol, alcohol index from drinking wine, 0..[ETHANOL_CAP]. */
     val ethanol: Float = 0f,
+    /**
+     * Blood glucose, in mmol/L. [GLUCOSE_NORMAL] in a healthy fasting body, and the middle of the
+     * [GLUCOSE_SAFE_LOW]..[GLUCOSE_SAFE_HIGH] reference range.
+     *
+     * Nothing in the body stores a surplus: glucose is *spent* continuously and only food puts it
+     * back, so it is the second quantity in the mod - after water - that a player has to keep
+     * topping up. Below [GLUCOSE_HYPO_FATIGUE] the body starts to fail.
+     */
+    val glucose: Float = GLUCOSE_NORMAL,
+    /**
+     * The body's own insulin index, [INSULIN_NORMAL] while fasting and climbing with glucose.
+     *
+     * It is what disposes of a meal, and past [GLUCOSE_ELEVATED] it climbs twice as steeply - which
+     * is why a big meal comes down faster than a small one.
+     */
+    val insulin: Float = INSULIN_NORMAL,
+    /**
+     * Injected insulin aspart, 0..[INSULIN_ASPART_CAP].
+     *
+     * Deliberately separate from [insulin]: the body's own is switched off at the bottom of the
+     * reference range, and this one is not, so an overdose takes the player hypoglycaemic.
+     */
+    val insulinAspart: Float = 0f,
 ) {
 
     val inflammation: Float
@@ -353,6 +376,41 @@ data class AlimentData(
     /** True when ephedrine is high enough that this body cannot fall asleep. */
     val isTooStimulatedToSleep: Boolean
         get() = AlimentModelBridge.isTooStimulatedToSleep(this)
+
+    // ------------------------------------------------------------------ glucose
+
+    /** True while the blood glucose is inside the clinical reference range. */
+    val isGlucoseNormal: Boolean
+        get() = this.glucose in GLUCOSE_SAFE_LOW..GLUCOSE_SAFE_HIGH
+
+    /** True above the reference range: the meal is still being disposed of. */
+    val isHyperglycemic: Boolean
+        get() = this.glucose > GLUCOSE_SAFE_HIGH
+
+    /**
+     * How far into a hypoglycaemic crash this body is:
+     *
+     * | tier | glucose | what the player gets |
+     * | --- | --- | --- |
+     * | 0 | ≥ 2.0 | nothing |
+     * | 1 | < 2.0 | mining fatigue |
+     * | 2 | < 1.7 | and weakness |
+     * | 3 | < 1.3 | and magic damage |
+     */
+    val hypoglycemiaTier: Int
+        get() = AlimentModelBridge.hypoglycemiaTier(this)
+
+    /** True once the glucose is low enough to start slowing the body down. */
+    val isHypoglycemic: Boolean
+        get() = this.hypoglycemiaTier > 0
+
+    /** Magic damage a hypoglycaemic crash does in one two-second pass; 0 while it is not one. */
+    val hypoglycemiaDamage: Float
+        get() = AlimentModelBridge.hypoglycemiaDamage(this)
+
+    /** The blood glucose as the meter and the chat line print it: one decimal, like a real one. */
+    val glucoseReading: String
+        get() = AlimentModelBridge.glucoseReading(this)
 
     fun withMediators(value: Mediators): AlimentData = this.copy(mediators = value)
 
@@ -564,6 +622,54 @@ data class AlimentData(
         @JvmField val ETHANOL_METABOLISM_TICKS: Int = AlimentModelBridge.ETHANOL_METABOLISM_TICKS
         @JvmField val ETHANOL_DECAY_PER_TICK: Float = AlimentModelBridge.ETHANOL_DECAY_PER_TICK
 
+        // ---------------------------------------------------------------- blood glucose
+
+        /** Blood glucose of a healthy fasting body, in mmol/L, and the middle of the safe band. */
+        @JvmField val GLUCOSE_NORMAL: Float = AlimentModelBridge.GLUCOSE_NORMAL
+
+        /**
+         * The clinical reference range, in mmol/L. A meal is disposed of back into this band within
+         * half a game day; the fasting path leaves the bottom of it after two.
+         */
+        @JvmField val GLUCOSE_SAFE_LOW: Float = AlimentModelBridge.GLUCOSE_SAFE_LOW
+        @JvmField val GLUCOSE_SAFE_HIGH: Float = AlimentModelBridge.GLUCOSE_SAFE_HIGH
+
+        /** Hard clamp for the model. */
+        @JvmField val GLUCOSE_MIN: Float = AlimentModelBridge.GLUCOSE_MIN
+        @JvmField val GLUCOSE_MAX: Float = AlimentModelBridge.GLUCOSE_MAX
+
+        /** Where a body that never eats levels off, two in-game days below the normal value. */
+        @JvmField val GLUCOSE_FASTING_FLOOR: Float = AlimentModelBridge.GLUCOSE_FASTING_FLOOR
+
+        /** Above this the insulin index climbs twice as steeply. */
+        @JvmField val GLUCOSE_ELEVATED: Float = AlimentModelBridge.GLUCOSE_ELEVATED
+
+        /** Below these the player is dragging, then weak, then taking magic damage. */
+        @JvmField val GLUCOSE_HYPO_FATIGUE: Float = AlimentModelBridge.GLUCOSE_HYPO_FATIGUE
+        @JvmField val GLUCOSE_HYPO_WEAKNESS: Float = AlimentModelBridge.GLUCOSE_HYPO_WEAKNESS
+        @JvmField val GLUCOSE_HYPO_DAMAGE: Float = AlimentModelBridge.GLUCOSE_HYPO_DAMAGE
+
+        // ---------------------------------------------------------------- insulin
+
+        /** The insulin index of a healthy fasting body. */
+        @JvmField val INSULIN_NORMAL: Float = AlimentModelBridge.INSULIN_NORMAL
+
+        /** The most insulin a body can carry. */
+        @JvmField val INSULIN_CAP: Float = AlimentModelBridge.INSULIN_CAP
+
+        /** What one injection of insulin aspart delivers, and the most a body can carry. */
+        @JvmField val INSULIN_ASPART_PER_INJECTION: Float = AlimentModelBridge.INSULIN_ASPART_PER_INJECTION
+        @JvmField val INSULIN_ASPART_CAP: Float = AlimentModelBridge.INSULIN_ASPART_CAP
+        @JvmField val INSULIN_ASPART_METABOLISM_TICKS: Int = AlimentModelBridge.INSULIN_ASPART_METABOLISM_TICKS
+
+        // ---------------------------------------------------------------- glucose from food
+
+        /** What one serving of each kind of food adds to blood glucose, in mmol/L. */
+        @JvmField val GLUCOSE_PER_PLANT_FOOD: Float = AlimentModelBridge.GLUCOSE_PER_PLANT_FOOD
+        @JvmField val GLUCOSE_PER_BREAD: Float = AlimentModelBridge.GLUCOSE_PER_BREAD
+        @JvmField val GLUCOSE_PER_RAW_MEAT: Float = AlimentModelBridge.GLUCOSE_PER_RAW_MEAT
+        @JvmField val GLUCOSE_PER_COOKED_MEAT: Float = AlimentModelBridge.GLUCOSE_PER_COOKED_MEAT
+
         /** What a healthy player looks like. */
         @JvmField val HEALTHY: AlimentData = AlimentModelBridge.healthy()
 
@@ -578,6 +684,7 @@ data class AlimentData(
             val berberine: Float,
             val glycyrrhizin: Float,
             val ethanol: Float,
+            val insulinAspart: Float,
         ) {
             companion object {
                 val MAP_CODEC: MapCodec<Compounds> = RecordCodecBuilder.mapCodec { instance ->
@@ -592,6 +699,7 @@ data class AlimentData(
                         Codec.FLOAT.optionalFieldOf("berberine", 0f).forGetter { it.berberine },
                         Codec.FLOAT.optionalFieldOf("glycyrrhizin", 0f).forGetter { it.glycyrrhizin },
                         Codec.FLOAT.optionalFieldOf("ethanol", 0f).forGetter { it.ethanol },
+                        Codec.FLOAT.optionalFieldOf("insulin_aspart", 0f).forGetter { it.insulinAspart },
                     ).apply(instance, ::Compounds)
                 }
             }
@@ -608,6 +716,8 @@ data class AlimentData(
                 Codec.FLOAT.optionalFieldOf("temperature", TEMPERATURE_NORMAL).forGetter { it.temperature },
                 Codec.FLOAT.optionalFieldOf("pyrogen", 0f).forGetter { it.pyrogen },
                 Codec.BOOL.optionalFieldOf("immune_active", false).forGetter { it.immuneActive },
+                Codec.FLOAT.optionalFieldOf("glucose", GLUCOSE_NORMAL).forGetter { it.glucose },
+                Codec.FLOAT.optionalFieldOf("insulin", INSULIN_NORMAL).forGetter { it.insulin },
                 Compounds.MAP_CODEC.forGetter {
                     Compounds(
                         it.salicin,
@@ -620,9 +730,10 @@ data class AlimentData(
                         it.berberine,
                         it.glycyrrhizin,
                         it.ethanol,
+                        it.insulinAspart,
                     )
                 },
-            ).apply(instance) { mediators, bacteria, virus, water, electrolytes, traceElements, temperature, pyrogen, immuneActive, compounds ->
+            ).apply(instance) { mediators, bacteria, virus, water, electrolytes, traceElements, temperature, pyrogen, immuneActive, glucose, insulin, compounds ->
                 AlimentData(
                     mediators = mediators,
                     bacteria = bacteria,
@@ -643,6 +754,9 @@ data class AlimentData(
                     berberine = compounds.berberine,
                     glycyrrhizin = compounds.glycyrrhizin,
                     ethanol = compounds.ethanol,
+                    glucose = glucose,
+                    insulin = insulin,
+                    insulinAspart = compounds.insulinAspart,
                 )
             }
         }
@@ -749,4 +863,12 @@ class AlimentRuntime {
 
     /** Last shake counter that was pushed to the client. */
     var syncedShake: Int = Int.MIN_VALUE
+
+    /**
+     * How long the finger is still bleeding after a microneedle, in ticks.
+     *
+     * A test strip used while this is positive comes away bloodied; once it reaches zero the drop
+     * has dried and the strip is wasted. See [AlimentInteractions.MICRONEEDLE_BLEEDING_TICKS].
+     */
+    var bleedingTicks: Int = 0
 }

@@ -69,6 +69,12 @@ object AlimentCreativeTabs {
         AlimentItems.SALT_POWDER,
         AlimentItems.STIRRING_ROD,
         AlimentItems.DEXAMETHASONE_INJECTION,
+        // the glucose chain
+        AlimentItems.INSULIN_INJECTION,
+        AlimentItems.GLUCOSE_METER,
+        AlimentItems.GLUCOSE_TEST_STRIP,
+        AlimentItems.BLOODIED_TEST_STRIP,
+        AlimentItems.MICRONEEDLE,
         AlimentItems.CRUDE_SALT_WATER,
         AlimentItems.SALT_WATER,
         AlimentItems.SWAMP_WATER_BOTTLE,

@@ -125,4 +125,21 @@ object AlimentPhysiology {
      */
     fun addEthanol(data: AlimentData, amount: Float): AlimentData =
         AlimentModelBridge.addEthanol(data, amount)
+
+    /**
+     * Adds what one serving of food does to blood glucose, in mmol/L, capped.
+     *
+     * The body stores no surplus, so this is the only thing that ever puts glucose back. Use one of
+     * the [AlimentData.GLUCOSE_PER_PLANT_FOOD] / [..._BREAD] / [..._RAW_MEAT] / [..._COOKED_MEAT]
+     * amounts, which is what tells the four kinds of food apart.
+     */
+    fun addGlucose(data: AlimentData, amount: Float): AlimentData =
+        AlimentModelBridge.addGlucose(data, amount)
+
+    /**
+     * Adds insulin aspart, the injected fast-acting analogue, capped at
+     * [AlimentData.INSULIN_ASPART_CAP]. One dose is [AlimentData.INSULIN_ASPART_PER_INJECTION].
+     */
+    fun injectInsulin(data: AlimentData, amount: Float = AlimentData.INSULIN_ASPART_PER_INJECTION): AlimentData =
+        AlimentModelBridge.injectInsulin(data, amount)
 }

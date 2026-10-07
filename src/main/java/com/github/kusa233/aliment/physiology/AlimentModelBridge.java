@@ -239,6 +239,52 @@ public final class AlimentModelBridge {
     public static final int ETHANOL_METABOLISM_TICKS = ModelConstants.ETHANOL_METABOLISM_TICKS();
     public static final float ETHANOL_DECAY_PER_TICK = ModelConstants.ETHANOL_DECAY_PER_TICK();
 
+    // ---------------------------------------------------------------- blood glucose
+
+    /** Blood glucose of a healthy fasting body, in mmol/L, and the middle of the reference range. */
+    public static final float GLUCOSE_NORMAL = ModelConstants.GLUCOSE_NORMAL();
+
+    /** The clinical reference range for blood glucose, in mmol/L. */
+    public static final float GLUCOSE_SAFE_LOW = ModelConstants.GLUCOSE_SAFE_LOW();
+    public static final float GLUCOSE_SAFE_HIGH = ModelConstants.GLUCOSE_SAFE_HIGH();
+
+    /** Hard clamp for the model. */
+    public static final float GLUCOSE_MIN = ModelConstants.GLUCOSE_MIN();
+    public static final float GLUCOSE_MAX = ModelConstants.GLUCOSE_MAX();
+
+    /** Where a fasted body levels off, two in-game days below the normal value. */
+    public static final float GLUCOSE_FASTING_FLOOR = ModelConstants.GLUCOSE_FASTING_FLOOR();
+
+    /** Above this the insulin index climbs steeply. */
+    public static final float GLUCOSE_ELEVATED = ModelConstants.GLUCOSE_ELEVATED();
+
+    /** The three hypoglycaemia thresholds: mining fatigue, then weakness, then magic damage. */
+    public static final float GLUCOSE_HYPO_FATIGUE = ModelConstants.GLUCOSE_HYPO_FATIGUE();
+    public static final float GLUCOSE_HYPO_WEAKNESS = ModelConstants.GLUCOSE_HYPO_WEAKNESS();
+    public static final float GLUCOSE_HYPO_DAMAGE = ModelConstants.GLUCOSE_HYPO_DAMAGE();
+
+    // ---------------------------------------------------------------- insulin
+
+    /** The insulin index of a healthy fasting body. */
+    public static final float INSULIN_NORMAL = ModelConstants.INSULIN_NORMAL();
+
+    /** The most insulin a body can carry. */
+    public static final float INSULIN_CAP = ModelConstants.INSULIN_CAP();
+
+    /** The most injected insulin aspart a body can carry, and one injection's worth. */
+    public static final float INSULIN_ASPART_CAP = ModelConstants.INSULIN_ASPART_CAP();
+    public static final float INSULIN_ASPART_PER_INJECTION = ModelConstants.INSULIN_ASPART_PER_INJECTION();
+    public static final int INSULIN_ASPART_METABOLISM_TICKS = ModelConstants.INSULIN_ASPART_METABOLISM_TICKS();
+    public static final float INSULIN_ASPART_DECAY_PER_TICK = ModelConstants.INSULIN_ASPART_DECAY_PER_TICK();
+
+    // ---------------------------------------------------------------- glucose from food
+
+    /** What one serving of each kind of food adds to blood glucose, in mmol/L. */
+    public static final float GLUCOSE_PER_PLANT_FOOD = ModelConstants.GLUCOSE_PER_PLANT_FOOD();
+    public static final float GLUCOSE_PER_BREAD = ModelConstants.GLUCOSE_PER_BREAD();
+    public static final float GLUCOSE_PER_RAW_MEAT = ModelConstants.GLUCOSE_PER_RAW_MEAT();
+    public static final float GLUCOSE_PER_COOKED_MEAT = ModelConstants.GLUCOSE_PER_COOKED_MEAT();
+
     // ================================================================== the reference ranges
 
     /**
@@ -391,6 +437,9 @@ public final class AlimentModelBridge {
                 false,
                 0f,
                 0f,
+                0f,
+                GLUCOSE_NORMAL,
+                INSULIN_NORMAL,
                 0f);
     }
 
@@ -636,6 +685,31 @@ public final class AlimentModelBridge {
         return fromModel(Physiology.addEthanol(toModel(data), amount));
     }
 
+    /** Adds what one serving of food does to blood glucose, in mmol/L, capped. */
+    public static AlimentData addGlucose(AlimentData data, float amount) {
+        return fromModel(Physiology.addGlucose(toModel(data), amount));
+    }
+
+    /** Adds insulin aspart, the injected fast-acting analogue, capped. */
+    public static AlimentData injectInsulin(AlimentData data, float amount) {
+        return fromModel(Physiology.injectInsulin(toModel(data), amount));
+    }
+
+    /** How far into a hypoglycaemic crash this blood glucose is: 0 nothing, 1, 2, 3. */
+    public static int hypoglycemiaTier(AlimentData data) {
+        return Physiology.hypoglycemiaTier(data.getGlucose());
+    }
+
+    /** Magic damage a hypoglycaemic crash does in one two-second pass, and 0 above the threshold. */
+    public static float hypoglycemiaDamage(AlimentData data) {
+        return Physiology.hypoglycemiaDamage(data.getGlucose());
+    }
+
+    /** The blood glucose as the meter prints it: one decimal place, the way a real one reads. */
+    public static String glucoseReading(AlimentData data) {
+        return Physiology.glucoseReading(data.getGlucose());
+    }
+
     // ================================================================== the conversion
     //
     // The only place a Kotlin `AlimentData` becomes the model's `ModelState` or back. Everything
@@ -653,7 +727,8 @@ public final class AlimentModelBridge {
                 data.getEphedrine(),
                 data.getBerberine(),
                 data.getGlycyrrhizin(),
-                data.getEthanol());
+                data.getEthanol(),
+                data.getInsulinAspart());
 
         return new ModelState(
                 toModel(data.getMediators()),
@@ -665,7 +740,9 @@ public final class AlimentModelBridge {
                 data.getTemperature(),
                 data.getPyrogen(),
                 data.getImmuneActive(),
-                drugs);
+                drugs,
+                data.getGlucose(),
+                data.getInsulin());
     }
 
     private static AlimentData fromModel(ModelState state) {
@@ -689,7 +766,10 @@ public final class AlimentModelBridge {
                 state.getImmuneActive(),
                 drugs.getBerberine(),
                 drugs.getGlycyrrhizin(),
-                drugs.getEthanol());
+                drugs.getEthanol(),
+                state.getGlucose(),
+                state.getInsulin(),
+                drugs.getInsulinAspart());
     }
 
     private static ModelMediators toModel(Mediators mediators) {

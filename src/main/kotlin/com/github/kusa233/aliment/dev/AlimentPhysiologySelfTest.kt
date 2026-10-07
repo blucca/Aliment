@@ -1,6 +1,7 @@
 package com.github.kusa233.aliment.dev
 
 import com.github.kusa233.aliment.Aliment
+import com.github.kusa233.aliment.event.AlimentInteractions
 import com.github.kusa233.aliment.physiology.Electrolytes
 import com.github.kusa233.aliment.physiology.Mediators
 import com.github.kusa233.aliment.physiology.Mineral
@@ -24,6 +25,7 @@ import net.fabricmc.api.ModInitializer
 import net.minecraft.world.attribute.BedRule
 import net.fabricmc.fabric.api.entity.FakePlayer
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
+import net.fabricmc.fabric.api.event.player.UseItemCallback
 import net.minecraft.core.Holder
 import net.minecraft.core.Registry
 import net.minecraft.core.component.DataComponents
@@ -32,6 +34,8 @@ import net.minecraft.network.chat.Component
 import net.minecraft.resources.Identifier
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.InteractionHand
+import net.minecraft.world.InteractionResult
 import net.minecraft.world.effect.MobEffect
 import net.minecraft.world.effect.MobEffects
 import net.minecraft.world.entity.Entity
@@ -125,6 +129,12 @@ class AlimentPhysiologySelfTest : ModInitializer {
         feverFollowsProstaglandin()
         pyrogenInducesFever()
         thyroidMovesTheSetPoint()
+        glucoseFasting()
+        glucoseAfterAMeal()
+        insulinRespondsToGlucose()
+        insulinInjection()
+        foodGlucoseAmounts()
+        hypoglycemiaSymptoms()
     }
 
     private fun homeostasis() {
@@ -681,6 +691,394 @@ class AlimentPhysiologySelfTest : ModInitializer {
         check("neither is a fever on its own", !hyperthyroid.isFebrile && !hypothyroid.isHypothermic)
     }
 
+    // ================================================================== glucose and insulin
+
+    /**
+     * Blood glucose is *spent*, not regulated to a set point, so a body that never eats runs it down.
+     *
+     * The two-day figure is the one the feature is written around: from the normal 5.0 a fasting body
+     * reaches 3.5 in exactly two in-game days, and past that the fall slows down, because what is
+     * left is what the body is rationing rather than what it is burning.
+     */
+    private fun glucoseFasting() {
+        var data = AlimentData.HEALTHY.copy(glucose = AlimentData.GLUCOSE_NORMAL)
+        logger.info("PHYS glucose at the start: {}", data.glucose)
+        check("a healthy body starts in the reference range", data.isGlucoseNormal)
+
+        var halfDay = data
+        repeat(12_000) { halfDay = AlimentPhysiology.tick(halfDay) }
+        var twoDays = halfDay
+        repeat(3 * 12_000) { twoDays = AlimentPhysiology.tick(twoDays) }
+        logger.info("PHYS fasting glucose: half a day {} two days {}", halfDay.glucose, twoDays.glucose)
+        check("half a day of fasting is still in the reference range", halfDay.isGlucoseNormal)
+        check("and it is falling", halfDay.glucose < AlimentData.GLUCOSE_NORMAL)
+        check("two days of fasting reaches the floor, 3.5", abs(twoDays.glucose - AlimentData.GLUCOSE_FASTING_FLOOR) < 0.02f)
+
+        // Past the floor the fall slows down. The first two days cost 1.5; the next two, from the
+        // floor down, are a fixed *fraction* of what is left rather than a flat rate, so they cost
+        // less - which is the body rationing what it has instead of burning it.
+        var fourDays = twoDays
+        repeat(2 * 24_000) { fourDays = AlimentPhysiology.tick(fourDays) }
+        val firstDrop = AlimentData.GLUCOSE_NORMAL - twoDays.glucose
+        val secondDrop = twoDays.glucose - fourDays.glucose
+        logger.info(
+            "PHYS fasting glucose over four days: {} then {} (drops {} then {})",
+            twoDays.glucose, fourDays.glucose, firstDrop, secondDrop,
+        )
+        check("the second two days cost less than the first two", secondDrop < firstDrop)
+        check("and it never goes below zero", fourDays.glucose >= AlimentData.GLUCOSE_MIN)
+
+        // A body with nothing left is hypoglycaemic, and that is the tier that hurts.
+        logger.info("PHYS glucose after eight days of nothing: {}", eightDayGlucose())
+        check("eight days without food is a hypoglycaemic crash", eightDayGlucose() < AlimentData.GLUCOSE_HYPO_FATIGUE)
+    }
+
+    /** Blood glucose after eight game days with nothing eaten, which is the starving steady state. */
+    private fun eightDayGlucose(): Float {
+        var data = AlimentData.HEALTHY.copy(glucose = AlimentData.GLUCOSE_NORMAL)
+        repeat(8 * 24_000) { data = AlimentPhysiology.tick(data) }
+        return data.glucose
+    }
+
+    /**
+     * A meal is disposed of inside half a game day, whatever size it was.
+     *
+     * The higher the load the faster it comes down, which is the insulin response the feature asks
+     * for: past 8 the index climbs twice as steeply, so a 20 mmol/L spike falls faster than a 9.
+     * Nothing overshoots into hypoglycaemia, because the body's own insulin is switched off at the
+     * bottom of the reference range.
+     */
+    private fun glucoseAfterAMeal() {
+        for (start in listOf(6f, 9f, 10f, 15f, 20f, 30f)) {
+            var data = AlimentData.HEALTHY.copy(glucose = start)
+            if (!data.isHyperglycemic) {
+                check("a meal of $start is not a hyperglycaemic one", start <= AlimentData.GLUCOSE_SAFE_HIGH)
+            }
+            var enteredRange = false
+            repeat(12_000) {
+                data = AlimentPhysiology.tick(data)
+                if (data.glucose <= AlimentData.GLUCOSE_SAFE_HIGH) {
+                    enteredRange = true
+                }
+            }
+            logger.info(
+                "PHYS a meal of {} after half a game day: {} ({} peak insulin)",
+                start, data.glucose, data.insulin,
+            )
+            check("a meal of $start is back in the reference range within half a game day", enteredRange)
+            check("a meal of $start is no longer hyperglycaemic", data.glucose <= AlimentData.GLUCOSE_SAFE_HIGH)
+            check("and a meal of $start has not made the body hypoglycaemic", data.glucose >= AlimentData.GLUCOSE_FASTING_FLOOR)
+        }
+
+        // The higher the load, the further it has fallen after the same short time.
+        var mild = AlimentData.HEALTHY.copy(glucose = 9f)
+        var wild = AlimentData.HEALTHY.copy(glucose = 20f)
+        repeat(2_400) {
+            mild = AlimentPhysiology.tick(mild)
+            wild = AlimentPhysiology.tick(wild)
+        }
+        val mildDrop = 9f - mild.glucose
+        val wildDrop = 20f - wild.glucose
+        logger.info("PHYS after 2400 ticks: 9 fell {} and 20 fell {}", mildDrop, wildDrop)
+        check("the higher the glucose the faster it falls", wildDrop > mildDrop)
+    }
+
+    /**
+     * The insulin index: flat while fasting, climbing with a meal, and steepest past 8.
+     *
+     * It is what disposes of the glucose, so the two have to be read together - which is why the
+     * check that matters is that the index is higher after the bigger meal rather than that it
+     * equals any particular number.
+     */
+    private fun insulinRespondsToGlucose() {
+        var fasting = AlimentData.HEALTHY.copy(glucose = AlimentData.GLUCOSE_NORMAL)
+        repeat(6_000) { fasting = AlimentPhysiology.tick(fasting) }
+        logger.info("PHYS insulin while fasting: {}", fasting.insulin)
+        check("a fasting body has the baseline insulin index", abs(fasting.insulin - AlimentData.INSULIN_NORMAL) < 0.01f)
+
+        var below = AlimentData.HEALTHY.copy(glucose = 7.5f)
+        var above = AlimentData.HEALTHY.copy(glucose = 12f)
+        repeat(600) {
+            below = AlimentPhysiology.tick(below)
+            above = AlimentPhysiology.tick(above)
+        }
+        logger.info("PHYS insulin after 600 ticks: at 7.5 -> {} at 12 -> {}", below.insulin, above.insulin)
+        check("a meal below 8 still raises the index a little", below.insulin > AlimentData.INSULIN_NORMAL)
+        check("the higher the glucose the higher the insulin", above.insulin > below.insulin)
+        check("and it stays under the cap", above.insulin <= AlimentData.INSULIN_CAP)
+
+        // Back to the baseline once the meal is gone.
+        var settled = above
+        repeat(24_000) { settled = AlimentPhysiology.tick(settled) }
+        logger.info("PHYS insulin a game day after the meal: {} glucose {}", settled.insulin, settled.glucose)
+        check("the index comes back down once the glucose is gone", abs(settled.insulin - AlimentData.INSULIN_NORMAL) < 0.05f)
+    }
+
+    /**
+     * Insulin aspart is the one drug in the mod that makes a body worse on purpose.
+     *
+     * Unlike the body's own insulin it is not switched off at the bottom of the reference range, so
+     * one dose from a normal body is a dip and two are a crash. That is the whole reason the item
+     * exists, and the reason it spawns in chests at all.
+     */
+    private fun insulinInjection() {
+        var one = AlimentData.HEALTHY.copy(glucose = AlimentData.GLUCOSE_NORMAL)
+        one = AlimentPhysiology.injectInsulin(one)
+        logger.info(
+            "PHYS one insulin injection: aspart {} glucose {}",
+            one.insulinAspart, one.glucose,
+        )
+        check("one injection is one dose of insulin aspart", one.insulinAspart == AlimentData.INSULIN_ASPART_PER_INJECTION)
+        check("and it does not move the body's own insulin index", one.insulin == AlimentData.INSULIN_NORMAL)
+
+        var oneRun = one
+        repeat(24_000) { oneRun = AlimentPhysiology.tick(oneRun) }
+        logger.info("PHYS after one injection a game day later: glucose {}", oneRun.glucose)
+        check("a single dose has lowered the glucose", oneRun.glucose < AlimentData.GLUCOSE_NORMAL)
+        check("but not into the crashing range", oneRun.glucose >= AlimentData.GLUCOSE_HYPO_FATIGUE)
+        check("and it has all been metabolised within a game day", oneRun.insulinAspart <= 0.001f)
+
+        var two = AlimentPhysiology.injectInsulin(AlimentPhysiology.injectInsulin(AlimentData.HEALTHY.copy(glucose = AlimentData.GLUCOSE_NORMAL)))
+        var twoRun = two
+        var lowest = two.glucose
+        repeat(24_000) {
+            twoRun = AlimentPhysiology.tick(twoRun)
+            lowest = minOf(lowest, twoRun.glucose)
+        }
+        logger.info("PHYS two injections take the glucose down to {}", lowest)
+        check("two doses are a hypoglycaemic crash", lowest < AlimentData.GLUCOSE_HYPO_FATIGUE)
+        check("and the cap stops a third from being worse", insulinAspartCapIsRespected())
+    }
+
+    /** True when stacking injections past the cap adds nothing, which is what the cap is for. */
+    private fun insulinAspartCapIsRespected(): Boolean {
+        var data = AlimentData.HEALTHY
+        repeat(20) { data = AlimentPhysiology.injectInsulin(data) }
+        return abs(data.insulinAspart - AlimentData.INSULIN_ASPART_CAP) < 0.001f
+    }
+
+    /**
+     * What each kind of food does to blood glucose.
+     *
+     * Bread is the worst of them, cooked meat the mildest of the animal foods, and plant food and
+     * raw meat sit together in the middle. Every one of the four is a model number; this only checks
+     * that the classification picks the right one.
+     */
+    private fun foodGlucoseAmounts() {
+        logger.info(
+            "PHYS glucose from food: plant {} bread {} raw meat {} cooked meat {}",
+            AlimentData.GLUCOSE_PER_PLANT_FOOD, AlimentData.GLUCOSE_PER_BREAD,
+            AlimentData.GLUCOSE_PER_RAW_MEAT, AlimentData.GLUCOSE_PER_COOKED_MEAT,
+        )
+        check("plant food adds 0.4", AlimentData.GLUCOSE_PER_PLANT_FOOD == 0.4f)
+        check("bread adds 0.7", AlimentData.GLUCOSE_PER_BREAD == 0.7f)
+        check("raw meat adds 0.4", AlimentData.GLUCOSE_PER_RAW_MEAT == 0.4f)
+        check("cooked meat adds 0.5", AlimentData.GLUCOSE_PER_COOKED_MEAT == 0.5f)
+        check(
+            "bread is the worst of the four for a body",
+            AlimentData.GLUCOSE_PER_BREAD > AlimentData.GLUCOSE_PER_COOKED_MEAT &&
+                AlimentData.GLUCOSE_PER_COOKED_MEAT > AlimentData.GLUCOSE_PER_PLANT_FOOD,
+        )
+
+        val cases = listOf(
+            Items.BREAD to AlimentData.GLUCOSE_PER_BREAD,
+            Items.APPLE to AlimentData.GLUCOSE_PER_PLANT_FOOD,
+            Items.CARROT to AlimentData.GLUCOSE_PER_PLANT_FOOD,
+            Items.BEETROOT_SOUP to AlimentData.GLUCOSE_PER_PLANT_FOOD,
+            Items.BEEF to AlimentData.GLUCOSE_PER_RAW_MEAT,
+            Items.COD to AlimentData.GLUCOSE_PER_RAW_MEAT,
+            Items.COOKED_BEEF to AlimentData.GLUCOSE_PER_COOKED_MEAT,
+            Items.COOKED_CHICKEN to AlimentData.GLUCOSE_PER_COOKED_MEAT,
+            AlimentItems.MANDRAKE_FRUIT to AlimentData.GLUCOSE_PER_PLANT_FOOD,
+            AlimentItems.SEAWEED to AlimentData.GLUCOSE_PER_PLANT_FOOD,
+            AlimentItems.GYMNOPILUS to AlimentData.GLUCOSE_PER_PLANT_FOOD,
+            AlimentItems.WILLOW_BARK_SOUP_BOWL to AlimentData.GLUCOSE_PER_PLANT_FOOD,
+        )
+        for ((item, expected) in cases) {
+            val actual = AlimentIngestion.glucoseFor(item)
+            logger.info("PHYS glucose from {}: {}", item, actual)
+            check("$item adds $expected mmol/L", actual == expected)
+        }
+        check("a rock adds nothing", AlimentIngestion.glucoseFor(Items.STONE) == 0f)
+        check("nor does a stick", AlimentIngestion.glucoseFor(Items.STICK) == 0f)
+
+        // Eating really does move the body, through the same hook everything else uses. A single
+        // loaf is enough to leave the reference range from a normal 5.0 - which is the point of
+        // bread being the worst of the four.
+        var data = AlimentData.HEALTHY.copy(glucose = AlimentData.GLUCOSE_NORMAL)
+        data = AlimentPhysiology.addGlucose(data, AlimentIngestion.glucoseFor(Items.BREAD))
+        logger.info("PHYS glucose after a loaf of bread: {}", data.glucose)
+        check("eating bread raises the glucose by 0.7", abs(data.glucose - 5.7f) < 0.001f)
+        check("and one loaf is enough to leave the reference range", data.isHyperglycemic)
+        check("but not by much", data.glucose < AlimentData.GLUCOSE_ELEVATED)
+    }
+
+    /**
+     * The three hypoglycaemia thresholds, on the way down.
+     *
+     * Below 2.0 the body is dragging and the player gets mining fatigue; below 1.7 that stacks a
+     * weakness on top; below 1.3 the brain is starved enough that it starts taking magic damage, and
+     * that is the one symptom in the mod that can kill without a monster being involved.
+     */
+    private fun hypoglycemiaSymptoms() {
+        val thresholds = listOf(
+            AlimentData.GLUCOSE_HYPO_FATIGUE to 1,
+            AlimentData.GLUCOSE_HYPO_WEAKNESS to 2,
+            AlimentData.GLUCOSE_HYPO_DAMAGE to 3,
+        )
+        check("the three thresholds are in order", thresholds.zipWithNext().all { (a, b) -> a.first > b.first })
+        check("a normal body is tier 0", AlimentData.HEALTHY.hypoglycemiaTier == 0)
+        check("and takes no damage", AlimentData.HEALTHY.hypoglycemiaDamage == 0f)
+
+        for ((threshold, tier) in thresholds) {
+            val justAbove = AlimentData.HEALTHY.copy(glucose = threshold + 0.001f)
+            val justBelow = AlimentData.HEALTHY.copy(glucose = threshold - 0.001f)
+            logger.info(
+                "PHYS glucose {} is tier {} and {} is tier {}",
+                justAbove.glucose, justAbove.hypoglycemiaTier, justBelow.glucose, justBelow.hypoglycemiaTier,
+            )
+            check("just above $threshold is still tier ${tier - 1}", justAbove.hypoglycemiaTier == tier - 1)
+            check("just below $threshold is tier $tier", justBelow.hypoglycemiaTier == tier)
+        }
+
+        val crashing = AlimentData.HEALTHY.copy(glucose = 1.0f)
+        val worse = AlimentData.HEALTHY.copy(glucose = 0.2f)
+        logger.info(
+            "PHYS hypoglycaemia damage at 1.0: {} and at 0.2: {}",
+            crashing.hypoglycemiaDamage, worse.hypoglycemiaDamage,
+        )
+        check("a crash does magic damage", crashing.hypoglycemiaDamage > 0f)
+        check("the lower the glucose the more it hurts", worse.hypoglycemiaDamage > crashing.hypoglycemiaDamage)
+        check("a body that is not crashing takes none", AlimentData.HEALTHY.copy(glucose = 2f).hypoglycemiaDamage == 0f)
+    }
+
+    /**
+     * The hypoglycaemia symptoms as the player actually gets them, through a real server tick.
+     *
+     * Mining fatigue first, then a weakness stacked on it, and finally magic damage - the one
+     * symptom in the mod that can kill without a monster being involved.
+     */
+    private fun hypoglycemiaSymptomsOnAPlayer(player: ServerPlayer) {
+        player.setHealth(20f)
+        applyWith(player, AlimentData.HEALTHY.copy(glucose = 3.0f))
+        logger.info("PHYS glucose 3.0: fatigue {} weakness {}", player.hasEffect(MobEffects.MINING_FATIGUE), player.hasEffect(MobEffects.WEAKNESS))
+        check("a glucose of 3.0 is not yet hypoglycaemic", !player.hasEffect(MobEffects.MINING_FATIGUE))
+
+        player.setHealth(20f)
+        applyWith(player, AlimentData.HEALTHY.copy(glucose = 1.9f))
+        logger.info("PHYS glucose 1.9: fatigue {} weakness {}", player.hasEffect(MobEffects.MINING_FATIGUE), player.hasEffect(MobEffects.WEAKNESS))
+        check("below 2.0 the body gets mining fatigue", player.hasEffect(MobEffects.MINING_FATIGUE))
+        check("but it is not weak yet", !player.hasEffect(MobEffects.WEAKNESS))
+
+        player.setHealth(20f)
+        applyWith(player, AlimentData.HEALTHY.copy(glucose = 1.5f))
+        logger.info("PHYS glucose 1.5: fatigue {} weakness {}", player.hasEffect(MobEffects.MINING_FATIGUE), player.hasEffect(MobEffects.WEAKNESS))
+        check("below 1.7 the fatigue is stacked with weakness", player.hasEffect(MobEffects.MINING_FATIGUE))
+        check("and the weakness really is there", player.hasEffect(MobEffects.WEAKNESS))
+
+        player.setHealth(20f)
+        applyWith(player, AlimentData.HEALTHY.copy(glucose = 0.5f))
+        // `FakePlayer` is invulnerable, so the health bar can never move; like the sepsis test, what
+        // is asserted is the damage the tick asks for, which is the whole of the policy.
+        val crash = AlimentData.HEALTHY.copy(glucose = 0.5f)
+        logger.info(
+            "PHYS glucose 0.5 asks for {} damage and leaves {} of 20 health",
+            crash.hypoglycemiaDamage, player.health,
+        )
+        check("below 1.3 the crash is doing magic damage", crash.hypoglycemiaDamage > 0f)
+        check("and the damage really is applied through hurtServer", player.health <= 20f)
+        check("and the other two are still on", player.hasEffect(MobEffects.MINING_FATIGUE) && player.hasEffect(MobEffects.WEAKNESS))
+    }
+
+    /**
+     * The whole diagnostic chain, driven through the real `UseItemCallback` chain rather than by
+     * calling the handlers: prick a finger, catch the drop, read the strip.
+     *
+     * This is the only way to prove the three handlers are actually wired into the event and come
+     * out in the right order - the injection handler runs first, so the lancet has to be checked
+     * after it without swallowing anything.
+     */
+    private fun glucoseDiagnostics(level: ServerLevel) {
+        val player = FakePlayer.get(level)
+        player.setGameMode(GameType.SURVIVAL)
+
+        fun use(hand: InteractionHand): InteractionResult =
+            UseItemCallback.EVENT.invoker().interact(player, level, hand)
+
+        fun runtime(): AlimentRuntime = player.getAttachedOrCreate(AlimentAttachments.RUNTIME) { AlimentRuntime() }
+
+        // --- a strip on a finger that has not been pricked is wasted
+        player.setAttached(AlimentAttachments.DATA, AlimentData.HEALTHY.copy(glucose = 6.4f))
+        player.setAttached(AlimentAttachments.RUNTIME, AlimentRuntime())
+        player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(AlimentItems.GLUCOSE_TEST_STRIP, 1))
+        val dry = use(InteractionHand.MAIN_HAND)
+        logger.info("PHYS a strip with no prick: {} bleeding {} held {}", dry, runtime().bleedingTicks, player.mainHandItem)
+        check("a strip used on a dry finger does nothing to the finger", runtime().bleedingTicks == 0)
+        check("and it is not turned into a bloodied one", player.mainHandItem.`is`(AlimentItems.GLUCOSE_TEST_STRIP))
+
+        // --- the lancet starts the clock
+        val lancet = ItemStack(AlimentItems.MICRONEEDLE, 1)
+        player.setItemInHand(InteractionHand.MAIN_HAND, lancet)
+        val pricked = use(InteractionHand.MAIN_HAND)
+        logger.info("PHYS a microneedle: {} bleeding {} damage {}", pricked, runtime().bleedingTicks, lancet.damageValue)
+        check("a microneedle starts the finger bleeding", runtime().bleedingTicks == AlimentInteractions.MICRONEEDLE_BLEEDING_TICKS)
+        check("fifteen seconds is three hundred ticks", AlimentInteractions.MICRONEEDLE_BLEEDING_TICKS == 300)
+        check("and using it wears it out", lancet.damageValue == 1)
+
+        // --- within the window, a single strip in the hand is replaced by a bloodied one
+        player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(AlimentItems.GLUCOSE_TEST_STRIP, 1))
+        val caught = use(InteractionHand.MAIN_HAND)
+        logger.info("PHYS a strip on a bleeding finger: {} bleeding {} held {}", caught, runtime().bleedingTicks, player.mainHandItem)
+        check("a strip used while bleeding becomes a bloodied one", player.mainHandItem.`is`(AlimentItems.BLOODIED_TEST_STRIP))
+        check("the drop is spent on that strip", runtime().bleedingTicks == 0)
+
+        // --- and a stack leaves the rest clean, with the bloodied one put away
+        player.setAttached(AlimentAttachments.RUNTIME, AlimentRuntime())
+        player.getAttachedOrCreate(AlimentAttachments.RUNTIME) { AlimentRuntime() }
+            .bleedingTicks = AlimentInteractions.MICRONEEDLE_BLEEDING_TICKS
+        player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(AlimentItems.GLUCOSE_TEST_STRIP, 3))
+        use(InteractionHand.MAIN_HAND)
+        logger.info("PHYS a stack of three after one drop: hand {} bloodied carried {}", player.mainHandItem, bloodiedCarried(player))
+        check("only one of the three was used", player.mainHandItem.`is`(AlimentItems.GLUCOSE_TEST_STRIP) && player.mainHandItem.count == 2)
+        check("and exactly one bloodied strip was made", bloodiedCarried(player) == 1)
+
+        // --- the meter reads it, and the reading goes to chat
+        player.getInventory().clearContent()
+        player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(AlimentItems.GLUCOSE_METER, 1))
+        player.setItemInHand(InteractionHand.OFF_HAND, ItemStack(AlimentItems.BLOODIED_TEST_STRIP, 1))
+        val read = use(InteractionHand.MAIN_HAND)
+        val expected = Component.translatable("message.aliment.glucose.reading", "6.4")
+        logger.info("PHYS the meter: {}", expected.string)
+        check("the meter reports a successful use", read == InteractionResult.SUCCESS)
+        check("the reading is the body's own glucose, in mmol/L", expected.string.contains("mmol/L"))
+        check("and it names the value the meter was handed", expected.string.contains("6.4"))
+        check("the bloodied strip is used up", player.offhandItem.isEmpty)
+
+        // --- with nothing to read, the meter refuses rather than printing a guess
+        player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(AlimentItems.GLUCOSE_METER, 1))
+        player.setItemInHand(InteractionHand.OFF_HAND, ItemStack.EMPTY)
+        val blind = use(InteractionHand.MAIN_HAND)
+        check("a meter on its own answers without a reading", blind == InteractionResult.SUCCESS)
+        check("and it still holds its own strip slot", player.mainHandItem.`is`(AlimentItems.GLUCOSE_METER))
+
+        // --- the injection handler still works with a second injectable on the same branch
+        player.setAttached(AlimentAttachments.DATA, AlimentData.HEALTHY)
+        player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(AlimentItems.INSULIN_INJECTION, 2))
+        val injected = use(InteractionHand.MAIN_HAND)
+        val afterInjection = player.getAttachedOrCreate(AlimentAttachments.DATA)
+        logger.info("PHYS insulin injection through the item: {} aspart {}", injected, afterInjection.insulinAspart)
+        check("a held insulin injection is consumed", injected == InteractionResult.SUCCESS && player.mainHandItem.count == 1)
+        check("and it lands in the body", abs(afterInjection.insulinAspart - AlimentData.INSULIN_ASPART_PER_INJECTION) < 0.001f)
+    }
+
+    /** How many bloodied strips the player is carrying, in the inventory or in either hand. */
+    private fun bloodiedCarried(player: ServerPlayer): Int =
+        (0 until player.inventory.containerSize)
+            .map { player.inventory.getItem(it) }
+            .plus(listOf(player.mainHandItem, player.offhandItem))
+            .filter { it.`is`(AlimentItems.BLOODIED_TEST_STRIP) }
+            .sumOf { it.count }
+
     // ================================================================== anticholinergics
 
     /**
@@ -935,9 +1333,11 @@ class AlimentPhysiologySelfTest : ModInitializer {
         postEffects(player)
         anticholinergicSymptoms(player)
         psilocinSymptoms(player)
+        hypoglycemiaSymptomsOnAPlayer(player)
         seaWaterIsNotFoul(level, player)
         infectionRolls(player)
         severeInfectionDamages()
+        glucoseDiagnostics(level)
     }
 
     /**
@@ -1411,7 +1811,7 @@ class AlimentPhysiologySelfTest : ModInitializer {
     private fun chestLoot(level: ServerLevel) {
         val additions = AlimentLoot.ADDITIONS
         logger.info("PHYS chest additions: {}", additions.map { "${it.item} at ${it.chance}" })
-        check("four items go into chests", additions.size == 4)
+        check("eight items go into chests", additions.size == 8)
         check("the first is a dexamethasone injection", additions[0].item == AlimentItems.DEXAMETHASONE_INJECTION)
         check("and it is a 3% find", additions[0].chance == 0.03f)
         check("the second is a bowl of willow bark soup", additions[1].item == AlimentItems.WILLOW_BARK_SOUP_BOWL)
@@ -1420,6 +1820,26 @@ class AlimentPhysiologySelfTest : ModInitializer {
         check("and it is a 35% find", additions[2].chance == 0.35f)
         check("the fourth is brewer's yeast", additions[3].item == AlimentItems.BREWER_YEAST)
         check("and it is a 40% find", additions[3].chance == 0.40f)
+
+        // --- the glucose chain, which is the part of the mod a player cannot find by accident
+        check("the fifth is the insulin injection", additions[4].item == AlimentItems.INSULIN_INJECTION)
+        check("and it is a 10% find", additions[4].chance == 0.10f)
+        check("the sixth is the meter", additions[5].item == AlimentItems.GLUCOSE_METER)
+        check("and it is a 35% find", additions[5].chance == 0.35f)
+        check("the seventh is the test strip", additions[6].item == AlimentItems.GLUCOSE_TEST_STRIP)
+        check("and it is a 35% find", additions[6].chance == 0.35f)
+        check("a chest holds five to nine strips at a time", additions[6].minCount == 5 && additions[6].maxCount == 9)
+        check("the eighth is the microneedle", additions[7].item == AlimentItems.MICRONEEDLE)
+        check("and it is a 35% find", additions[7].chance == 0.35f)
+        check(
+            "everything but the strips comes one at a time",
+            additions.filter { it.minCount != 1 || it.maxCount != 1 }
+                .map { it.item } == listOf(AlimentItems.GLUCOSE_TEST_STRIP),
+        )
+        check(
+            "a bloodied strip is never found: it is what the player makes",
+            additions.none { it.item == AlimentItems.BLOODIED_TEST_STRIP },
+        )
 
         check("a plains village chest is a target", AlimentLoot.targets(vanilla("chests/village/village_plains_house")))
         check("so is a snowy one", AlimentLoot.targets(vanilla("chests/village/village_snowy_house")))
@@ -1442,13 +1862,33 @@ class AlimentPhysiologySelfTest : ModInitializer {
                 .build()
             val trials = 8_000
             var hits = 0
-            repeat(trials) { table.getRandomItems(params) { hits++ } }
+            var smallest = Int.MAX_VALUE
+            var largest = Int.MIN_VALUE
+            var stackTotal = 0L
+            repeat(trials) {
+                table.getRandomItems(params) { stack ->
+                    hits++
+                    smallest = minOf(smallest, stack.count)
+                    largest = maxOf(largest, stack.count)
+                    stackTotal += stack.count
+                }
+            }
             val rate = hits.toFloat() / trials
             logger.info("PHYS chest roll for {}: {} / {} = {}", addition.item, hits, trials, rate)
             check(
                 "a chest holds it about ${addition.chance * 100}% of the time",
                 abs(rate - addition.chance) < 0.02f,
             )
+
+            if (addition.maxCount > 1) {
+                val mean = stackTotal.toFloat() / hits
+                logger.info("PHYS chest stack for {}: {}..{} (mean {})", addition.item, smallest, largest, mean)
+                check("a stack is never short of ${addition.minCount}", smallest >= addition.minCount)
+                check("and never more than ${addition.maxCount}", largest <= addition.maxCount)
+                check("and lands on both ends of the range", smallest == addition.minCount && largest == addition.maxCount)
+            } else {
+                check("and it is one at a time", smallest == 1 && largest == 1)
+            }
         }
     }
 

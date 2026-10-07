@@ -286,6 +286,13 @@ object AlimentIngestion {
             else -> Unit
         }
 
+        // Everything edible is carbohydrate or becomes it, and the body stores none of it: this is
+        // what makes a meal a glucose dose rather than just a hunger bar.
+        val glucose = glucoseFor(stack.item)
+        if (glucose > 0f) {
+            data = AlimentPhysiology.addGlucose(data, glucose)
+        }
+
         if (data !== before) {
             player.setAttached(AlimentAttachments.DATA, data)
         }
@@ -293,6 +300,104 @@ object AlimentIngestion {
         if (isFoulWater(stack.item)) {
             applyFoulWater(player)
         }
+    }
+
+    // ---------------------------------------------------------------- glucose from food
+
+    /**
+     * Bread, the one food that spikes blood glucose hardest: +0.7 mmol/L a serving.
+     *
+     * It is separated from the rest of the plant food because it is the only thing in the game that
+     * is pure starch with nothing to slow it down, which is exactly why a real one is worth
+     * counting.
+     */
+    private val BREAD: Set<Item> = setOf(Items.BREAD)
+
+    /** Raw meat and fish, at the same +0.4 as plant food. */
+    private val RAW_MEAT: Set<Item> = setOf(
+        Items.BEEF,
+        Items.PORKCHOP,
+        Items.CHICKEN,
+        Items.MUTTON,
+        Items.RABBIT,
+        Items.COD,
+        Items.SALMON,
+        Items.TROPICAL_FISH,
+        Items.ROTTEN_FLESH,
+    )
+
+    /** Cooked meat and fish, at +0.5: the heat has already done part of the digesting. */
+    private val COOKED_MEAT: Set<Item> = setOf(
+        Items.COOKED_BEEF,
+        Items.COOKED_PORKCHOP,
+        Items.COOKED_CHICKEN,
+        Items.COOKED_MUTTON,
+        Items.COOKED_RABBIT,
+        Items.COOKED_COD,
+        Items.COOKED_SALMON,
+    )
+
+    /**
+     * Fruit, vegetables, fungi and anything made out of them: +0.4 a serving.
+     *
+     * The mod's own plant foods are on the list too - a mandrake, a gymnopilus, seaweed and every
+     * willow bark soup - because they are plants, and a player who lives off them is living off
+     * carbohydrate.
+     */
+    private val PLANT_FOOD: Set<Item> = setOf(
+        Items.APPLE,
+        Items.GOLDEN_APPLE,
+        Items.ENCHANTED_GOLDEN_APPLE,
+        Items.MELON_SLICE,
+        Items.SWEET_BERRIES,
+        Items.GLOW_BERRIES,
+        Items.CARROT,
+        Items.GOLDEN_CARROT,
+        Items.POTATO,
+        Items.BAKED_POTATO,
+        Items.POISONOUS_POTATO,
+        Items.BEETROOT,
+        Items.BEETROOT_SOUP,
+        Items.PUMPKIN_PIE,
+        Items.COOKIE,
+        Items.KELP,
+        Items.DRIED_KELP,
+        Items.CHORUS_FRUIT,
+        Items.MUSHROOM_STEW,
+        Items.SUSPICIOUS_STEW,
+        Items.RABBIT_STEW,
+        AlimentItems.MANDRAKE_FRUIT,
+        AlimentItems.MANDRAKE_SEEDS,
+        AlimentItems.GYMNOPILUS,
+        AlimentItems.COOKED_GYMNOPILUS,
+        AlimentItems.SEAWEED,
+        AlimentItems.COOKED_SEAWEED,
+        AlimentItems.RAW_WILLOW_BARK_SOUP_BOTTLE,
+        AlimentItems.RAW_WILLOW_BARK_SOUP_BOWL,
+        AlimentItems.WILLOW_BARK_SOUP_BOTTLE,
+        AlimentItems.WILLOW_BARK_SOUP_BOWL,
+        AlimentItems.CRUDE_SALT_MUSHROOM_STEW,
+        AlimentItems.SALT_MUSHROOM_STEW,
+        AlimentItems.CRUDE_SALT_WILLOW_BARK_SOUP,
+        AlimentItems.SALT_WILLOW_BARK_SOUP,
+        AlimentItems.CRUDE_SALT_RAW_WILLOW_BARK_SOUP,
+        AlimentItems.SALT_RAW_WILLOW_BARK_SOUP,
+    )
+
+    /**
+     * What one serving of [item] adds to blood glucose, in mmol/L, and 0 for anything that is not
+     * food.
+     *
+     * The four amounts are the model's; this only says which food is which. Everything that is
+     * edible and not meat or bread counts as plant food, so a player cannot dodge the glucose cost
+     * of eating by living on berries.
+     */
+    fun glucoseFor(item: Item): Float = when {
+        item in BREAD -> AlimentData.GLUCOSE_PER_BREAD
+        item in COOKED_MEAT -> AlimentData.GLUCOSE_PER_COOKED_MEAT
+        item in RAW_MEAT -> AlimentData.GLUCOSE_PER_RAW_MEAT
+        item in PLANT_FOOD -> AlimentData.GLUCOSE_PER_PLANT_FOOD
+        else -> 0f
     }
 
     /** Anything the player drinks, which counts towards the water index. */
@@ -380,5 +485,20 @@ object AlimentIngestion {
         }
         val data = player.getAttachedOrCreate(AlimentAttachments.DATA)
         player.setAttached(AlimentAttachments.DATA, AlimentPhysiology.inject(data, DEXAMETHASONE_PER_INJECTION))
+    }
+
+    /**
+     * Applies an insulin aspart injection, unless the body is frozen (see [onItemConsumed]).
+     *
+     * Unlike the body's own insulin this keeps working at the bottom of the reference range, so a
+     * second dose on top of the first is what takes a player hypoglycaemic.
+     */
+    @JvmStatic
+    fun injectInsulin(player: ServerPlayer) {
+        if (AlimentSymptoms.isFrozen(player)) {
+            return
+        }
+        val data = player.getAttachedOrCreate(AlimentAttachments.DATA)
+        player.setAttached(AlimentAttachments.DATA, AlimentPhysiology.injectInsulin(data))
     }
 }

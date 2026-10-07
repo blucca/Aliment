@@ -12,7 +12,7 @@ Target Platform: **Minecraft 26.3** (Fabric, Scala 3.9 / Kotlin 2.4 / Java 25).
 
 ## Data Model
 
-Each player possesses an `AlimentData` attachment, comprised of: inflammatory mediators, pathogen loads, hydration, serum electrolytes, trace elements (iodine and vitamin C), active drug concentrations, and core body temperature.
+Each player possesses an `AlimentData` attachment, comprised of: inflammatory mediators, pathogen loads, hydration, serum electrolytes, trace elements (iodine and vitamin C), blood glucose and the insulin index, active drug concentrations, and core body temperature.
 
 ### Inflammatory Mediators `Mediators`
 
@@ -525,6 +525,158 @@ temperature += (targetTemperature - temperature) * 0.0004f
 - **Fever (38.5 – 40.0 °C)**: Weakness + Mining Fatigue, perimeter heat shimmer (`aliment:heat_haze`).
 - **Severe Hyperthermia (≥ 40.0 °C)**: Adds post-processing dynamic motion blur (`aliment:heat_blur`).
 - **Hypothermia (≤ 36.0 °C)**: Weakness + Mining Fatigue + Slowness, perimeter cold shivering tint (`aliment:cold_shiver`).
+
+### Glycaemic Symptoms
+
+| Glucose | Effect |
+| --- | --- |
+| **< 2.0 mmol/L** | Mining Fatigue |
+| **< 1.7 mmol/L** | Mining Fatigue + Weakness |
+| **< 1.3 mmol/L** | The above, plus magic damage every two seconds: `(1.3 - glucose) * 1.0` |
+
+Glucose is spent continuously and only food restores it, so an unfed player eventually reaches these
+thresholds however healthy the rest of the body is. The damage is magic, so armour is no help - the
+brain has no fuel but glucose.
+
+---
+
+## Blood Glucose and Insulin
+
+Glucose is the second quantity in the model - after water - that is **spent rather than regulated to a
+set point**. There is no gluconeogenesis: the body burns glucose every tick and only eating puts it
+back, so `glucose` is a resource the player manages rather than a value the model defends.
+
+### Reference Values
+
+| Quantity | Value | Unit |
+| --- | --- | --- |
+| Normal / fasting | **5.0** | mmol/L |
+| Reference range | **4.0 – 5.5** | mmol/L |
+| Fasting floor (2 game days) | **3.5** | mmol/L |
+| Elevated (steep insulin response) | **> 8.0** | mmol/L |
+| Model limits | 0.0 – 30.0 | mmol/L |
+| Baseline insulin index | **1.0** | index |
+
+### What Food Is Worth
+
+| Food class | Glucose | Examples |
+| --- | --- | --- |
+| Bread | **+0.7** | `minecraft:bread` |
+| Cooked meat and fish | **+0.5** | cooked beef, porkchop, chicken, mutton, rabbit, cod, salmon |
+| Raw meat and fish | **+0.4** | beef, porkchop, chicken, mutton, rabbit, cod, salmon, tropical fish, rotten flesh |
+| Plant food | **+0.4** | fruit, vegetables, kelp, seaweed, mushrooms, every willow bark soup |
+
+Bread is the only food that leaves the reference range on its own from a normal 5.0 (5.0 + 0.7 =
+5.7), which is why it is separated from the rest of the plant food. Everything edible that is not meat
+or bread counts as plant food, so a player cannot dodge the glucose cost of eating by living on
+berries.
+
+### Per-Tick Dynamics
+
+Three terms move glucose, and they are separate because they behave differently:
+
+```scala
+// 1. The basal drain: a flat 1.5 mmol/L over two in-game days, which is the fasting path from
+//    5.0 down to 3.5. Past 3.5 it scales with what is left, so the fall slows down rather than
+//    running straight to zero.
+val basal =
+  if (glucose > 3.5f) 1.5f / 48000f          // 3.125e-5 per tick
+  else (1.5f / 48000f) * (glucose / 3.5f)
+
+// 2. The body's own insulin. It is switched off at the bottom of the reference range: the pancreas
+//    does not drive a body hypoglycaemic on its own.
+val endogenousDrive = 0.0001f * Math.max(0f, insulin - 1.0f)
+val endogenous =
+  if (glucose <= 4.0f) 0f
+  else Math.min(endogenousDrive, glucose - 4.0f)
+
+// 3. Injected insulin aspart, which has no such brake.
+val injected = 0.00008f * insulinAspart
+
+glucose = clamp(glucose - basal - endogenous - injected, 0f, 30f)
+```
+
+The insulin index itself relaxes towards what the current glucose asks for, at 0.0005 per tick (a
+2,000-tick time constant):
+
+```scala
+// Two ramps, both starting at the normal 5.0: a gentle one across the reference range, which is
+// what actually disposes of an ordinary meal, and a twice-as-steep one past 8.
+val target =
+  if (glucose <= 5.0f) 1.0f
+  else if (glucose <= 8.0f) 1.0f + (glucose - 5.0f) * 2.0f
+  else 7.0f + (glucose - 8.0f) * 4.0f
+
+insulin = clamp(insulin + (target - insulin) * 0.0005f, 0f, 60f)
+```
+
+> **Why the gentle ramp exists.** A literal "insulin only above 8" threshold cannot bring a 9 or a 10
+> back into the reference range inside half a game day: the index switches off the moment glucose
+> crosses 8, and the residual insulin is gone before the job is done. The ramp across the reference
+> range is what makes the half-day promise true, and the steep segment past 8 is what "the higher the
+> sugar, the more insulin and the faster it comes down" means.
+
+### Verified Behaviour
+
+| Scenario | Result |
+| --- | --- |
+| Fasting from 5.0 | Reaches **3.49** in exactly 2 game days (48,000 ticks) |
+| Fasting from 3.5 | The next 2 days cost **1.22** rather than 1.5 - the fall slows down |
+| A meal of 8.0 | Back to **4.87** within half a game day |
+| A meal of 10.0 | Back to **4.77** within half a game day |
+| A meal of 20.0 | Back to **3.90** within half a game day |
+| A meal of 30.0 | Back to **3.85** within half a game day |
+| After 2,400 ticks | A 20 falls further than a 9, at every point on the curve |
+| One injection of insulin aspart | 5.0 -> **2.74**: a dip, not yet a crash |
+| Two injections | A hypoglycaemic crash, because nothing switches the injected insulin off |
+| Eight game days without food | **0.97** mmol/L: a hypoglycaemic crisis |
+
+### Insulin Aspart `insulinAspart`
+
+| Property | Value |
+| --- | --- |
+| Delivered by | `aliment:insulin_injection` (right-click), **+10.0** a dose |
+| Ceiling | **60.0** |
+| Clearance window | **1 game day** (linear) |
+
+```scala
+insulinAspart = Math.max(insulinAspart - 60.0f / 24000f, 0f) // -2.5e-3 per tick
+```
+
+The one drug in the mod that makes a body worse on purpose. It is deliberately a **separate quantity**
+from the body's own `insulin`: the pancreas switches its own secretion off as glucose falls, and
+injected aspart is not switched off by anything. One dose from a normal body is survivable; two
+stacked inside the cooldown are a crisis, and eating is the only way out.
+
+---
+
+## The Glucose Meter
+
+The meter is the one part of the mod a player cannot discover by experiment - a meter is useless
+without a strip, and a strip is useless without a lancet - so the three are found together in chests.
+
+| Item | Loot chance |
+| --- | --- |
+| `aliment:insulin_injection` | **10%** |
+| `aliment:glucose_meter` | **35%** |
+| `aliment:glucose_test_strip` | **35%**, as a stack of **5 – 9** |
+| `aliment:microneedle` | **35%** |
+
+All four generate in every vanilla village chest and in the pillager outpost's.
+
+**The diagnostic chain:**
+
+1. Right-click with the **microneedle**. The finger bleeds for **15 seconds** (300 ticks) and the
+   lancet takes one point of damage.
+2. Right-click with a **test strip** while the finger is still bleeding. It becomes a **bloodied test
+   strip**; a strip used after the drop has dried is refused, with an action-bar hint. The drop is
+   spent on that strip, so a second strip needs a second prick.
+3. Hold the **meter in the main hand** and the **bloodied test strip in the off hand**, and
+   right-click. The reading is printed in chat - `Blood glucose: 5.1 mmol/L`, localised as
+   `当前血糖：5.1 mmol/L` in `zh_cn` - and the strip is used up.
+
+The strip is read from the off hand and the meter from the main hand specifically, so the pair is
+unambiguous whichever way round the player sets it up: exactly one combination works.
 
 ---
 

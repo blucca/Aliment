@@ -81,6 +81,11 @@ All items are indexed under the dedicated Creative Tab **"Aliment"** (`itemGroup
 | `aliment:raw_willow_bark_soup_bowl` | Raw Willow Broth Bowl | Bowled unboiled broth |
 | `aliment:willow_bark_soup_bottle` | Willow Broth Bottle | Fully boiled broth bottle; safe salicin remedy |
 | `aliment:willow_bark_soup_bowl` | Willow Broth Bowl | Fully boiled broth bowl; restores hunger and administers salicin |
+| `aliment:insulin_injection` | Insulin Aspart Injection | Loot only; right-click to add +10.0 insulin aspart. Lowers blood glucose, and nothing switches it off |
+| `aliment:glucose_meter` | Blood Glucose Meter | Loot only; reads a bloodied test strip from the other hand and prints the value in chat |
+| `aliment:glucose_test_strip` | Blood Glucose Test Strip | Loot only (stacks of 5–9); becomes a bloodied strip on a finger that is still bleeding |
+| `aliment:bloodied_test_strip` | Bloodied Test Strip | Never found; what a test strip becomes. The only thing the meter will read |
+| `aliment:microneedle` | Microneedle | Loot only; right-click to prick a finger, which then bleeds for 15 seconds |
 
 ---
 
@@ -259,15 +264,21 @@ Three infection vectors exist:
 | Drug | Source | Dose | Elimination Window | Elimination Rate |
 | --- | --- | --- | --- | --- |
 | Salicin | Willow Broth (raw or boiled) | +1.1 | **3 game days** | `salicin = Math.max(salicin - 3.0f / 72000f, 0f)` (-4.167e-5 / tick) | Dexamethasone | Injection syringe (right-click) | +1.2 | **2 game days** | `dexamethasone = Math.max(dexamethasone - 2.0f / 48000f, 0f)` (-4.167e-5 / tick) |
+| Insulin Aspart | Insulin injection (right-click) | +10.0 | **1 game day** | `insulinAspart = Math.max(insulinAspart - 60.0f / 24000f, 0f)` (-2.5e-3 / tick) |
 
 Salicin is a COX inhibitor acting as an antipyretic by blocking prostaglandin synthesis. Dexamethasone strongly halts cytokine transcription, aborting cytokine storms. **Neither directly kills pathogens.**
 
-Remedies generate naturally in loot chests:
+Insulin aspart is the opposite: it is the one drug that makes a body **worse** on purpose. It lowers
+blood glucose, and unlike the body's own insulin it is not switched off at the bottom of the reference
+range - so one dose from a normal body is a survivable dip to about 2.7 mmol/L, and two are a
+hypoglycaemic crisis. Eating is the only way out.
 
-| Loot Chest Location | Dexamethasone Injection | Willow Broth Bowl |
-| --- | --- | --- |
-| Village Chests (all 14 types) | **3%** | **35%** |
-| Pillager Outposts | **3%** | **35%** |
+Remedies and diagnostics generate naturally in loot chests:
+
+| Loot Chest Location | Dexamethasone Injection | Willow Broth Bowl | Insulin Injection | Glucose Meter | Test Strips | Microneedle |
+| --- | --- | --- | --- | --- | --- | --- |
+| Village Chests (all 14 types) | **3%** | **35%** | **10%** | **35%** | **35%** (5–9) | **35%** |
+| Pillager Outposts | **3%** | **35%** | **10%** | **35%** | **35%** (5–9) | **35%** |
 
 ---
 
@@ -587,7 +598,73 @@ where `c_suppress = 100.0 / (1.5 * 24000) ≈ 2.778e-3 / tick`.
 
 ---
 
-## 22. Common Pitfalls
+## 22. Blood Glucose and the Glucose Chain
+
+Glucose is the second resource - after water - that the body **spends** rather than regulates. Nothing
+stores a surplus and nothing synthesises it: eating is the only thing that puts it back, so an unfed
+player eventually runs out however healthy the rest of the body is.
+
+| Quantity | Value |
+| --- | --- |
+| Normal / fasting | **5.0 mmol/L** |
+| Reference range | **4.0 – 5.5 mmol/L** |
+| Fasting floor, reached in 2 game days | **3.5 mmol/L** |
+| Steep insulin response | **> 8.0 mmol/L** |
+| Baseline insulin index | **1.0** |
+
+* **What food is worth:**
+
+  | Food class | Glucose |
+  | --- | --- |
+  | Bread | **+0.7** |
+  | Cooked meat and fish | **+0.5** |
+  | Raw meat and fish | **+0.4** |
+  | Plant food (fruit, vegetables, kelp, seaweed, mushrooms, willow broth) | **+0.4** |
+
+  A single loaf of bread is enough to leave the reference range from a normal 5.0 (5.7); nothing else
+  is. Everything edible that is not meat or bread counts as plant food, so living on berries does not
+  avoid the glucose cost of eating.
+
+* **A meal is disposed of inside half a game day, and a bigger one comes down faster.** The insulin
+  index climbs across the reference range and then twice as steeply past 8, so a 20 mmol/L spike falls
+  further in the same time than a 9 does. Nothing overshoots into hypoglycaemia, because the body's
+  own insulin is switched off at the bottom of the range.
+* **Fasting costs 1.5 mmol/L over the first two game days (5.0 -> 3.5), and less after that** - past
+  the floor the fall scales with what is left instead of running straight to zero.
+* **Hypoglycaemia tiers:**
+
+  | Glucose | Effect |
+  | --- | --- |
+  | < 2.0 mmol/L | **Mining Fatigue I** |
+  | < 1.7 mmol/L | Mining Fatigue I **+ Weakness I** |
+  | < 1.3 mmol/L | The above, plus **magic damage** every two seconds: `(1.3 - glucose) * 1.0` |
+
+  The damage ignores armour - the brain has no fuel but glucose. Eight game days without food leaves a
+  body at **0.97 mmol/L**, which is a crisis.
+
+* **The four items, and where they come from:**
+
+  | Item | Loot chance | Notes |
+  | --- | --- | --- |
+  | `aliment:insulin_injection` | **10%** | Right-click; **+10.0** insulin aspart, ceiling 60.0, cleared over 1 game day |
+  | `aliment:glucose_meter` | **35%** | Reads a bloodied strip from the other hand |
+  | `aliment:glucose_test_strip` | **35%**, as **5–9** | Becomes a bloodied strip on a bleeding finger |
+  | `aliment:microneedle` | **35%** | Pricks a finger; it bleeds for **15 seconds** (300 ticks) |
+
+  All four generate in every vanilla village chest and in the pillager outpost's. The bloodied strip is
+  never found: it is what the player makes.
+
+* **The diagnostic chain:** prick a finger with the microneedle, right-click with a test strip while it
+  is still bleeding (a strip used after the drop has dried is refused), then hold the meter in the
+  **main hand** and the bloodied strip in the **off hand** and right-click. The reading is printed in
+  chat - `Blood glucose: 5.1 mmol/L` - and the strip is used up.
+* **Insulin aspart is the one drug that makes a body worse on purpose.** Unlike the body's own insulin
+  it is not switched off at the bottom of the reference range, so one dose from a normal body is a
+  survivable dip to about 2.7 mmol/L and two are a crisis. Eating is the only way out.
+
+---
+
+## 23. Common Pitfalls
 
 1. **Sea water is not dirty; it is hypertonic.** Drinking it causes no immediate nausea; the large sodium load creates severe dehydration and hypernatremic thirst later.
 2. **The thirst bar does not indicate overhydration.** 100 and 200 both render as 10 full pips; watch for the weakness icon.
@@ -598,3 +675,5 @@ where `c_suppress = 100.0 / (1.5 * 24000) ≈ 2.778e-3 / tick`.
 7. **Keep distance from livestock.** Standing within 2 blocks of any mob rolls a 5% viral infection chance every second.
 8. **Willow leaves never drop apples.**
 9. **Camera tremors always provide a diagnostic symptom icon.** You will never tremor without an active clinical reason.
+10. **Blood glucose only ever goes down on its own.** Nothing synthesises it, so an unfed player drifts from 5.0 to 3.5 in two game days and into a hypoglycaemic crisis by the eighth. Bread is worth 0.7 and everything else 0.4–0.5.
+11. **An insulin injection is not a treatment.** It lowers blood glucose and nothing switches it off; two doses inside the cooldown are a hypoglycaemic crisis, and eating is the only way out.

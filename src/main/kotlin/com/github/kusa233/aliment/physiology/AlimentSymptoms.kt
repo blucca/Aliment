@@ -109,6 +109,14 @@ object AlimentSymptoms {
      * Runs one tick of the whole system for [player], or nothing at all while [isFrozen].
      */
     fun tick(player: ServerPlayer) {
+        // The finger a microneedle pricked only bleeds for a few seconds, and nothing else counts it
+        // down. It runs for a frozen body too: it is a property of the player's hand, not of the
+        // model, so going creative must not leave a player bleeding forever.
+        val runtime = player.getAttachedOrCreate(AlimentAttachments.RUNTIME) { AlimentRuntime() }
+        if (runtime.bleedingTicks > 0) {
+            runtime.bleedingTicks--
+        }
+
         if (isFrozen(player)) {
             // Anything already on the screen has to come off: a frozen body must not keep a fever
             // shimmer, a motion blur or a shiver running. The shake stops by itself, because the
@@ -117,8 +125,6 @@ object AlimentSymptoms {
             return
         }
 
-        // RUNTIME has no default initializer, so the supplier form is required here.
-        val runtime = player.getAttachedOrCreate(AlimentAttachments.RUNTIME) { AlimentRuntime() }
         val before = player.getAttachedOrCreate(AlimentAttachments.DATA)
 
         var data = AlimentPhysiology.tick(before, ambientTemperature(player))
@@ -231,6 +237,21 @@ object AlimentSymptoms {
         if (data.isImmuneStorm) {
             player.addEffect(MobEffectInstance(MobEffects.WEAKNESS, ticks, 0))
             player.causeFoodExhaustion(AlimentModelBridge.stormExhaustion())
+        }
+
+        // --- hypoglycaemia: the brain has no fuel but glucose, so this is the one thing the body
+        //     does about it that the player cannot ignore. The tier is the model's, and it is the
+        //     three thresholds - dragging, weak, and finally disoriented enough to be hurt by it.
+        val hypo = data.hypoglycemiaTier
+        if (hypo >= 1) {
+            player.addEffect(MobEffectInstance(MobEffects.MINING_FATIGUE, ticks, 0))
+        }
+        if (hypo >= 2) {
+            player.addEffect(MobEffectInstance(MobEffects.WEAKNESS, ticks, 0))
+        }
+        val hypoDamage = data.hypoglycemiaDamage
+        if (hypoDamage > 0f) {
+            player.hurtServer(player.level(), player.damageSources().magic(), hypoDamage)
         }
 
         // --- water

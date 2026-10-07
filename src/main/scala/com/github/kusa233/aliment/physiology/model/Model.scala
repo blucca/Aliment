@@ -255,6 +255,13 @@ final case class ModelDrugs(
     @BeanProperty berberine: Float = 0f,
     @BeanProperty glycyrrhizin: Float = 0f,
     @BeanProperty ethanol: Float = 0f,
+    /**
+     * Insulin aspart, the injected fast-acting analogue, 0..[ModelConstants.INSULIN_ASPART_CAP].
+     *
+     * Deliberately separate from [ModelState.insulin]: that one is the body's own, which the
+     * pancreas switches off as glucose falls, and this one is not switched off by anything.
+     */
+    @BeanProperty insulinAspart: Float = 0f,
 ) {
   def withSalicin(value: Float): ModelDrugs = copy(salicin = value)
   def withDexamethasone(value: Float): ModelDrugs = copy(dexamethasone = value)
@@ -266,11 +273,12 @@ final case class ModelDrugs(
   def withBerberine(value: Float): ModelDrugs = copy(berberine = value)
   def withGlycyrrhizin(value: Float): ModelDrugs = copy(glycyrrhizin = value)
   def withEthanol(value: Float): ModelDrugs = copy(ethanol = value)
+  def withInsulinAspart(value: Float): ModelDrugs = copy(insulinAspart = value)
 }
 
 /** The default clean drug state with zero concentration for all substances. */
 object DrugDefaults {
-  val CLEAN: ModelDrugs = new ModelDrugs(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f)
+  val CLEAN: ModelDrugs = new ModelDrugs(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f)
 }
 
 /**
@@ -462,6 +470,105 @@ object ModelConstants {
   /** Vitamin C excretion half-life: 5 in-game days (120,000 ticks) from safeHigh (80) to safeLow (40). */
   val VITAMIN_C_HALF_LIFE_TICKS: Int = 5 * 24000
   val VITAMIN_C_DECAY_RATE: Float = (Math.log(2.0) / (5.0 * 24000.0)).toFloat
+
+  // ---------------------------------------------------------------- blood glucose
+
+  /**
+   * Blood glucose of a healthy fasting body, in **mmol/L**, and the middle of the reference range.
+   *
+   * Glucose is the one quantity in the model that is *spent* rather than regulated to a set point:
+   * the body burns it continuously and only food puts it back, exactly like water. A player who
+   * never eats therefore runs it down and hypoglycaemia is what stops them.
+   */
+  val GLUCOSE_NORMAL: Float = 5f
+
+  /** The clinical reference range for blood glucose, in mmol/L. */
+  val GLUCOSE_SAFE_LOW: Float = 4f
+  val GLUCOSE_SAFE_HIGH: Float = 5.5f
+
+  /** Hard clamp, so a runaway value can never reach nonsense. */
+  val GLUCOSE_MIN: Float = 0f
+  val GLUCOSE_MAX: Float = 30f
+
+  /**
+   * Where a fasted body levels off: from [GLUCOSE_NORMAL] to here takes exactly two in-game days
+   * (48,000 ticks), and past it the fall slows down because the body is running on its stores.
+   */
+  val GLUCOSE_FASTING_FLOOR: Float = 3.5f
+
+  /** The flat drain that makes that two-day fall exact. 1.5 mmol/L over 48,000 ticks. */
+  val GLUCOSE_BASAL_DECAY_PER_TICK: Float = (GLUCOSE_NORMAL - GLUCOSE_FASTING_FLOOR) / (2f * 24000f)
+
+  /** Above this the pancreas is clearly responding: the insulin index climbs steeply from here. */
+  val GLUCOSE_ELEVATED: Float = 8f
+
+  /**
+   * The three hypoglycaemia thresholds, on the way down. Below the first the body is dragging and
+   * gets mining fatigue; below the second it is also weak; below the third the brain is starved
+   * enough that it starts taking magic damage.
+   */
+  val GLUCOSE_HYPO_FATIGUE: Float = 2f
+  val GLUCOSE_HYPO_WEAKNESS: Float = 1.7f
+  val GLUCOSE_HYPO_DAMAGE: Float = 1.3f
+
+  /** Magic damage per two-second pass, per mmol/L of glucose below [GLUCOSE_HYPO_DAMAGE]. */
+  val HYPOGLYCEMIA_DAMAGE_PER_MMOL: Float = 1f
+
+  // ---------------------------------------------------------------- insulin
+
+  /** The insulin index of a healthy fasting body. */
+  val INSULIN_NORMAL: Float = 1f
+
+  /** The most insulin a body can carry; a dose past it adds nothing. */
+  val INSULIN_CAP: Float = 60f
+
+  /**
+   * Insulin secreted per mmol/L of glucose above normal, and above [GLUCOSE_ELEVATED].
+   *
+   * The index is already climbing through the normal band - which is what actually disposes of a
+   * meal - and the second, twice-as-steep slope is what "past 8 the pancreas responds" means: the
+   * higher the sugar, the more insulin, and the faster it comes down.
+   */
+  val INSULIN_PER_GLUCOSE: Float = 2f
+  val INSULIN_PER_GLUCOSE_ELEVATED: Float = 4f
+
+  /** How quickly the index moves towards what the current glucose asks for. 1/0.0005 = 2,000 ticks. */
+  val INSULIN_APPROACH: Float = 0.0005f
+
+  /** Glucose the body's own insulin disposes of, per tick and per unit of insulin above normal. */
+  val GLUCOSE_UPTAKE_PER_INSULIN: Float = 0.0001f
+
+  // ---------------------------------------------------------------- insulin aspart
+
+  /**
+   * Insulin aspart, the fast-acting analogue a player injects.
+   *
+   * Deliberately unlike the body's own insulin: an injection is not switched off when glucose
+   * reaches the bottom of the reference range, which is the whole reason an insulin overdose is
+   * dangerous. One dose from a normal 5.0 takes the player to about 2.7; two take them under 2.
+   */
+  val INSULIN_ASPART_CAP: Float = 60f
+  val INSULIN_ASPART_PER_INJECTION: Float = 10f
+  val INSULIN_ASPART_METABOLISM_TICKS: Int = 24000
+  val INSULIN_ASPART_DECAY_PER_TICK: Float = INSULIN_ASPART_CAP / INSULIN_ASPART_METABOLISM_TICKS
+
+  /** Glucose one unit of injected insulin disposes of, per tick. */
+  val GLUCOSE_UPTAKE_PER_INSULIN_ASPART: Float = 0.00008f
+
+  // ---------------------------------------------------------------- glucose from food
+
+  /**
+   * What one serving of each kind of food adds to blood glucose, in mmol/L.
+   *
+   * Bread is the worst of them and cooked meat the mildest of the animal foods; plant food and raw
+   * meat sit together in the middle. A single serving is never enough to reach
+   * [GLUCOSE_ELEVATED] on its own from a healthy 5.0, so it takes a real meal to provoke the
+   * insulin response.
+   */
+  val GLUCOSE_PER_PLANT_FOOD: Float = 0.4f
+  val GLUCOSE_PER_BREAD: Float = 0.7f
+  val GLUCOSE_PER_RAW_MEAT: Float = 0.4f
+  val GLUCOSE_PER_COOKED_MEAT: Float = 0.5f
 }
 
 /**
@@ -488,6 +595,17 @@ final case class ModelState(
     @BeanProperty immuneActive: Boolean = false,
     /** Pharmacological compounds and alkaloids carried in the body. */
     @BeanProperty drugs: ModelDrugs = DrugDefaults.CLEAN,
+    /**
+     * Blood glucose, in mmol/L. [ModelConstants.GLUCOSE_NORMAL] in a healthy fasting body; food is
+     * the only thing that puts it back.
+     */
+    @BeanProperty glucose: Float = ModelConstants.GLUCOSE_NORMAL,
+    /**
+     * The body's own insulin index. [ModelConstants.INSULIN_NORMAL] while fasting and climbing with
+     * glucose; it is what disposes of a meal. Injected insulin is separate, in
+     * [ModelDrugs.insulinAspart].
+     */
+    @BeanProperty insulin: Float = ModelConstants.INSULIN_NORMAL,
 ) {
   def withMediators(value: ModelMediators): ModelState = copy(mediators = value)
   def withBacteria(value: Float): ModelState = copy(bacteria = value)
@@ -499,6 +617,8 @@ final case class ModelState(
   def withPyrogen(value: Float): ModelState = copy(pyrogen = value)
   def withImmuneActive(value: Boolean): ModelState = copy(immuneActive = value)
   def withDrugs(value: ModelDrugs): ModelState = copy(drugs = value)
+  def withGlucose(value: Float): ModelState = copy(glucose = value)
+  def withInsulin(value: Float): ModelState = copy(insulin = value)
 
   // Convenience accessors delegating to drugs
   def salicin: Float = drugs.salicin
@@ -511,6 +631,7 @@ final case class ModelState(
   def berberine: Float = drugs.berberine
   def glycyrrhizin: Float = drugs.glycyrrhizin
   def ethanol: Float = drugs.ethanol
+  def insulinAspart: Float = drugs.insulinAspart
 
   def withSalicin(value: Float): ModelState = copy(drugs = drugs.withSalicin(value))
   def withDexamethasone(value: Float): ModelState = copy(drugs = drugs.withDexamethasone(value))
@@ -522,4 +643,5 @@ final case class ModelState(
   def withBerberine(value: Float): ModelState = copy(drugs = drugs.withBerberine(value))
   def withGlycyrrhizin(value: Float): ModelState = copy(drugs = drugs.withGlycyrrhizin(value))
   def withEthanol(value: Float): ModelState = copy(drugs = drugs.withEthanol(value))
+  def withInsulinAspart(value: Float): ModelState = copy(drugs = drugs.withInsulinAspart(value))
 }

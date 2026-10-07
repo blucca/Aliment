@@ -7,10 +7,22 @@ of the built mod — they only regenerate files under `src/main/resources`.
 | --- | --- |
 | `gen_data.ps1` / `gen_data.cmd` | Regenerates **all** data and asset JSON files (blockstates, block/item models, item definitions, worldgen, loot tables, recipes, tags, language files). Uses the vanilla JSON inside the Minecraft jar as the template, so the output always matches the exact format of the Minecraft version in `gradle.properties`. |
 | `lang_zh_cn.json` | The Chinese block/item names, read by `gen_data.ps1`. Kept out of the script so the script itself stays pure ASCII and therefore safe to run with either Windows PowerShell 5.1 or PowerShell 7. |
-| `gen_textures.ps1` / `gen_textures.cmd` | Regenerates all 31 PNG textures (blocks, items, entity boats, bark and soup sprites, the cauldron liquid surfaces and the daffodil mod icon) from scratch with ImageMagick. |
+| `lang_ja_jp.json` | The Japanese names, read by `gen_data.ps1`, for the same reason. |
+| `gen_textures.ps1` / `gen_textures.cmd` | Regenerates all PNG textures (blocks, items, entity boats, bark and soup sprites, the cauldron liquid surfaces and the mod icon) from scratch with ImageMagick. |
+| `gen_glucose_textures.ps1` | The five item sprites of the glucose chain (insulin injection, glucose meter, clean and bloodied test strips, microneedle). Pure `System.Drawing` and no ImageMagick, and it writes only those five files, so it can be re-run on its own after changing one of them. |
 | `verify-datapack/` | A dev-only data pack that proves the willow world generation actually runs. See below. |
 
 Both generators are idempotent: running them twice produces byte-identical output.
+
+> **Before running `gen_data.ps1`, read the diff.** It has fallen behind the hand-written content and
+> will silently drop keys and files that were added to `src/main/resources` afterwards - the sleep
+> refusal (`block.aliment.bed.too_stimulated`), the brewing names (`block.aliment.beer_cauldron`,
+> `item.aliment.alcohol`, `item.aliment.beer`, `tooltip.aliment.alcohol.concentration`,
+> `gui.aliment.jei.category.grindstone`), and the `alcohol_cauldron` / `fermentation_tank` blockstate
+> variants. Everything it does not know about has to be put back by hand.
+>
+> `gen_textures.ps1` still carries a hard-coded `$root` for the checkout it was written in; check that
+> before running it. `gen_glucose_textures.ps1` derives its paths from `$PSScriptRoot`.
 
 ## Requirements
 
@@ -25,6 +37,7 @@ Both generators are idempotent: running them twice produces byte-identical outpu
 ```
 tools\gen_data.cmd
 tools\gen_textures.cmd
+pwsh -ExecutionPolicy Bypass -File tools\gen_glucose_textures.ps1
 ```
 
 Both `.ps1` files are pure ASCII, so they also run fine when invoked directly:
@@ -87,7 +100,8 @@ Runs the whole model headlessly in a few milliseconds: homeostasis, infection cl
 untreated immune storm, salicin and dexamethasone control, overdose, drug metabolism, the immune
 competence curve, the mediator weights, thirst over a game day, over-hydration, electrolyte
 dilution from heavy drinking, the iodine store draining to its floor in exactly three game days and
-what a day's kelp does about it, the two mandrake alkaloids (the three fever steps, the blur
+what a day's kelp does about it, blood glucose and the insulin index, the two mandrake alkaloids
+(the three fever steps, the blur
 thresholds, the cap and the metabolism, and that the drug fever stacks on an infection's), the two
 gymnopilus compounds (that psilocybin is inert and converts one for one over half a day, that
 psilocin leaves at a flat 1.3 a day so five doses are ten game days, all four trip stages either
@@ -113,11 +127,15 @@ restriction returns vanilla's own `BedSleepingProblem` carrying our message abov
 nothing of ours at or below it. It also enumerates every item and entity
 type the mod registers and fails, naming the key, if any of them has no name in `en_us.json` or
 `zh_cn.json` or `ja_jp.json`, and asserts that all four shipped languages (`en_us`, `zh_cn`,
-`ja_jp`, `ko_kr`) define exactly the same key set. 457 checks.
+`ja_jp`, `ko_kr`) define exactly the same key set.
 
-Twelve checks fail on a clean checkout too, in the thyroid, water-depletion, berberine and ethanol
-areas; they are pre-existing and unrelated. A run is compared against that baseline rather than
-against zero: baseline 435 passed / 12 failed, with this change 457 passed / 12 failed.
+It also exercises the glucose chain end to end: fasting from 5.0 to 3.49 in exactly two game days and
+the slower fall past the 3.5 floor, a meal of 6 to 30 mmol/L back inside the reference range within
+half a game day with the higher ones falling faster, the insulin index flat while fasting and climbing
+with a meal, what each of the four food classes is worth, the three hypoglycaemia tiers either side of
+their thresholds, and the diagnostic chain through the real `UseItemCallback` - a microneedle starts
+the fifteen-second bleed, a test strip on that finger becomes a bloodied one, and the meter prints the
+reading. 591 checks, all passing.
 
 ### Running either one
 

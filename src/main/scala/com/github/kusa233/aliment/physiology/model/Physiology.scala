@@ -450,6 +450,110 @@ object Physiology {
     penalty
   }
 
+  // ------------------------------------------------------------------ glucose and insulin
+
+  /** What the index sits at on the boundary between the two ramps, so they meet without a step. */
+  private final val ELEVATED_INSULIN_TARGET: Float =
+    ModelConstants.INSULIN_NORMAL +
+      (ModelConstants.GLUCOSE_ELEVATED - ModelConstants.GLUCOSE_NORMAL) * ModelConstants.INSULIN_PER_GLUCOSE
+
+  /**
+   * The insulin index the current glucose asks for.
+   *
+   * Two ramps, both starting at [ModelConstants.GLUCOSE_NORMAL]: a gentle one across the normal
+   * band, which is what actually disposes of an ordinary meal, and a twice-as-steep one from
+   * [ModelConstants.GLUCOSE_ELEVATED] upwards. So the higher the sugar the more insulin, and past 8
+   * the pancreas is unmistakably responding.
+   */
+  private def insulinTarget(glucose: Float): Float = {
+    if (glucose <= ModelConstants.GLUCOSE_NORMAL) {
+      ModelConstants.INSULIN_NORMAL
+    } else if (glucose <= ModelConstants.GLUCOSE_ELEVATED) {
+      ModelConstants.INSULIN_NORMAL +
+        (glucose - ModelConstants.GLUCOSE_NORMAL) * ModelConstants.INSULIN_PER_GLUCOSE
+    } else {
+      ELEVATED_INSULIN_TARGET +
+        (glucose - ModelConstants.GLUCOSE_ELEVATED) * ModelConstants.INSULIN_PER_GLUCOSE_ELEVATED
+    }
+  }
+
+  /** Moves the body's own insulin one tick towards what the current glucose asks for. */
+  private def stepInsulin(state: ModelState): Float =
+    clamp(
+      state.insulin + (insulinTarget(state.glucose) - state.insulin) * ModelConstants.INSULIN_APPROACH,
+      0f,
+      ModelConstants.INSULIN_CAP,
+    )
+
+  /**
+   * Moves blood glucose one tick, and everything that moves it is here.
+   *
+   * Three terms, and they are separate because they behave differently:
+   *
+   *  - the **basal drain**, a flat 1.5 mmol/L over two in-game days, which is the fasting path from
+   *    5.0 down to 3.5. Past 3.5 it scales with what is left, so the fall slows down instead of
+   *    running straight to zero;
+   *  - the body's **own insulin**, which disposes of a glucose load and is switched off at the
+   *    bottom of the reference range - the pancreas does not drive a body hypoglycaemic on its own;
+   *  - **injected insulin aspart**, which has no such brake, which is exactly why an overdose is
+   *    dangerous.
+   */
+  private def stepGlucose(state: ModelState, insulin: Float, insulinAspart: Float): Float = {
+    val glucose = state.glucose
+
+    val endogenousDrive =
+      ModelConstants.GLUCOSE_UPTAKE_PER_INSULIN * Math.max(0f, insulin - ModelConstants.INSULIN_NORMAL)
+    val endogenous =
+      if (glucose <= ModelConstants.GLUCOSE_SAFE_LOW) 0f
+      else Math.min(endogenousDrive, glucose - ModelConstants.GLUCOSE_SAFE_LOW)
+
+    val injected = ModelConstants.GLUCOSE_UPTAKE_PER_INSULIN_ASPART * insulinAspart
+
+    val basal =
+      if (glucose > ModelConstants.GLUCOSE_FASTING_FLOOR) ModelConstants.GLUCOSE_BASAL_DECAY_PER_TICK
+      else ModelConstants.GLUCOSE_BASAL_DECAY_PER_TICK * (glucose / ModelConstants.GLUCOSE_FASTING_FLOOR)
+
+    clamp(
+      glucose - basal - endogenous - injected,
+      ModelConstants.GLUCOSE_MIN,
+      ModelConstants.GLUCOSE_MAX,
+    )
+  }
+
+  /**
+   * How far into a hypoglycaemic crash the blood glucose is, as a tier:
+   *
+   * | tier | glucose | what the player gets |
+   * | --- | --- | --- |
+   * | 0 | ≥ 2.0 | nothing |
+   * | 1 | < 2.0 | mining fatigue |
+   * | 2 | < 1.7 | and weakness |
+   * | 3 | < 1.3 | and magic damage, which is the one that can kill |
+   */
+  def hypoglycemiaTier(glucose: Float): Int =
+    if (glucose < ModelConstants.GLUCOSE_HYPO_DAMAGE) 3
+    else if (glucose < ModelConstants.GLUCOSE_HYPO_WEAKNESS) 2
+    else if (glucose < ModelConstants.GLUCOSE_HYPO_FATIGUE) 1
+    else 0
+
+  /**
+   * Magic damage a hypoglycaemic crash does in one two-second pass, and 0 above the damage
+   * threshold. It scales with how far below the threshold the glucose is, so the last of it hurts
+   * most - the brain has no other fuel.
+   */
+  def hypoglycemiaDamage(glucose: Float): Float =
+    if (glucose >= ModelConstants.GLUCOSE_HYPO_DAMAGE) 0f
+    else (ModelConstants.GLUCOSE_HYPO_DAMAGE - glucose) * ModelConstants.HYPOGLYCEMIA_DAMAGE_PER_MMOL
+
+  /**
+   * The blood glucose as the meter prints it: one decimal place, the way a real one reads.
+   *
+   * The format is the model's for the same reason [ModelMineral.display] is: it is a property of the
+   * quantity, not of whatever happens to be drawing it.
+   */
+  def glucoseReading(glucose: Float): String =
+    String.format("%.1f", java.lang.Float.valueOf(glucose))
+
   // ------------------------------------------------------------------ the tick
 
   /** Metabolises and decays all pharmacological compounds carried in the body by one tick. */
@@ -470,6 +574,7 @@ object Physiology {
     val berberine = Math.max(drugs.berberine - ModelConstants.BERBERINE_DECAY_PER_TICK, 0f)
     val glycyrrhizin = Math.max(drugs.glycyrrhizin - ModelConstants.GLYCYRRHIZIN_DECAY_PER_TICK, 0f)
     val ethanol = Math.max(drugs.ethanol - ModelConstants.ETHANOL_DECAY_PER_TICK, 0f)
+    val insulinAspart = Math.max(drugs.insulinAspart - ModelConstants.INSULIN_ASPART_DECAY_PER_TICK, 0f)
 
     new ModelDrugs(
       salicin,
@@ -482,6 +587,7 @@ object Physiology {
       berberine,
       glycyrrhizin,
       ethanol,
+      insulinAspart,
     )
   }
 
@@ -499,6 +605,11 @@ object Physiology {
     //    concentrations. A negative pyrogen is an antipyretic offset and clears the same way.
     val drugs = stepDrugs(state.drugs)
     val pyrogen = stepPyrogen(state, ambient)
+
+    // 1b. Glucose and insulin, which the drugs above feed into: injected insulin aspart is what
+    //     makes the injected term of the uptake possible.
+    val insulin = stepInsulin(state)
+    val glucose = stepGlucose(state, insulin, drugs.insulinAspart)
 
     // 2. Pathogens grow logistically and are cleared in proportion to immune competence and targeted drugs.
     val competence = immuneCompetence(state.mediators.getInflammation)
@@ -518,6 +629,8 @@ object Physiology {
       .withBacteria(bacteria)
       .withVirus(virus)
       .withImmuneActive(nextImmuneActive)
+      .withGlucose(glucose)
+      .withInsulin(insulin)
 
     // 3. The immune response, mediator by mediator.
     val inflamed = next.withMediators(stepMediators(next))
@@ -917,6 +1030,28 @@ object Physiology {
   /** Adds ethanol, capped at [ModelConstants.ETHANOL_CAP]. */
   def addEthanol(state: ModelState, amount: Float): ModelState =
     state.withEthanol(clamp(state.ethanol + amount, 0f, ModelConstants.ETHANOL_CAP))
+
+  /**
+   * Adds what one serving of food does to blood glucose, in mmol/L, capped.
+   *
+   * The body cannot store a surplus, so this is the only thing that ever puts glucose back - which
+   * makes eating a glucose *dose* the player has to think about, not just a hunger bar.
+   */
+  def addGlucose(state: ModelState, amount: Float): ModelState =
+    state.withGlucose(
+      clamp(state.glucose + amount, ModelConstants.GLUCOSE_MIN, ModelConstants.GLUCOSE_MAX),
+    )
+
+  /**
+   * Adds insulin aspart, the injected fast-acting analogue, capped.
+   *
+   * Unlike the body's own insulin this is not switched off when glucose reaches the bottom of the
+   * reference range, so a dose deep enough will take a player hypoglycaemic.
+   */
+  def injectInsulin(state: ModelState, amount: Float): ModelState =
+    state.withInsulinAspart(
+      clamp(state.insulinAspart + amount, 0f, ModelConstants.INSULIN_ASPART_CAP),
+    )
 
   /**
    * Raises or lowers the fever so that the body *peaks* at `degrees` Celsius.
