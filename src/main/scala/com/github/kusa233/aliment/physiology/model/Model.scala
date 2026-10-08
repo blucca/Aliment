@@ -662,6 +662,16 @@ object ModelConstants {
   val GLUCOSE_PER_BREAD: Float = 0.7f
   val GLUCOSE_PER_RAW_MEAT: Float = 0.4f
   val GLUCOSE_PER_COOKED_MEAT: Float = 0.5f
+
+  /**
+   * A fruit drink that has had sugar stirred into it: grapefruit juice.
+   *
+   * It lands on the same figure as bread, and for the same reason - sugar is the fast carbohydrate,
+   * and a glass of juice is mostly water with a spoonful of it. The fruit it is pressed from is only
+   * worth [GLUCOSE_PER_PLANT_FOOD] on its own, so sweetening it is what makes it a meal's worth of
+   * glucose rather than a snack's.
+   */
+  val GLUCOSE_PER_SWEET_DRINK: Float = 0.7f
 }
 
 /**

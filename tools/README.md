@@ -11,10 +11,27 @@ of the built mod — they only regenerate files under `src/main/resources`.
 | `gen_textures.ps1` / `gen_textures.cmd` | Regenerates all PNG textures (blocks, items, entity boats, bark and soup sprites, the cauldron liquid surfaces and the mod icon) from scratch with ImageMagick. |
 | `gen_glucose_textures.ps1` | The five item sprites of the glucose chain (insulin injection, glucose meter, clean and bloodied test strips, microneedle). Pure `System.Drawing` and no ImageMagick, and it writes only those five files, so it can be re-run on its own after changing one of them. |
 | `gen_glass_textures.ps1` | The fermentation tank and condenser pipe frames. Pure `System.Drawing`, writes only those two files. Keeps the copper frame pixel-for-pixel - including the tank's amber inner-corner bevel - and leaves everything inside it transparent, so the only thing it removes from the originals is the decoration that used to sit in the middle. |
-| `gen_grapefruit_textures.ps1` | The seven textures of the grapefruit tree: the hanging fruit, the whole fruit and the slice as items, the log side and top, the leaves and the sapling. Pure `System.Drawing`, writes only those seven files. The hanging fruit is drawn in the top half of its canvas because it is rendered by a cross model, and the leaves are greyscale because they are tinted by the biome. |
+| `gen_grapefruit_textures.ps1` | The eight textures of the grapefruit tree: the hanging fruit, the whole fruit and the slice as items, the log side and top, the leaves, the sapling and the **juice**. Pure `System.Drawing`, writes only those eight files. The hanging fruit is drawn in the top half of its canvas because it is rendered by a cross model, and the leaves are greyscale because they are tinted by the biome. The juice is the exception to the hand-drawn rule: it is vanilla's own `potion.png` bottle with vanilla's `potion_overlay.png` liquid tinted to the slice's flesh, which is why it reads `vanilla_potion*.png` from this directory. |
 | `gen_grapefruit_wood.ps1` | The grapefruit **wood set's** JSON: every blockstate, block model, item model, item definition, recipe and block loot table, mirrored from the willow's by swapping `willow` for `grapefruit`. Also writes the `aliment:grapefruit_logs` tags and adds the grapefruit entries to the vanilla `planks` / `logs` / `wooden_*` / `signs` / `fence_gates` / `boats` tags. It owns the mirrored files only - the fruit and the tree's own models are hand-written and excluded. |
 | `gen_grapefruit_wood_textures.ps1` | The sixteen **wood** textures, made by mapping the willow's palette onto the grapefruit's pixel for pixel rather than redrawing them, so the door panels, trapdoor slats and sign frames stay identical in form. It does not own the tree's bark (`gen_grapefruit_textures.ps1` does), the leaves or the sapling. |
 | `verify-datapack/` | A dev-only data pack that proves the willow world generation actually runs. See below. |
+
+> **`gen_data.ps1` is stale - do not run it wholesale.** It predates the grapefruit tree, the glucose
+> chain and the fermentation set, so a full run **deletes work that is not in its tables**:
+>
+> * the 26 `grapefruit*` language keys, from all three files it writes (`ko_kr.json` it does not write
+>   at all, so that one is left alone);
+> * the 14 keys of the glucose chain, the alcohol tooltip and `beer_cauldron` etc., which it does not
+>   know about but overwrites the files of;
+> * the `grapefruit` entries it would have to add to the vanilla `planks` / `logs` / `wooden_*` /
+>   `signs` / `leaves` / `saplings` / `flower_pots` tags - `gen_grapefruit_wood.ps1` adds those, and
+>   `gen_data.ps1` rewrites the same files without them.
+>
+> It also rewrites every JSON with LF, which on a CRLF checkout makes `git diff` show all ~400 files
+> as modified and hides the real change. If you must change something it owns, either edit the small
+> generated file directly and then fix the same string in the script, or back up `lang/` and every
+> grapefruit-owned tag first and re-apply afterwards. The generators that are safe to re-run on their
+> own are the ones listed here as owning a short, explicit file list.
 
 Both generators are idempotent: running them twice produces byte-identical output.
 

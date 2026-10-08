@@ -31,8 +31,11 @@ import net.minecraft.world.InteractionHand
 import net.minecraft.world.item.BoneMealItem
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
+import net.minecraft.world.item.alchemy.PotionContents
+import net.minecraft.world.item.alchemy.Potions
 import net.minecraft.world.item.crafting.AbstractCookingRecipe
 import net.minecraft.world.item.crafting.CraftingInput
+import net.minecraft.world.item.crafting.CraftingRecipe
 import net.minecraft.world.level.biome.Biome
 import net.minecraft.world.level.biome.Biomes
 import net.minecraft.world.level.block.Block
@@ -378,6 +381,49 @@ class AlimentSelfTest : ModInitializer {
         level.getBlockState(pos).getValue(MandrakeBlock.AGE)
 
     /**
+     * Asserts that one recipe takes a **real water bottle** and nothing else that is a potion.
+     *
+     * The recipe must exist, must be a crafting recipe, must match [otherIngredients] plus a water
+     * bottle, and must reject the same layout with an awkward potion in the bottle's place. The last
+     * one is the whole point: these recipes used to name a bare `minecraft:potion`, which accepts a
+     * potion of healing just as happily as water.
+     */
+    private fun checkWaterBottleRecipe(
+        level: ServerLevel,
+        id: String,
+        otherIngredients: List<ItemStack>,
+    ) {
+        val recipe = level.server.recipeManager
+            .byKey(ResourceKey.create(Registries.RECIPE, Registration.id(id)))
+        check("the $id recipe is loaded", recipe.isPresent)
+        if (!recipe.isPresent) return
+
+        // `byKey` hands back a `Recipe<*>`, whose star projection blocks `matches`; these are all
+        // crafting recipes, so binding the type parameter that way is what makes the call legal.
+        val crafting = recipe.get().value() as? CraftingRecipe
+        check("the $id recipe is a crafting recipe", crafting != null)
+        if (crafting == null) return
+
+        val water = PotionContents.createItemStack(Items.POTION, Potions.WATER)
+        val size = otherIngredients.size + 1
+        check(
+            "the $id recipe takes a water bottle",
+            crafting.matches(CraftingInput.of(size, 1, otherIngredients + water), level),
+        )
+        check(
+            "and the $id recipe refuses a potion that is not water",
+            !crafting.matches(
+                CraftingInput.of(
+                    size,
+                    1,
+                    otherIngredients + PotionContents.createItemStack(Items.POTION, Potions.AWKWARD),
+                ),
+                level,
+            ),
+        )
+    }
+
+    /**
      * Where the mandrake grows wild, checked where that is actually decided: the biome generation
      * settings Fabric's biome modification API writes into.
      *
@@ -513,6 +559,19 @@ class AlimentSelfTest : ModInitializer {
             "the brewer_yeast recipe is loaded",
             recipes.byKey(ResourceKey.create(Registries.RECIPE, Registration.id("brewer_yeast"))).isPresent,
         )
+
+        // The recipes that take a **water bottle rather than any potion**. Vanilla's `Ingredient` is
+        // a `HolderSet<Item>` and cannot filter by component, so these use Fabric's component filter -
+        // and a filter that fails to parse drops the recipe silently, with no error anywhere. Asking
+        // the manager for it by name, then checking that a water bottle matches and another potion
+        // does not, is the only thing that would ever notice.
+        checkWaterBottleRecipe(
+            level,
+            "grapefruit_juice",
+            listOf(ItemStack(Items.SUGAR, 1), ItemStack(AlimentItems.GRAPEFRUIT_SLICE, 1)),
+        )
+        checkWaterBottleRecipe(level, "salt_water", listOf(ItemStack(AlimentItems.SALT_POWDER, 1)))
+        checkWaterBottleRecipe(level, "crude_salt_water", listOf(ItemStack(AlimentItems.CRUDE_SALT, 1)))
 
         // 1. Fermentation Tank setup
         val tankPos = BlockPos(5, 201, 5)

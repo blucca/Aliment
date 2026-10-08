@@ -20,6 +20,7 @@
     "block.aliment.grapefruit_sapling":  "자몽 묘목",
     "block.aliment.grapefruit":  "자몽",
     "item.aliment.grapefruit_slice":  "자몽 조각",
+    "item.aliment.grapefruit_juice":  "자몽 주스",
     "item.aliment.grapefruit_boat":  "자몽 보트",
     "entity.aliment.grapefruit_boat":  "자몽 보트",
     "item.aliment.grapefruit_chest_boat":  "상자 실은 자몽 보트",

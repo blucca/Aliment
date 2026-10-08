@@ -143,6 +143,7 @@ object AlimentCreativeTabs {
         AlimentBlocks.GRAPEFRUIT_SAPLING,
         AlimentBlocks.GRAPEFRUIT,
         AlimentItems.GRAPEFRUIT_SLICE,
+        AlimentItems.GRAPEFRUIT_JUICE,
     )
 
     /**

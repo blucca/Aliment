@@ -141,6 +141,18 @@ object AlimentIngestion {
      */
     private const val GRAPEFRUIT_SLICE_VITAMIN_C = 10.0f
 
+    /**
+     * Naringin one glass of grapefruit juice delivers - one slice's worth, in one drink.
+     *
+     * The glass is a slice, pressed: same naringin, same vitamin C, but drunk rather than eaten, so
+     * it also collects the full drink's water. What it adds that the slice does not is the sugar
+     * (see [SWEET_DRINK]).
+     */
+    private const val GRAPEFRUIT_JUICE_NARINGIN = 1f
+
+    /** Vitamin C one glass of grapefruit juice delivers: the slice's 10, pressed into a bottle. */
+    private const val GRAPEFRUIT_JUICE_VITAMIN_C = 10.0f
+
     /** How much pathogen a single successful roll adds. */
     private const val BACTERIA_SEED = 6f
 
@@ -292,6 +304,11 @@ object AlimentIngestion {
                 data = AlimentPhysiology.drink(data, GRAPEFRUIT_SLICE_WATER)
                 data = AlimentPhysiology.addNaringin(data, GRAPEFRUIT_SLICE_NARINGIN)
             }
+            // The juice is the slice pressed into a bottle: the same naringin, and it takes its
+            // water from [isDrink] instead of from a constant of its own.
+            AlimentItems.GRAPEFRUIT_JUICE -> {
+                data = AlimentPhysiology.addNaringin(data, GRAPEFRUIT_JUICE_NARINGIN)
+            }
             else -> Unit
         }
 
@@ -308,6 +325,7 @@ object AlimentIngestion {
             Items.BEETROOT -> data = AlimentPhysiology.vitaminC(data, BEETROOT_VITAMIN_C)
             Items.BEETROOT_SOUP -> data = AlimentPhysiology.vitaminC(data, BEETROOT_SOUP_VITAMIN_C)
             AlimentItems.GRAPEFRUIT_SLICE -> data = AlimentPhysiology.vitaminC(data, GRAPEFRUIT_SLICE_VITAMIN_C)
+            AlimentItems.GRAPEFRUIT_JUICE -> data = AlimentPhysiology.vitaminC(data, GRAPEFRUIT_JUICE_VITAMIN_C)
             AlimentItems.MANDRAKE_FRUIT -> data = AlimentPhysiology.vitaminC(data, MANDRAKE_FRUIT_VITAMIN_C)
             AlimentItems.SEAWEED -> data = AlimentPhysiology.vitaminC(data, SEAWEED_VITAMIN_C)
             AlimentItems.COOKED_SEAWEED -> data = AlimentPhysiology.vitaminC(data, COOKED_SEAWEED_VITAMIN_C)
@@ -340,6 +358,15 @@ object AlimentIngestion {
      * counting.
      */
     private val BREAD: Set<Item> = setOf(Items.BREAD)
+
+    /**
+     * Sweetened fruit drinks, at the same +0.7 as bread.
+     *
+     * Grapefruit juice is pressed from a plant food, which would earn it the plant figure of +0.4,
+     * but a glass has had sugar stirred into it - that is what the recipe is - and sugar is the fast
+     * carbohydrate. So it is charged as bread is charged, not as the fruit it came from is.
+     */
+    private val SWEET_DRINK: Set<Item> = setOf(AlimentItems.GRAPEFRUIT_JUICE)
 
     /** Raw meat and fish, at the same +0.4 as plant food. */
     private val RAW_MEAT: Set<Item> = setOf(
@@ -422,6 +449,7 @@ object AlimentIngestion {
      * of eating by living on berries.
      */
     fun glucoseFor(item: Item): Float = when {
+        item in SWEET_DRINK -> AlimentData.GLUCOSE_PER_SWEET_DRINK
         item in BREAD -> AlimentData.GLUCOSE_PER_BREAD
         item in COOKED_MEAT -> AlimentData.GLUCOSE_PER_COOKED_MEAT
         item in RAW_MEAT -> AlimentData.GLUCOSE_PER_RAW_MEAT
@@ -443,6 +471,7 @@ object AlimentIngestion {
         item === Items.MILK_BUCKET ||
         item === AlimentItems.WINE ||
         item === AlimentItems.BEER ||
+        item === AlimentItems.GRAPEFRUIT_JUICE ||
         item === AlimentItems.EPHEDRINE ||
         item === AlimentItems.COPTIS_POTION ||
         item === AlimentItems.PHELLODENDRON_POTION ||

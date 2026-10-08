@@ -577,6 +577,25 @@ object AlimentItems {
     private const val GRAPEFRUIT_SLICE_NUTRITION = 2
     private const val GRAPEFRUIT_SLICE_SATURATION_POINTS = 3f
 
+    /**
+     * Grapefruit juice: sugar stirred into a pressed slice, drunk from a glass bottle.
+     *
+     * A slice is a snack; this is the dose, concentrated. One glass carries the whole of what a
+     * player wants out of grapefruit - a full bottle's water, a slice's naringin and a slice's
+     * vitamin C - and pays for it with more glucose than the slice it came from, because the sugar
+     * is what makes a fruit drink into a drink at all.
+     *
+     * Hunger stays at zero: a glass of juice is not a meal, and the point of drinking it is the
+     * naringin rather than the drumsticks. `alwaysEdible` for the same reason the slice has it.
+     */
+    val GRAPEFRUIT_JUICE: Item = Registration.registerItem(
+        "grapefruit_juice",
+        Item.Properties()
+            .food(buildFood(0, 0f, alwaysEdible = true), Consumables.defaultDrink().build())
+            .usingConvertsTo(Items.GLASS_BOTTLE)
+            .stacksTo(16),
+    ) { Item(it) }
+
     fun createWine(concentration: Float): ItemStack = WineItem.createStack(WINE, concentration)
 
     fun createBeer(concentration: Float = BeerItem.DEFAULT_BEER_CONCENTRATION): ItemStack =

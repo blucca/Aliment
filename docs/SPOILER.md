@@ -126,6 +126,9 @@ rock salt ore (y=20–90 underground, stone pickaxe, drops itself)
 * **Every salted drink hydrates (+15) and salts you.** The crude versions also carry the extra
   minerals.
 * Salted variants exist for water, mushroom stew, willow broth and raw willow broth.
+* **Salting plain water asks for a water bottle specifically.** Salt stirred into a potion is not salt
+  water, so the recipe will not take one - a potion of healing goes in and does not come back out as
+  salt water. The swamp- and sea-water versions name their own bottles and never take a potion at all.
 
 ---
 
@@ -152,9 +155,9 @@ without opening the GUI.
 
 * A **ten-pip thirst bar** sits above the health bar; each pip is 10 water.
 * The healthy band is **30 – 100**, the ceiling is 200, and a resting body sits at 80.
-* **+15 water per drink** - water bottles, potions, stew, milk, both broths, and the salted versions.
-  Grapefruit slices are the exception, at **+5**: a slice is eaten rather than drunk, so it does not
-  get a drink's worth.
+* **+15 water per drink** - water bottles, potions, stew, milk, both broths, grapefruit juice, and the
+  salted versions. Grapefruit slices are the exception, at **+5**: a slice is eaten rather than drunk,
+  so it does not get a drink's worth.
 * **Full to empty (100 → 0) takes 5 game days** at rest in a temperate place.
 * **Fever drinks it faster**: 39.0 °C empties it in 3.5 days, 40.0 °C in 2.0.
 * **Above 100 is overhydration**: weakness, slower mining, faster exhaustion and diluted
@@ -352,14 +355,15 @@ unfed player runs out however healthy the rest of the body is.
 
 | Food | Glucose |
 | --- | --- |
-| Bread | **+0.7** |
+| Bread, and grapefruit juice | **+0.7** |
 | Cooked meat and fish | **+0.5** |
 | Raw meat and fish | **+0.4** |
 | Plant food - fruit, vegetables, kelp, seaweed, mushrooms, willow broth, grapefruit | **+0.4** |
 
 One loaf of bread is enough to leave the reference range from a normal 5.0 - a body reads 5.7 after
-one - and nothing else is. Everything edible that is not meat or bread counts as plant food, so
-living on berries does not avoid the glucose cost of eating.
+one - and one glass of grapefruit juice does the same, because the sugar stirred into it is the fast
+carbohydrate. Everything else edible that is not meat counts as plant food, so living on berries does
+not avoid the glucose cost of eating.
 
 * **A meal is gone within half a game day, and a bigger one falls faster.** The insulin index climbs
   across the reference range and then twice as steeply past 8.0, so a 20 mmol/L spike comes down
@@ -441,6 +445,26 @@ A slice is the only food in the mod that also hydrates - a drink's job done by a
 a drink's worth. Ten slices fill the body's naringin. It is also one of the few foods that can be
 eaten on a full stomach, because what a player eats it *for* is the naringin rather than the hunger.
 
+### The juice
+
+Sugar, a slice, and a **water bottle** - not any potion - craft one **grapefruit juice**. It is the
+slice pressed into a bottle: same naringin, same vitamin C, but drunk rather than eaten, so it also
+collects a full drink's water. The sugar is the only thing it adds.
+
+| | Grapefruit slice | Grapefruit juice |
+| --- | --- | --- |
+| Hunger | 2 | **0** - a drink, not a meal |
+| Water | 5 | **15**, the standard drink |
+| Naringin | 1 | **1** |
+| Vitamin C | 10 µmol/L | **10 µmol/L** |
+| Glucose | 0.4, plant food | **0.7**, the sugar's |
+| Always edible | yes | **yes** |
+
+So a glass is what to drink when the water matters too, and it is charged for its sugar as bread is
+charged rather than as the fruit it came from: **5.0 → 5.7** for one, the same step a loaf makes. Ten
+glasses is still the naringin cap, exactly as ten slices is - what the glass changes is water and
+glucose, not the dose.
+
 ### The wood
 
 The tree is a full **second wood set**, not just a fruit tree:
@@ -519,6 +543,7 @@ with no plant food at all.
 | Beetroot soup | +16.0 |
 | Mandrake fruit | +10.0 |
 | Grapefruit slice | +10.0 |
+| Grapefruit juice | +10.0 |
 | Seaweed | +5.0 |
 | Cooked seaweed | +3.0 |
 

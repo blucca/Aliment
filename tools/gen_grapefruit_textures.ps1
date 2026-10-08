@@ -333,6 +333,64 @@ function New-GrapefruitSapling([string]$glOut) {
     Save-GPng $glOut $gg 16 16
 }
 
+# ---------------------------------------------------------------------
+# 8. item/grapefruit_juice.png
+#    Drawn in the **vanilla potion style**, the same way the mod's other
+#    potions are: vanilla's own potion.png bottle and potion_overlay.png
+#    liquid, with the liquid tinted to the slice's flesh so the glass
+#    reads as grapefruit. "按照原版药水的贴图重画" - the shape is
+#    vanilla's to the pixel, and the only thing that is ours is the tint.
+# ---------------------------------------------------------------------
+$gPotionPath = Join-Path $PSScriptRoot 'vanilla_potion.png'
+$gOverlayPath = Join-Path $PSScriptRoot 'vanilla_potion_overlay.png'
+
+if (!(Test-Path $gPotionPath) -or !(Test-Path $gOverlayPath)) {
+    throw "Vanilla potion reference textures not found in tools/: expected vanilla_potion.png and vanilla_potion_overlay.png next to this script. They are vanilla's own assets/minecraft/textures/item/potion.png and potion_overlay.png, extracted from the client jar; see tools/README.md."
+}
+
+function Get-GVanillaPotionTint([string]$gvTint) {
+    $gvBottle = New-Object System.Drawing.Bitmap($gPotionPath)
+    $gvOverlay = New-Object System.Drawing.Bitmap($gOverlayPath)
+    $gv = New-GGrid 16 16
+
+    # Named -Tint- on purpose: PowerShell compares variable names case-insensitively, so a computed
+    # `$gvb` would *be* `$gvB` and would clobber the tint's blue channel on the first pixel, leaving
+    # the liquid fading to black down the bottle.
+    $gvTintR = [Convert]::ToInt32($gvTint.Substring(1, 2), 16)
+    $gvTintG = [Convert]::ToInt32($gvTint.Substring(3, 2), 16)
+    $gvTintB = [Convert]::ToInt32($gvTint.Substring(5, 2), 16)
+
+    for ($gvY = 0; $gvY -lt 16; $gvY++) {
+        for ($gvX = 0; $gvX -lt 16; $gvX++) {
+            $gvP = $gvBottle.GetPixel($gvX, $gvY)
+            if ($gvP.A -gt 0) {
+                # The bottle itself: vanilla's pixel, byte for byte.
+                $gv[$gvX, $gvY] = '#{0:X2}{1:X2}{2:X2}' -f $gvP.R, $gvP.G, $gvP.B
+                continue
+            }
+            $gvO = $gvOverlay.GetPixel($gvX, $gvY)
+            if ($gvO.A -gt 0) {
+                # The liquid: vanilla's greyscale, scaled by the tint - which is how
+                # vanilla itself colours a potion, so the shading bands survive.
+                $gvOutR = [int][Math]::Round(($gvO.R / 255.0) * $gvTintR)
+                $gvOutG = [int][Math]::Round(($gvO.G / 255.0) * $gvTintG)
+                $gvOutB = [int][Math]::Round(($gvO.B / 255.0) * $gvTintB)
+                $gv[$gvX, $gvY] = '#{0:X2}{1:X2}{2:X2}' -f $gvOutR, $gvOutG, $gvOutB
+            }
+        }
+    }
+
+    $gvBottle.Dispose()
+    $gvOverlay.Dispose()
+    return , $gv
+}
+
+function New-GrapefruitJuice([string]$gjOut) {
+    # The slice's own mid flesh tone, so the drink and the fruit read as one thing.
+    $gj = Get-GVanillaPotionTint '#E8738C'
+    Save-GPng $gjOut $gj 16 16
+}
+
 # --------------------------------------------------------------------- targets
 New-GrapefruitHanging (Join-Path $gBlockDir 'grapefruit.png')
 New-GrapefruitLogSide (Join-Path $gBlockDir 'grapefruit_log.png')
@@ -341,5 +399,6 @@ New-GrapefruitLeaves (Join-Path $gBlockDir 'grapefruit_leaves.png')
 New-GrapefruitSapling (Join-Path $gBlockDir 'grapefruit_sapling.png')
 New-GrapefruitItem (Join-Path $gItemDir 'grapefruit.png')
 New-GrapefruitSlice (Join-Path $gItemDir 'grapefruit_slice.png')
+New-GrapefruitJuice (Join-Path $gItemDir 'grapefruit_juice.png')
 
-Write-Host "wrote 7 grapefruit-tree textures to $gBlockDir and $gItemDir"
+Write-Host "wrote 8 grapefruit-tree textures to $gBlockDir and $gItemDir"

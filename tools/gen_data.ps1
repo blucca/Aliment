@@ -848,7 +848,39 @@ function Write-SaltRecipe([string]$name, [string]$salt, [string]$base, [string]$
 "@
 }
 
-$waterBottle = 'minecraft:potion'
+# Salted water takes a **water bottle**, not "any potion": salt stirred into a potion of healing is
+# not salt water, and the old bare `minecraft:potion` ingredient accepted exactly that. Vanilla's
+# `Ingredient` is a `HolderSet<Item>` and cannot filter by component, so this is Fabric's component
+# filter - the same one the grapefruit juice recipe uses. A filter that fails to parse drops the
+# recipe silently, so the self test asks the recipe manager for both of these by name.
+$waterBottleFilter = @"
+    {
+      "fabric:type": "fabric:components",
+      "base": "minecraft:potion",
+      "components": {
+        "minecraft:potion_contents": {
+          "potion": "minecraft:water"
+        }
+      }
+    }
+"@
+
+function Write-SaltWaterRecipe([string]$name, [string]$salt, [string]$result) {
+    Write-Recipe $name @"
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "$ns`:$salt",
+$waterBottleFilter
+  ],
+  "result": {
+    "count": 1,
+    "id": "$ns`:$result"
+  }
+}
+"@
+}
 
 # The stirring rod is two sticks stacked vertically.
 Write-Recipe 'stirring_rod' @"
@@ -868,8 +900,8 @@ Write-Recipe 'stirring_rod' @"
   }
 }
 "@
-Write-SaltRecipe 'crude_salt_water' 'crude_salt' $waterBottle 'crude_salt_water'
-Write-SaltRecipe 'salt_water' 'salt_powder' $waterBottle 'salt_water'
+Write-SaltWaterRecipe 'crude_salt_water' 'crude_salt' 'crude_salt_water'
+Write-SaltWaterRecipe 'salt_water' 'salt_powder' 'salt_water'
 Write-SaltRecipe 'crude_salt_swamp_water' 'crude_salt' "$ns`:swamp_water_bottle" 'crude_salt_swamp_water'
 Write-SaltRecipe 'salt_swamp_water' 'salt_powder' "$ns`:swamp_water_bottle" 'salt_swamp_water'
 Write-SaltRecipe 'crude_salt_sea_water' 'crude_salt' "$ns`:sea_water_bottle" 'crude_salt_sea_water'

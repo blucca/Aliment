@@ -684,6 +684,7 @@ data class AlimentData(
         @JvmField val GLUCOSE_PER_BREAD: Float = AlimentModelBridge.GLUCOSE_PER_BREAD
         @JvmField val GLUCOSE_PER_RAW_MEAT: Float = AlimentModelBridge.GLUCOSE_PER_RAW_MEAT
         @JvmField val GLUCOSE_PER_COOKED_MEAT: Float = AlimentModelBridge.GLUCOSE_PER_COOKED_MEAT
+        @JvmField val GLUCOSE_PER_SWEET_DRINK: Float = AlimentModelBridge.GLUCOSE_PER_SWEET_DRINK
 
         // ---------------------------------------------------------------- naringin & CYP3A4
 

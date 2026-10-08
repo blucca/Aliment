@@ -309,6 +309,7 @@ public final class AlimentModelBridge {
     public static final float GLUCOSE_PER_BREAD = ModelConstants.GLUCOSE_PER_BREAD();
     public static final float GLUCOSE_PER_RAW_MEAT = ModelConstants.GLUCOSE_PER_RAW_MEAT();
     public static final float GLUCOSE_PER_COOKED_MEAT = ModelConstants.GLUCOSE_PER_COOKED_MEAT();
+    public static final float GLUCOSE_PER_SWEET_DRINK = ModelConstants.GLUCOSE_PER_SWEET_DRINK();
 
     // ================================================================== the reference ranges
 

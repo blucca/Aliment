@@ -2511,6 +2511,51 @@ class AlimentPhysiologySelfTest : ModInitializer {
         )
         check("eating it does not move CYP3A4 by itself", after.cyp3a4 == AlimentData.CYP3A4_NORMAL)
 
+        // The juice: the slice pressed into a bottle with sugar. It has to carry the slice's naringin
+        // and vitamin C, take its water from the drink path rather than the slice's own 5, and add
+        // the sugar's glucose - which is the one number the slice does not have.
+        val juiceFood = AlimentItems.GRAPEFRUIT_JUICE.components().get(DataComponents.FOOD)
+        logger.info(
+            "PHYS grapefruit juice food: {} hunger {} saturation",
+            juiceFood?.nutrition(), juiceFood?.saturation(),
+        )
+        check(
+            "a glass of grapefruit juice is 0 hunger, because it is a drink and not a meal",
+            juiceFood != null && juiceFood.nutrition() == 0,
+        )
+        check(
+            "and can be drunk on a full stomach, for the same reason a slice can be eaten on one",
+            juiceFood != null && juiceFood.canAlwaysEat(),
+        )
+
+        player.setAttached(AlimentAttachments.DATA, AlimentData.HEALTHY)
+        ItemStack(AlimentItems.GRAPEFRUIT_JUICE, 1).finishUsingItem(level, player)
+        val juice = player.getAttachedOrCreate(AlimentAttachments.DATA)
+        logger.info(
+            "PHYS grapefruit juice drunk: water {} naringin {} vitaminC {} glucose {} cyp3a4 {}",
+            juice.water, juice.naringin, juice.traceElements.vitaminC, juice.glucose, juice.cyp3a4,
+        )
+        check("a glass of juice adds a full drink's 15 water", abs(juice.water - 95f) < 0.01f)
+        check("and one naringin, the same as a slice", abs(juice.naringin - 1f) < 0.001f)
+        check(
+            "and 10 vitamin C on top of the normal 60",
+            abs(juice.traceElements.vitaminC - 70f) < 0.001f,
+        )
+        check(
+            "and the sugar's 0.7 glucose rather than the plant food's 0.4",
+            abs(juice.glucose - (AlimentData.GLUCOSE_NORMAL + AlimentData.GLUCOSE_PER_SWEET_DRINK)) < 0.001f,
+        )
+        check("drinking it does not move CYP3A4 by itself", juice.cyp3a4 == AlimentData.CYP3A4_NORMAL)
+        check(
+            "and one glass fills as much of the naringin cap as one slice, so ten glasses is the cap",
+            abs(AlimentData.NARINGIN_CAP / juice.naringin - 10f) < 0.001f,
+        )
+        check(
+            "and it is routed as a sweet drink rather than as the plant food it is pressed from",
+            AlimentIngestion.isDrink(AlimentItems.GRAPEFRUIT_JUICE) &&
+                abs(AlimentIngestion.glucoseFor(AlimentItems.GRAPEFRUIT_JUICE) - AlimentData.GLUCOSE_PER_SWEET_DRINK) < 0.0001f,
+        )
+
         // Milk: the standard drink's worth of water, through vanilla's own consumable path.
         player.setAttached(AlimentAttachments.DATA, AlimentData.HEALTHY)
         ItemStack(Items.MILK_BUCKET, 1).finishUsingItem(level, player)
@@ -2689,6 +2734,17 @@ class AlimentPhysiologySelfTest : ModInitializer {
         check(
             "a grapefruit slice adds as much vitamin C as a carrot",
             abs(afterGrapefruit - afterCarrot) < 0.001f,
+        )
+
+        // The same slice, pressed into a bottle: the sugar brings glucose but no vitamin C of its
+        // own, so a glass is worth exactly what the slice in it was worth.
+        player.setAttached(AlimentAttachments.DATA, vitCDeficient)
+        ItemStack(AlimentItems.GRAPEFRUIT_JUICE, 1).finishUsingItem(level, player)
+        val afterJuice = player.getAttachedOrCreate(AlimentAttachments.DATA).traceElements.vitaminC
+        logger.info("PHYS vitamin C from grapefruit juice: {}", afterJuice)
+        check(
+            "a glass of grapefruit juice adds as much vitamin C as the slice it is pressed from",
+            abs(afterJuice - afterGrapefruit) < 0.001f,
         )
 
         // The mandrake, eaten: the fruit and the seeds both carry the two alkaloids.
