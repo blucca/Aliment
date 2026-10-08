@@ -2,7 +2,10 @@
   "ambientocclusion": false,
   "textures": {
     "particle": "aliment:block/fermentation_tank_glass",
-    "glass": "aliment:block/fermentation_tank_glass",
+    "glass": {
+      "force_translucent": true,
+      "sprite": "aliment:block/fermentation_tank_glass"
+    },
     "planks": "aliment:block/willow_planks",
     "content": "aliment:block/tank_liquid_beer"
   },

@@ -675,8 +675,25 @@ All four generate in every vanilla village chest and in the pillager outpost's.
    right-click. The reading is printed in chat - `Blood glucose: 5.1 mmol/L`, localised as
    `当前血糖：5.1 mmol/L` in `zh_cn` - and the strip is used up.
 
-The strip is read from the off hand and the meter from the main hand specifically, so the pair is
-unambiguous whichever way round the player sets it up: exactly one combination works.
+The strip is read from the off hand and the meter from the main hand specifically, so there is exactly
+one arrangement that works and no ambiguity about which item is doing what.
+
+### A strip is a sample, not a sensor
+
+The reading a bloodied strip reports is **the glucose the player had when the blood was taken**, stored
+on the strip itself as a data component in mmol/L. It does not track the body afterwards.
+
+That is the point of taking a sample. A reading that followed the player's blood sugar would say
+nothing about the moment it was taken, and would make it impossible to prick a finger, eat, and then
+compare - or to take a strip to another player and have it still mean what it meant.
+
+Because the value rides on the stack, it survives being put in a chest, dropped on the ground, or
+handed over, exactly like the concentration on a bottle of wine. A strip with no sample on it at all -
+one left over from before this data existed, or one spawned by a command - falls back to the body's
+current glucose, which is how every strip behaved before.
+
+The meter reads the sample **before** it consumes the strip: emptying a stack takes its components
+with it, so reading afterwards would find no sample at all.
 
 ---
 

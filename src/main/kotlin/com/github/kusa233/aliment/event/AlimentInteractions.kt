@@ -4,6 +4,7 @@ import com.github.kusa233.aliment.advancement.AlimentAdvancements
 import com.github.kusa233.aliment.physiology.AlimentAttachments
 import com.github.kusa233.aliment.physiology.AlimentData
 import com.github.kusa233.aliment.physiology.AlimentIngestion
+import com.github.kusa233.aliment.physiology.AlimentModelBridge
 import com.github.kusa233.aliment.physiology.AlimentRuntime
 import com.github.kusa233.aliment.registry.AlimentBlocks
 import com.github.kusa233.aliment.registry.AlimentItems
@@ -11,6 +12,7 @@ import com.github.kusa233.aliment.world.AlimentGrinding
 import com.github.kusa233.aliment.world.block.AlcoholCauldronBlock
 import com.github.kusa233.aliment.world.block.BrineCauldronBlock
 import com.github.kusa233.aliment.world.block.WillowSoupCauldronBlock
+import com.github.kusa233.aliment.world.item.BloodiedTestStripItem
 import com.github.kusa233.aliment.world.item.WineItem
 import net.fabricmc.fabric.api.event.player.UseBlockCallback
 import net.fabricmc.fabric.api.event.player.UseItemCallback
@@ -291,7 +293,8 @@ object AlimentInteractions {
 
         // The drop is spent on this strip, so a second strip needs a second prick.
         runtime.bleedingTicks = 0
-        val bloodied = ItemStack(AlimentItems.BLOODIED_TEST_STRIP)
+        val capturedGlucose = player.getAttachedOrElse(AlimentAttachments.DATA, AlimentData.HEALTHY).glucose
+        val bloodied = BloodiedTestStripItem.createStack(AlimentItems.BLOODIED_TEST_STRIP, capturedGlucose)
         if (!player.hasInfiniteMaterials()) {
             stack.shrink(1)
         }
@@ -311,9 +314,11 @@ object AlimentInteractions {
     /**
      * Reads the bloodied strip in the other hand and prints the reading in chat.
      *
-     * The meter has to be in the **main** hand and the strip in the **off** hand, so there is exactly
-     * one arrangement that works and no ambiguity about which item is doing what. The strip is used
-     * up - a real one is - and the reading goes to the player alone, not to everyone nearby.
+     * The reading is the one **the strip took**, not the body's current glucose: a sample is worth
+     * nothing if it keeps changing after it was taken. The meter has to be in the **main** hand and
+     * the strip in the **off** hand, so there is exactly one arrangement that works and no ambiguity
+     * about which item is doing what. The strip is used up - a real one is - and the reading goes to
+     * the player alone, not to everyone nearby.
      */
     private fun readGlucose(player: Player, level: Level, hand: InteractionHand): InteractionResult? {
         val stack = player.getItemInHand(hand)
@@ -330,8 +335,9 @@ object AlimentInteractions {
             return InteractionResult.SUCCESS
         }
 
-        val data = player.getAttachedOrElse(AlimentAttachments.DATA, AlimentData.HEALTHY)
-        player.sendSystemMessage(Component.translatable(GLUCOSE_READING_KEY, data.glucoseReading))
+        // The reading is taken *before* the strip is consumed: emptying a stack takes its components
+        // with it, so reading afterwards would find no sample at all.
+        player.sendSystemMessage(glucoseReadingMessage(strip, player.getAttachedOrElse(AlimentAttachments.DATA, AlimentData.HEALTHY).glucose))
         if (!player.hasInfiniteMaterials()) {
             strip.shrink(1)
         }
@@ -342,6 +348,22 @@ object AlimentInteractions {
         )
         return InteractionResult.SUCCESS
     }
+
+    /**
+     * The chat line the meter prints for [strip]: the reading the strip took, in mmol/L.
+     *
+     * [fallback] is the reading a strip with no sample on it falls back to; see
+     * [BloodiedTestStripItem.getGlucose].
+     *
+     * Split out from [readGlucose] so the self test can assert the text the meter really produces
+     * from a strip rather than a line it built for itself - which is the difference between testing
+     * that the strip is read and testing that a string literal is a string literal.
+     */
+    internal fun glucoseReadingMessage(strip: ItemStack, fallback: Float): Component =
+        Component.translatable(
+            GLUCOSE_READING_KEY,
+            AlimentModelBridge.glucoseReading(BloodiedTestStripItem.getGlucose(strip, fallback)),
+        )
 
     /** The chat line the meter prints: the reading, with its unit, and nothing else. */
     private const val GLUCOSE_READING_KEY = "message.aliment.glucose.reading"

@@ -710,6 +710,14 @@ public final class AlimentModelBridge {
         return Physiology.glucoseReading(data.getGlucose());
     }
 
+    /**
+     * The same format for a value that is not the body's current glucose, which is what a bloodied
+     * test strip carries: the reading it took when the drop was caught.
+     */
+    public static String glucoseReading(float glucose) {
+        return Physiology.glucoseReading(glucose);
+    }
+
     // ================================================================== the conversion
     //
     // The only place a Kotlin `AlimentData` becomes the model's `ModelState` or back. Everything

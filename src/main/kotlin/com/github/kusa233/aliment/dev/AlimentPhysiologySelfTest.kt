@@ -18,6 +18,7 @@ import com.github.kusa233.aliment.registry.AlimentBlocks
 import com.github.kusa233.aliment.registry.AlimentItems
 import com.github.kusa233.aliment.world.AlimentGrinding
 import com.github.kusa233.aliment.world.AlimentLoot
+import com.github.kusa233.aliment.world.item.BloodiedTestStripItem
 import com.github.kusa233.aliment.world.item.WineItem
 import com.google.gson.JsonParser
 import com.mojang.datafixers.util.Either
@@ -1031,6 +1032,11 @@ class AlimentPhysiologySelfTest : ModInitializer {
         logger.info("PHYS a strip on a bleeding finger: {} bleeding {} held {}", caught, runtime().bleedingTicks, player.mainHandItem)
         check("a strip used while bleeding becomes a bloodied one", player.mainHandItem.`is`(AlimentItems.BLOODIED_TEST_STRIP))
         check("the drop is spent on that strip", runtime().bleedingTicks == 0)
+        check("the bloodied strip stores the collection-time glucose", BloodiedTestStripItem.getGlucose(player.mainHandItem, 0f) == 6.4f)
+        val savedSample = player.mainHandItem.copy()
+        player.setAttached(AlimentAttachments.DATA, AlimentData.HEALTHY.copy(glucose = 9.9f))
+        check("a copied sample keeps its reading after the player's glucose changes", BloodiedTestStripItem.getGlucose(savedSample, 9.9f) == 6.4f)
+        player.setAttached(AlimentAttachments.DATA, AlimentData.HEALTHY.copy(glucose = 6.4f))
 
         // --- and a stack leaves the rest clean, with the bloodied one put away
         player.setAttached(AlimentAttachments.RUNTIME, AlimentRuntime())
@@ -1042,17 +1048,32 @@ class AlimentPhysiologySelfTest : ModInitializer {
         check("only one of the three was used", player.mainHandItem.`is`(AlimentItems.GLUCOSE_TEST_STRIP) && player.mainHandItem.count == 2)
         check("and exactly one bloodied strip was made", bloodiedCarried(player) == 1)
 
-        // --- the meter reads it, and the reading goes to chat
+        // --- the meter reads the captured glucose, not the player's current glucose
         player.getInventory().clearContent()
+        player.setAttached(AlimentAttachments.DATA, AlimentData.HEALTHY.copy(glucose = 9.9f))
+        val sample = BloodiedTestStripItem.createStack(AlimentItems.BLOODIED_TEST_STRIP, 6.4f)
+        // The body is at 9.9 and the strip took 6.4, so the line proves which of the two it read. It
+        // is built while the sample is still on the strip, which is the order `readGlucose` uses:
+        // emptying a stack takes its components with it, so reading after the meter would be too late.
+        val printed = AlimentInteractions.glucoseReadingMessage(sample, 9.9f).string
+        logger.info("PHYS the meter prints: {}", printed)
+        check("the reading carries its unit, in mmol/L", printed.contains("mmol/L"))
+        check("the meter prints the glucose the strip took", printed.contains("6.4"))
+        check("and never the body's current glucose", !printed.contains("9.9"))
+
         player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(AlimentItems.GLUCOSE_METER, 1))
-        player.setItemInHand(InteractionHand.OFF_HAND, ItemStack(AlimentItems.BLOODIED_TEST_STRIP, 1))
+        player.setItemInHand(InteractionHand.OFF_HAND, sample)
         val read = use(InteractionHand.MAIN_HAND)
-        val expected = Component.translatable("message.aliment.glucose.reading", "6.4")
-        logger.info("PHYS the meter: {}", expected.string)
         check("the meter reports a successful use", read == InteractionResult.SUCCESS)
-        check("the reading is the body's own glucose, in mmol/L", expected.string.contains("mmol/L"))
-        check("and it names the value the meter was handed", expected.string.contains("6.4"))
         check("the bloodied strip is used up", player.offhandItem.isEmpty)
+
+        // --- a strip with no sample on it falls back to the body, which is what an old one is
+        val bare = ItemStack(AlimentItems.BLOODIED_TEST_STRIP, 1)
+        logger.info("PHYS a strip with no sample prints: {}", AlimentInteractions.glucoseReadingMessage(bare, 9.9f).string)
+        check(
+            "a strip with no sample falls back to the body rather than printing nothing",
+            AlimentInteractions.glucoseReadingMessage(bare, 9.9f).string.contains("9.9"),
+        )
 
         // --- with nothing to read, the meter refuses rather than printing a guess
         player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(AlimentItems.GLUCOSE_METER, 1))

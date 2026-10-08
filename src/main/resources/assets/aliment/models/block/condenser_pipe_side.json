@@ -2,7 +2,10 @@
   "ambientocclusion": false,
   "textures": {
     "particle": "aliment:block/condenser_pipe_glass",
-    "glass": "aliment:block/condenser_pipe_glass"
+    "glass": {
+      "force_translucent": true,
+      "sprite": "aliment:block/condenser_pipe_glass"
+    }
   },
   "elements": [
     {

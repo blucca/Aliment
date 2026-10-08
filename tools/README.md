@@ -10,6 +10,7 @@ of the built mod — they only regenerate files under `src/main/resources`.
 | `lang_ja_jp.json` | The Japanese names, read by `gen_data.ps1`, for the same reason. |
 | `gen_textures.ps1` / `gen_textures.cmd` | Regenerates all PNG textures (blocks, items, entity boats, bark and soup sprites, the cauldron liquid surfaces and the mod icon) from scratch with ImageMagick. |
 | `gen_glucose_textures.ps1` | The five item sprites of the glucose chain (insulin injection, glucose meter, clean and bloodied test strips, microneedle). Pure `System.Drawing` and no ImageMagick, and it writes only those five files, so it can be re-run on its own after changing one of them. |
+| `gen_glass_textures.ps1` | The fermentation tank and condenser pipe frames. Pure `System.Drawing`, writes only those two files. Keeps the copper frame pixel-for-pixel - including the tank's amber inner-corner bevel - and leaves everything inside it transparent, so the only thing it removes from the originals is the decoration that used to sit in the middle. |
 | `verify-datapack/` | A dev-only data pack that proves the willow world generation actually runs. See below. |
 
 Both generators are idempotent: running them twice produces byte-identical output.
@@ -38,6 +39,7 @@ Both generators are idempotent: running them twice produces byte-identical outpu
 tools\gen_data.cmd
 tools\gen_textures.cmd
 pwsh -ExecutionPolicy Bypass -File tools\gen_glucose_textures.ps1
+pwsh -ExecutionPolicy Bypass -File tools\gen_glass_textures.ps1
 ```
 
 Both `.ps1` files are pure ASCII, so they also run fine when invoked directly:

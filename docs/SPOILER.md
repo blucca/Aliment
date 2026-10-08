@@ -658,6 +658,10 @@ player eventually runs out however healthy the rest of the body is.
   is still bleeding (a strip used after the drop has dried is refused), then hold the meter in the
   **main hand** and the bloodied strip in the **off hand** and right-click. The reading is printed in
   chat - `Blood glucose: 5.1 mmol/L` - and the strip is used up.
+* **A bloodied strip is a sample, not a sensor.** It stores the glucose the player had *when the blood
+  was taken*, and reports that value however much later it is read - so a strip can be pricked before a
+  meal, read after it, put in a chest, or handed to another player, and still mean what it meant. Only
+  a strip with no sample on it at all falls back to the body's current glucose.
 * **Insulin aspart is the one drug that makes a body worse on purpose.** Unlike the body's own insulin
   it is not switched off at the bottom of the reference range, so one dose from a normal body is a
   survivable dip to about 2.7 mmol/L and two are a crisis. Eating is the only way out.
