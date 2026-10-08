@@ -2491,7 +2491,10 @@ class AlimentPhysiologySelfTest : ModInitializer {
             "a grapefruit slice is 2 hunger and 3 saturation",
             sliceFood != null && sliceFood.nutrition() == 2 && abs(sliceFood.saturation() - 3f) < 0.01f,
         )
-        check("and a slice is ordinary food, not something you can eat on a full stomach", sliceFood != null && !sliceFood.canAlwaysEat())
+        check(
+            "and a slice can be eaten on a full stomach, because it is a dose before it is a meal",
+            sliceFood != null && sliceFood.canAlwaysEat(),
+        )
 
         player.setAttached(AlimentAttachments.DATA, AlimentData.HEALTHY)
         ItemStack(AlimentItems.GRAPEFRUIT_SLICE, 1).finishUsingItem(level, player)

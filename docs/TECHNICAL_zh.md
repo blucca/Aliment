@@ -32,8 +32,8 @@
 
 ### 1.1 Scala 3 模型层 (`src/main/scala/.../physiology/model`)
 - **职责**：承载全部微分方程、生理稳态、电解质参考范围、免疫钟形曲线、体内药物动力学以及每 tick 的数值演化。
-- **纯函数约束**：该层严禁导入任何 Minecraft、Kotlin、Fabric 的类库。输入输出均为纯数值与标准不可变 Case Class（`ModelState`, `ModelMineral`, `ModelMediators`, `ModelElectrolytes`, `ModelTraceElements`, `ModelDrugs`）。
-- **无状态计算**：`Physiology.tick(...)` 接受当前状态与环境输入，纯函数式返回演化后的下一状态；体内 9 种药物与生物碱集中于 `ModelDrugs` 并由 `Physiology.stepDrugs` 统一推进代谢衰减。
+- **纯函数约束**：该层严禁导入任何 Minecraft、Kotlin、Fabric 的类库。输入输出均为纯数值与标准不可变 Case Class（`ModelState`, `ModelMineral`, `ModelMediators`, `ModelElectrolytes`, `ModelTraceElements`, `ModelDrugs`, `ModelEnzymes`）。
+- **无状态计算**：`Physiology.tick(...)` 接受当前状态与环境输入，纯函数式返回演化后的下一状态；体内药物与生物碱集中于 `ModelDrugs` 并由 `Physiology.stepDrugs` 统一推进代谢衰减，而作用于它们的清除通路集中于 `ModelEnzymes`——药物是身体**携带**的东西，酶指标是它被**清除**的速度。
 
 ### 1.2 Java 接缝层 (`src/main/java/.../physiology/AlimentModelBridge.java`)
 - **存在的根本原因**：Kotlin K2 编译器在引用一个含有 Scala 类型的类时，会主动尝试解析其所有父接口（包括 `scala.Product`）。即使 classpath 正确配置，Kotlin 也会报错 `Cannot access 'scala.Product'`。

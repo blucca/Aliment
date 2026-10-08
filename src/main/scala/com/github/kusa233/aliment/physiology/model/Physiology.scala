@@ -592,13 +592,14 @@ object Physiology {
     // smallest step the model has, so "the liver clears berberine at the rate this much grapefruit
     // allows" is decided by the naringin the body actually still carries at the end of the tick.
     val naringin = Math.max(drugs.naringin - ModelConstants.NARINGIN_DECAY_PER_TICK, 0f)
-    val cyp3a4 = cyp3a4For(naringin)
+    val enzymes = new ModelEnzymes(cyp3a4For(naringin))
 
-    // Berberine is cleared by CYP3A4 and by nothing else, so the enzyme index scales the rate the
-    // constant was written at. At the 85 baseline the factor is exactly 1 and the metabolism is the
-    // one the model has always had; at 10 it takes eight and a half times as long.
+    // Berberine is cleared by CYP3A4 and by nothing else, so the rate the constant was written at is
+    // scaled by how fast the liver is currently running. At the 85 baseline the fraction is exactly
+    // 1 and the metabolism is the one the model has always had; at 10 it takes eight and a half
+    // times as long. The division lives in `ModelEnzymes.cyp3a4Fraction`, not here.
     val berberine = Math.max(
-      drugs.berberine - ModelConstants.BERBERINE_DECAY_PER_TICK * (cyp3a4 / ModelConstants.CYP3A4_NORMAL),
+      drugs.berberine - ModelConstants.BERBERINE_DECAY_PER_TICK * enzymes.cyp3a4Fraction,
       0f,
     )
     val glycyrrhizin = Math.max(drugs.glycyrrhizin - ModelConstants.GLYCYRRHIZIN_DECAY_PER_TICK, 0f)
@@ -634,7 +635,10 @@ object Physiology {
     // 1. Drugs and injected pyrogen are metabolised first so the rest of the tick sees the current
     //    concentrations. A negative pyrogen is an antipyretic offset and clears the same way.
     val drugs = stepDrugs(state.drugs)
-    val cyp3a4 = cyp3a4For(drugs.naringin)
+    // The liver's enzyme indices are read off the compounds the tick has just left behind, so the
+    // state and the metabolism that used them agree by construction rather than by two call sites
+    // happening to ask the same question.
+    val enzymes = new ModelEnzymes(cyp3a4For(drugs.naringin))
     val pyrogen = stepPyrogen(state, ambient)
 
     // 1b. Glucose and insulin, which the drugs above feed into: injected insulin aspart is what
@@ -662,7 +666,7 @@ object Physiology {
       .withImmuneActive(nextImmuneActive)
       .withGlucose(glucose)
       .withInsulin(insulin)
-      .withCyp3a4(cyp3a4)
+      .withCyp3a4(enzymes.cyp3a4)
 
     // 3. The immune response, mediator by mediator.
     val inflamed = next.withMediators(stepMediators(next))

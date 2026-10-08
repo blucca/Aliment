@@ -1070,7 +1070,7 @@ gymnopilus: one raw mushroom 1.3/1.3; half a day later psilocybin 0.65 psilocin 
 naringin: cap 10; cyp3a4 85 at 2 | 60 past 2 | 45 past 4 | 25 past 7 | 10 at 8.5
           a full body of naringin clears in one game day; the enzyme is back to 85 once it has
           coptis (1.1 berberine) cleared in 9429 ticks alone, 17827 with a body full of grapefruit
-grapefruit slice: 2 hunger / 3 saturation; +5 water +1 naringin +10 vitamin C
+grapefruit slice: 2 hunger / 3 saturation; +5 water +1 naringin +10 vitamin C; always edible
           eleven slices still leave the body at the naringin cap, and the next tick puts the enzyme at 10
           milk adds 15 water
 glucose: fasting 5.0 -> 3.49 in two game days; 0.97 after eight
@@ -1174,6 +1174,7 @@ Kotlin **从不提到 Scala 的类型**：两者之间隔着 `AlimentModelBridge
 | `ModelElectrolytes` | `ElectrolyteDefaults`（`MINERALS`、`HEALTHY`） | `Electrolytes` |
 | `ModelTraceElements` | `TraceElementDefaults`（`HEALTHY`） | `TraceElements` |
 | `ModelDrugs` | `DrugDefaults`（`CLEAN`） | `AlimentData`（体内药物各字段与 `Compounds`） |
+| `ModelEnzymes` | `EnzymeDefaults`（`NORMAL`） | `AlimentData.cyp3a4`（单字段，同药物一样平铺存储） |
 | `ModelState` | `ModelConstants`（全部标量常数） | `AlimentData` |
 
 | 文件 | 内容 |

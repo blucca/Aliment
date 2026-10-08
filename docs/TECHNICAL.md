@@ -32,8 +32,8 @@ To guarantee the pure mathematical integrity of physiological calculations and e
 
 ### 1.1 Scala 3 Model Layer (`src/main/scala/.../physiology/model`)
 - **Responsibilities**: Houses all differential equations, physiological steady states, electrolyte clinical reference ranges, bell-shaped immune clearance curves, in vivo pharmacokinetics, and per-tick numerical state integration.
-- **Pure Function Invariants**: This layer strictly prohibits importing any Minecraft, Kotlin, or Fabric packages. All inputs and outputs are pure numeric primitives and standard immutable case classes (`ModelState`, `ModelMineral`, `ModelMediators`, `ModelElectrolytes`, `ModelTraceElements`, `ModelDrugs`).
-- **Stateless Computation**: `Physiology.tick(...)` consumes the current state and environmental parameters, functionally returning the integrated next state; all active compounds and alkaloids are encapsulated in `ModelDrugs` and metabolically stepped by `Physiology.stepDrugs`.
+- **Pure Function Invariants**: This layer strictly prohibits importing any Minecraft, Kotlin, or Fabric packages. All inputs and outputs are pure numeric primitives and standard immutable case classes (`ModelState`, `ModelMineral`, `ModelMediators`, `ModelElectrolytes`, `ModelTraceElements`, `ModelDrugs`, `ModelEnzymes`).
+- **Stateless Computation**: `Physiology.tick(...)` consumes the current state and environmental parameters, functionally returning the integrated next state; all active compounds and alkaloids are encapsulated in `ModelDrugs` and metabolically stepped by `Physiology.stepDrugs`, and the clearance pathways that act on them are encapsulated in `ModelEnzymes` - a drug is what the body is carrying, an enzyme index is how fast it is being cleared.
 
 ### 1.2 Java Interop Seam (`src/main/java/.../physiology/AlimentModelBridge.java`)
 - **Root Justification**: When the Kotlin K2 compiler references a class mentioning a Scala type, it eagerly attempts to resolve all super-interfaces (including `scala.Product`). Even with a correctly configured classpath, Kotlin fails with `Cannot access 'scala.Product'`.

@@ -292,6 +292,47 @@ object DrugDefaults {
 }
 
 /**
+ * The liver's enzyme indices, each on its own `0..100` activity scale.
+ *
+ * These are not the concentration of anything the player took. They are how fast a set of clearance
+ * pathways is currently running, which is a property of the body rather than of the last meal - so
+ * they belong beside [ModelState.drugs] rather than inside it, and they outlive the thing that moved
+ * them only as long as that thing is still there.
+ *
+ * [cyp3a4] is the first of them, and it is the shape every drug interaction in this mod is built on:
+ * something eaten changes an enzyme, and the enzyme changes how long something else lasts. A second
+ * enzyme is a second field here and a second clearance rate that reads [cyp3a4Fraction]'s sibling.
+ */
+final case class ModelEnzymes(
+    /**
+     * CYP3A4 activity, 0..[ModelConstants.CYP3A4_MAX], and [ModelConstants.CYP3A4_NORMAL] in a body
+     * that has eaten no grapefruit.
+     *
+     * It is a step function of [ModelDrugs.naringin] and of nothing else, so it is not a quantity
+     * with a life of its own: it is read off the naringin each tick and never disagrees with it by
+     * more than one tick.
+     */
+    @BeanProperty cyp3a4: Float = ModelConstants.CYP3A4_NORMAL,
+) {
+
+  /**
+   * How fast this body clears what CYP3A4 clears, as a fraction of a clean body's rate.
+   *
+   * Exactly `1.0` at [ModelConstants.CYP3A4_NORMAL] and `0.12` at the deepest naringin step. It is
+   * the form a clearance rate actually wants, so the division happens here once rather than at each
+   * call site - and a rate that reads it cannot accidentally forget to.
+   */
+  def cyp3a4Fraction: Float = this.cyp3a4 / ModelConstants.CYP3A4_NORMAL
+
+  def withCyp3a4(value: Float): ModelEnzymes = copy(cyp3a4 = value)
+}
+
+/** The enzyme indices of a body that has taken nothing: the model's starting point. */
+object EnzymeDefaults {
+  val NORMAL: ModelEnzymes = new ModelEnzymes()
+}
+
+/**
  * Every scalar the model reads or writes, in one place.
  *
  * `AlimentModelBridge` re-exports these names to Kotlin, so the numbers exist exactly once and the
@@ -648,6 +689,14 @@ final case class ModelState(
     /** Pharmacological compounds and alkaloids carried in the body. */
     @BeanProperty drugs: ModelDrugs = DrugDefaults.CLEAN,
     /**
+     * The liver's enzyme indices, which is what clears [drugs] and at what rate.
+     *
+     * Deliberately a sibling of [drugs] rather than a member of it: a drug is something the body is
+     * carrying and is clearing, an enzyme index is how fast one of its clearance pathways is
+     * running. See [ModelEnzymes].
+     */
+    @BeanProperty enzymes: ModelEnzymes = EnzymeDefaults.NORMAL,
+    /**
      * Blood glucose, in mmol/L. [ModelConstants.GLUCOSE_NORMAL] in a healthy fasting body; food is
      * the only thing that puts it back.
      */
@@ -658,15 +707,6 @@ final case class ModelState(
      * [ModelDrugs.insulinAspart].
      */
     @BeanProperty insulin: Float = ModelConstants.INSULIN_NORMAL,
-    /**
-     * CYP3A4 activity, 0..[ModelConstants.CYP3A4_MAX], and [ModelConstants.CYP3A4_NORMAL] in a body
-     * that has eaten no grapefruit.
-     *
-     * It is the rate at which the liver clears berberine. 85 means "at the metabolism the model was
-     * written with"; every step below it is a proportionally slower one. Naringin is the only thing
-     * that moves it, so it never disagrees with [ModelDrugs.naringin] by more than a single tick.
-     */
-    @BeanProperty cyp3a4: Float = ModelConstants.CYP3A4_NORMAL,
 ) {
   def withMediators(value: ModelMediators): ModelState = copy(mediators = value)
   def withBacteria(value: Float): ModelState = copy(bacteria = value)
@@ -680,7 +720,20 @@ final case class ModelState(
   def withDrugs(value: ModelDrugs): ModelState = copy(drugs = value)
   def withGlucose(value: Float): ModelState = copy(glucose = value)
   def withInsulin(value: Float): ModelState = copy(insulin = value)
-  def withCyp3a4(value: Float): ModelState = copy(cyp3a4 = value)
+  def withEnzymes(value: ModelEnzymes): ModelState = copy(enzymes = value)
+
+  /**
+   * CYP3A4 activity, read through [enzymes].
+   *
+   * The model reads the index as a bare number in the places that only need the value, so the
+   * grouping in [ModelEnzymes] costs those call sites nothing.
+   */
+  def cyp3a4: Float = enzymes.cyp3a4
+
+  /** How fast this body clears what CYP3A4 clears, as a fraction of a clean body's rate. */
+  def cyp3a4Fraction: Float = enzymes.cyp3a4Fraction
+
+  def withCyp3a4(value: Float): ModelState = copy(enzymes = enzymes.withCyp3a4(value))
 
   // Convenience accessors delegating to drugs
   def salicin: Float = drugs.salicin

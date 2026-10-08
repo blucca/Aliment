@@ -557,9 +557,21 @@ object AlimentItems {
         Item.Properties().food(grapefruitSliceFood()),
     ) { Item(it) }
 
-    /** Slices are a snack: eight of them come out of one fruit and they stack like any other food. */
+    /**
+     * Two hunger and three saturation points, and always edible.
+     *
+     * Eight slices come out of one fruit and they stack like any other food, but what a player eats
+     * them *for* is the naringin and the water rather than the two hunger. So a full stomach must
+     * not stand between them and a dose - which is the same reason a gymnopilus can be eaten on a
+     * full one, and it matters more here, because holding CYP3A4 down is a decision about the next
+     * few minutes rather than a meal.
+     */
     private fun grapefruitSliceFood(): FoodProperties =
-        buildFood(GRAPEFRUIT_SLICE_NUTRITION, GRAPEFRUIT_SLICE_SATURATION_POINTS / (GRAPEFRUIT_SLICE_NUTRITION * 2f))
+        buildFood(
+            GRAPEFRUIT_SLICE_NUTRITION,
+            GRAPEFRUIT_SLICE_SATURATION_POINTS / (GRAPEFRUIT_SLICE_NUTRITION * 2f),
+            alwaysEdible = true,
+        )
 
     /** Two hunger and three saturation points, the way a player reads them off the tooltip. */
     private const val GRAPEFRUIT_SLICE_NUTRITION = 2

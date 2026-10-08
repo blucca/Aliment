@@ -6,6 +6,7 @@ import com.github.kusa233.aliment.physiology.model.MineralRanges;
 import com.github.kusa233.aliment.physiology.model.ModelConstants;
 import com.github.kusa233.aliment.physiology.model.ModelDrugs;
 import com.github.kusa233.aliment.physiology.model.ModelElectrolytes;
+import com.github.kusa233.aliment.physiology.model.ModelEnzymes;
 import com.github.kusa233.aliment.physiology.model.ModelMediators;
 import com.github.kusa233.aliment.physiology.model.ModelMineral;
 import com.github.kusa233.aliment.physiology.model.ModelState;
@@ -762,7 +763,7 @@ public final class AlimentModelBridge {
     // ================================================================== the conversion
     //
     // The only place a Kotlin `AlimentData` becomes the model's `ModelState` or back. Everything
-    // above funnels through these four pairs, so there is exactly one definition of what the two
+    // above funnels through these pairs, so there is exactly one definition of what the two
     // representations mean.
 
     private static ModelState toModel(AlimentData data) {
@@ -780,6 +781,12 @@ public final class AlimentModelBridge {
                 data.getEthanol(),
                 data.getInsulinAspart());
 
+        // `AlimentData` keeps the enzyme indices as flat scalars, the same way it keeps the drugs;
+        // the grouping into a model-side type happens here and nowhere else. `ModelEnzymes` is a
+        // Scala type, so this has to stay private - a public signature naming it would put the
+        // `scala.Product` problem back into Kotlin.
+        ModelEnzymes enzymes = new ModelEnzymes(data.getCyp3a4());
+
         return new ModelState(
                 toModel(data.getMediators()),
                 data.getBacteria(),
@@ -791,9 +798,9 @@ public final class AlimentModelBridge {
                 data.getPyrogen(),
                 data.getImmuneActive(),
                 drugs,
+                enzymes,
                 data.getGlucose(),
-                data.getInsulin(),
-                data.getCyp3a4());
+                data.getInsulin());
     }
 
     private static AlimentData fromModel(ModelState state) {
@@ -822,7 +829,7 @@ public final class AlimentModelBridge {
                 state.getGlucose(),
                 state.getInsulin(),
                 drugs.getInsulinAspart(),
-                state.getCyp3a4());
+                state.getEnzymes().getCyp3a4());
     }
 
     private static ModelMediators toModel(Mediators mediators) {

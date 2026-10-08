@@ -717,9 +717,12 @@ itself, and one fruit crafts into **eight slices**.
 | Water | **5** |
 | Naringin | **1** |
 | Vitamin C | **10 µmol/L** - what a carrot is worth |
+| Always edible | **Yes** - a dose must not have to wait for a full stomach |
 
 A slice is the only food in the mod that also hydrates - it is a drink's job done by a snack, at a
-third of a drink's worth. Ten slices fill the body's naringin.
+third of a drink's worth. Ten slices fill the body's naringin. It is also one of the few foods that
+can be eaten on a full stomach, because what a player eats it *for* is the naringin rather than the
+two hunger.
 
 ### The Wood
 

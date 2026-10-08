@@ -157,9 +157,9 @@ cap and clearing over exactly one game day, the tick reading the enzyme index of
 berberine proved to fall at the written rate at the 85 baseline and at that step's fraction of it
 below - then the same dose of coptis cleared with and without a body full of grapefruit, which takes
 about 9,400 ticks alone against about 17,800 with the fruit. It eats a slice through the real item
-path to check 2 hunger, 3 saturation, 5 water, 1 naringin, the plant-food glucose and carrot-grade
-vitamin C, drinks a bucket of milk to check the standard 15 water, and eats eleven slices to prove the
-cap holds.
+path to check 2 hunger, 3 saturation, 5 water, 1 naringin, the plant-food glucose, carrot-grade
+vitamin C and that it can be eaten on a full stomach, drinks a bucket of milk to check the standard
+15 water, and eats eleven slices to prove the cap holds.
 
 The grapefruit **wood set** is checked through the loaded block tags rather than through the files,
 because tag membership is what a wood set actually is: each of the four log-shaped blocks is asserted
