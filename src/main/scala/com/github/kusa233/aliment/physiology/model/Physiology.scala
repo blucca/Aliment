@@ -556,6 +556,22 @@ object Physiology {
 
   // ------------------------------------------------------------------ the tick
 
+  /**
+   * How active the liver's CYP3A4 is at a given naringin load, on the 0..100 scale the index is
+   * reported in.
+   *
+   * A step function, not a curve: each threshold is one more grapefruit, and the index snaps to the
+   * activity that threshold leaves behind. Nothing else in the body moves it, so it always carries
+   * exactly one of five values, and everything the enzyme does downstream - today that is only the
+   * berberine metabolism - is scaled by how far below [ModelConstants.CYP3A4_NORMAL] it sits.
+   */
+  def cyp3a4For(naringin: Float): Float =
+    if (naringin >= ModelConstants.NARINGIN_CYP_STEP_4) ModelConstants.CYP3A4_AT_STEP_4
+    else if (naringin > ModelConstants.NARINGIN_CYP_STEP_3) ModelConstants.CYP3A4_AT_STEP_3
+    else if (naringin > ModelConstants.NARINGIN_CYP_STEP_2) ModelConstants.CYP3A4_AT_STEP_2
+    else if (naringin > ModelConstants.NARINGIN_CYP_STEP_1) ModelConstants.CYP3A4_AT_STEP_1
+    else ModelConstants.CYP3A4_NORMAL
+
   /** Metabolises and decays all pharmacological compounds carried in the body by one tick. */
   def stepDrugs(drugs: ModelDrugs): ModelDrugs = {
     val salicin = Math.max(drugs.salicin - ModelConstants.SALICIN_DECAY_PER_TICK, 0f)
@@ -571,7 +587,20 @@ object Physiology {
       ModelConstants.PSILOCIN_CAP,
     )
     val ephedrine = Math.max(drugs.ephedrine - ModelConstants.EPHEDRINE_DECAY_PER_TICK, 0f)
-    val berberine = Math.max(drugs.berberine - ModelConstants.BERBERINE_DECAY_PER_TICK, 0f)
+
+    // Naringin decays first, and the enzyme index is then read off what is left: a tick is the
+    // smallest step the model has, so "the liver clears berberine at the rate this much grapefruit
+    // allows" is decided by the naringin the body actually still carries at the end of the tick.
+    val naringin = Math.max(drugs.naringin - ModelConstants.NARINGIN_DECAY_PER_TICK, 0f)
+    val cyp3a4 = cyp3a4For(naringin)
+
+    // Berberine is cleared by CYP3A4 and by nothing else, so the enzyme index scales the rate the
+    // constant was written at. At the 85 baseline the factor is exactly 1 and the metabolism is the
+    // one the model has always had; at 10 it takes eight and a half times as long.
+    val berberine = Math.max(
+      drugs.berberine - ModelConstants.BERBERINE_DECAY_PER_TICK * (cyp3a4 / ModelConstants.CYP3A4_NORMAL),
+      0f,
+    )
     val glycyrrhizin = Math.max(drugs.glycyrrhizin - ModelConstants.GLYCYRRHIZIN_DECAY_PER_TICK, 0f)
     val ethanol = Math.max(drugs.ethanol - ModelConstants.ETHANOL_DECAY_PER_TICK, 0f)
     val insulinAspart = Math.max(drugs.insulinAspart - ModelConstants.INSULIN_ASPART_DECAY_PER_TICK, 0f)
@@ -586,6 +615,7 @@ object Physiology {
       ephedrine,
       berberine,
       glycyrrhizin,
+      naringin,
       ethanol,
       insulinAspart,
     )
@@ -604,6 +634,7 @@ object Physiology {
     // 1. Drugs and injected pyrogen are metabolised first so the rest of the tick sees the current
     //    concentrations. A negative pyrogen is an antipyretic offset and clears the same way.
     val drugs = stepDrugs(state.drugs)
+    val cyp3a4 = cyp3a4For(drugs.naringin)
     val pyrogen = stepPyrogen(state, ambient)
 
     // 1b. Glucose and insulin, which the drugs above feed into: injected insulin aspart is what
@@ -631,6 +662,7 @@ object Physiology {
       .withImmuneActive(nextImmuneActive)
       .withGlucose(glucose)
       .withInsulin(insulin)
+      .withCyp3a4(cyp3a4)
 
     // 3. The immune response, mediator by mediator.
     val inflamed = next.withMediators(stepMediators(next))
@@ -1026,6 +1058,15 @@ object Physiology {
   /** Adds glycyrrhizin, capped at [ModelConstants.GLYCYRRHIZIN_CAP]. */
   def addGlycyrrhizin(state: ModelState, amount: Float): ModelState =
     state.withGlycyrrhizin(clamp(state.glycyrrhizin + amount, 0f, ModelConstants.GLYCYRRHIZIN_CAP))
+
+  /**
+   * Adds naringin from grapefruit, capped at [ModelConstants.NARINGIN_CAP].
+   *
+   * Eating it does not move [ModelState.cyp3a4] directly: the index is read off the naringin at the
+   * start of the next tick, so the two can disagree for exactly one tick and never longer.
+   */
+  def addNaringin(state: ModelState, amount: Float): ModelState =
+    state.withNaringin(clamp(state.naringin + amount, 0f, ModelConstants.NARINGIN_CAP))
 
   /** Adds ethanol, capped at [ModelConstants.ETHANOL_CAP]. */
   def addEthanol(state: ModelState, amount: Float): ModelState =

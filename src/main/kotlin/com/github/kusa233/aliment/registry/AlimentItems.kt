@@ -60,6 +60,47 @@ object AlimentItems {
         BoatItem(AlimentEntities.WILLOW_CHEST_BOAT, properties)
     }
 
+    // ---------------------------------------------------------------- grapefruit signs & boats
+
+    /** The grapefruit standing/wall sign pair, registered the same way as the willow's. */
+    val GRAPEFRUIT_SIGN: Item = Registration.registerItem(
+        "grapefruit_sign",
+        Item.Properties().stacksTo(16).useBlockDescriptionPrefix().signText(),
+    ) { properties ->
+        StandingAndWallBlockItem(
+            AlimentBlocks.GRAPEFRUIT_SIGN,
+            AlimentBlocks.GRAPEFRUIT_WALL_SIGN,
+            Direction.DOWN,
+            properties,
+        )
+    }
+
+    val GRAPEFRUIT_HANGING_SIGN: Item = Registration.registerItem(
+        "grapefruit_hanging_sign",
+        Item.Properties().stacksTo(16).useBlockDescriptionPrefix(),
+    ) { properties ->
+        HangingSignItem(
+            AlimentBlocks.GRAPEFRUIT_HANGING_SIGN,
+            AlimentBlocks.GRAPEFRUIT_WALL_HANGING_SIGN,
+            properties,
+        )
+    }
+
+    /** The grapefruit boat pair. Each is its own entity type, as every wood's boat now is. */
+    val GRAPEFRUIT_BOAT: Item = Registration.registerItem(
+        "grapefruit_boat",
+        Item.Properties().stacksTo(1),
+    ) { properties ->
+        BoatItem(AlimentEntities.GRAPEFRUIT_BOAT, properties)
+    }
+
+    val GRAPEFRUIT_CHEST_BOAT: Item = Registration.registerItem(
+        "grapefruit_chest_boat",
+        Item.Properties().stacksTo(1),
+    ) { properties ->
+        BoatItem(AlimentEntities.GRAPEFRUIT_CHEST_BOAT, properties)
+    }
+
     // ---------------------------------------------------------------- willow bark & soup
 
     /** Dropped when a willow log or willow wood block is stripped with an axe. */
@@ -500,6 +541,29 @@ object AlimentItems {
         "seaweed_iodized_salt",
         Item.Properties().food(iodizedSaltFood()),
     ) { Item(it) }
+
+    // ---------------------------------------------------------------- grapefruit
+
+    /**
+     * One eighth of a grapefruit, and the only part of the fruit a player eats.
+     *
+     * Two hunger and three saturation points, plus five water - which is what makes a slice a snack
+     * that also drinks, the only food in the mod that does both. The naringin it carries is picked up
+     * by [com.github.kusa233.aliment.physiology.AlimentIngestion], because a food's own effects are
+     * vanilla's business and the CYP3A4 interaction is the model's.
+     */
+    val GRAPEFRUIT_SLICE: Item = Registration.registerItem(
+        "grapefruit_slice",
+        Item.Properties().food(grapefruitSliceFood()),
+    ) { Item(it) }
+
+    /** Slices are a snack: eight of them come out of one fruit and they stack like any other food. */
+    private fun grapefruitSliceFood(): FoodProperties =
+        buildFood(GRAPEFRUIT_SLICE_NUTRITION, GRAPEFRUIT_SLICE_SATURATION_POINTS / (GRAPEFRUIT_SLICE_NUTRITION * 2f))
+
+    /** Two hunger and three saturation points, the way a player reads them off the tooltip. */
+    private const val GRAPEFRUIT_SLICE_NUTRITION = 2
+    private const val GRAPEFRUIT_SLICE_SATURATION_POINTS = 3f
 
     fun createWine(concentration: Float): ItemStack = WineItem.createStack(WINE, concentration)
 

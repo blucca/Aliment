@@ -2,5 +2,8 @@
   "values": [
     "aliment:willow_boat",
     "aliment:willow_chest_boat"
+  ,
+    "aliment:grapefruit_boat",
+    "aliment:grapefruit_chest_boat"
   ]
 }

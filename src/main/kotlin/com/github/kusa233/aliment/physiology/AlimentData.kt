@@ -238,6 +238,13 @@ data class AlimentData(
     val berberine: Float = 0f,
     /** Glycyrrhizin, antiviral saponin targeting viruses, 0..[GLYCYRRHIZIN_CAP]. */
     val glycyrrhizin: Float = 0f,
+    /**
+     * Naringin, the bitter flavanone glycoside of grapefruit, 0..[NARINGIN_CAP].
+     *
+     * It has no effect of its own. What it does is hold [cyp3a4] down, and [cyp3a4] is what clears
+     * berberine - so eating grapefruit is what makes a dose of coptis last.
+     */
+    val naringin: Float = 0f,
     /** Ethanol, alcohol index from drinking wine, 0..[ETHANOL_CAP]. */
     val ethanol: Float = 0f,
     /**
@@ -263,6 +270,14 @@ data class AlimentData(
      * reference range, and this one is not, so an overdose takes the player hypoglycaemic.
      */
     val insulinAspart: Float = 0f,
+    /**
+     * CYP3A4 activity, 0..[CYP3A4_MAX], and [CYP3A4_NORMAL] in a body that has eaten no grapefruit.
+     *
+     * The liver enzyme that clears berberine. It is a step function of [naringin] - one of five
+     * values and nothing in between - so it is not a quantity the player can nudge, only one they
+     * can walk down by eating grapefruit and back up by waiting.
+     */
+    val cyp3a4: Float = CYP3A4_NORMAL,
 ) {
 
     val inflammation: Float
@@ -670,6 +685,29 @@ data class AlimentData(
         @JvmField val GLUCOSE_PER_RAW_MEAT: Float = AlimentModelBridge.GLUCOSE_PER_RAW_MEAT
         @JvmField val GLUCOSE_PER_COOKED_MEAT: Float = AlimentModelBridge.GLUCOSE_PER_COOKED_MEAT
 
+        // ---------------------------------------------------------------- naringin & CYP3A4
+
+        /** The most naringin a body can carry (0..10): ten grapefruit slices. */
+        @JvmField val NARINGIN_CAP: Float = AlimentModelBridge.NARINGIN_CAP
+        @JvmField val NARINGIN_METABOLISM_TICKS: Int = AlimentModelBridge.NARINGIN_METABOLISM_TICKS
+        @JvmField val NARINGIN_DECAY_PER_TICK: Float = AlimentModelBridge.NARINGIN_DECAY_PER_TICK
+
+        /** CYP3A4 activity with no grapefruit in the body, and the clamp the index lives in. */
+        @JvmField val CYP3A4_NORMAL: Float = AlimentModelBridge.CYP3A4_NORMAL
+        @JvmField val CYP3A4_MIN: Float = AlimentModelBridge.CYP3A4_MIN
+        @JvmField val CYP3A4_MAX: Float = AlimentModelBridge.CYP3A4_MAX
+
+        /** The four naringin steps, and the CYP3A4 activity each one leaves behind. */
+        @JvmField val NARINGIN_CYP_STEP_1: Float = AlimentModelBridge.NARINGIN_CYP_STEP_1
+        @JvmField val NARINGIN_CYP_STEP_2: Float = AlimentModelBridge.NARINGIN_CYP_STEP_2
+        @JvmField val NARINGIN_CYP_STEP_3: Float = AlimentModelBridge.NARINGIN_CYP_STEP_3
+        @JvmField val NARINGIN_CYP_STEP_4: Float = AlimentModelBridge.NARINGIN_CYP_STEP_4
+
+        @JvmField val CYP3A4_AT_STEP_1: Float = AlimentModelBridge.CYP3A4_AT_STEP_1
+        @JvmField val CYP3A4_AT_STEP_2: Float = AlimentModelBridge.CYP3A4_AT_STEP_2
+        @JvmField val CYP3A4_AT_STEP_3: Float = AlimentModelBridge.CYP3A4_AT_STEP_3
+        @JvmField val CYP3A4_AT_STEP_4: Float = AlimentModelBridge.CYP3A4_AT_STEP_4
+
         /** What a healthy player looks like. */
         @JvmField val HEALTHY: AlimentData = AlimentModelBridge.healthy()
 
@@ -683,6 +721,7 @@ data class AlimentData(
             val ephedrine: Float,
             val berberine: Float,
             val glycyrrhizin: Float,
+            val naringin: Float,
             val ethanol: Float,
             val insulinAspart: Float,
         ) {
@@ -698,6 +737,7 @@ data class AlimentData(
                         Codec.FLOAT.optionalFieldOf("ephedrine", 0f).forGetter { it.ephedrine },
                         Codec.FLOAT.optionalFieldOf("berberine", 0f).forGetter { it.berberine },
                         Codec.FLOAT.optionalFieldOf("glycyrrhizin", 0f).forGetter { it.glycyrrhizin },
+                        Codec.FLOAT.optionalFieldOf("naringin", 0f).forGetter { it.naringin },
                         Codec.FLOAT.optionalFieldOf("ethanol", 0f).forGetter { it.ethanol },
                         Codec.FLOAT.optionalFieldOf("insulin_aspart", 0f).forGetter { it.insulinAspart },
                     ).apply(instance, ::Compounds)
@@ -718,6 +758,7 @@ data class AlimentData(
                 Codec.BOOL.optionalFieldOf("immune_active", false).forGetter { it.immuneActive },
                 Codec.FLOAT.optionalFieldOf("glucose", GLUCOSE_NORMAL).forGetter { it.glucose },
                 Codec.FLOAT.optionalFieldOf("insulin", INSULIN_NORMAL).forGetter { it.insulin },
+                Codec.FLOAT.optionalFieldOf("cyp3a4", CYP3A4_NORMAL).forGetter { it.cyp3a4 },
                 Compounds.MAP_CODEC.forGetter {
                     Compounds(
                         it.salicin,
@@ -729,11 +770,12 @@ data class AlimentData(
                         it.ephedrine,
                         it.berberine,
                         it.glycyrrhizin,
+                        it.naringin,
                         it.ethanol,
                         it.insulinAspart,
                     )
                 },
-            ).apply(instance) { mediators, bacteria, virus, water, electrolytes, traceElements, temperature, pyrogen, immuneActive, glucose, insulin, compounds ->
+            ).apply(instance) { mediators, bacteria, virus, water, electrolytes, traceElements, temperature, pyrogen, immuneActive, glucose, insulin, cyp3a4, compounds ->
                 AlimentData(
                     mediators = mediators,
                     bacteria = bacteria,
@@ -753,10 +795,12 @@ data class AlimentData(
                     immuneActive = immuneActive,
                     berberine = compounds.berberine,
                     glycyrrhizin = compounds.glycyrrhizin,
+                    naringin = compounds.naringin,
                     ethanol = compounds.ethanol,
                     glucose = glucose,
                     insulin = insulin,
                     insulinAspart = compounds.insulinAspart,
+                    cyp3a4 = cyp3a4,
                 )
             }
         }

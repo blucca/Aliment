@@ -2,8 +2,8 @@
 
 # 生理系统 Physiology
 
-Aliment（供养）的核心系统：每个玩家体内持续演算的一套**炎症介质 / 电解质 / 碘 / 水量 /
-体温 / 病原体 / 药物**模型。
+Aliment（供养）的核心系统：每个玩家体内持续演算的一套**炎症介质 / 电解质 / 微量元素（碘与维生素C）/
+水量 / 体温 / 病原体 / 药物**模型。
 
 设计目标是让"感染"变成一件有过程的事——吃坏东西不会立刻掉血，而是让你的免疫系统慢慢失控，
 而柳树皮汤（水杨苷）和地塞米松是控制它的手段，但用多了同样会出事。
@@ -15,7 +15,7 @@ Aliment（供养）的核心系统：每个玩家体内持续演算的一套**�
 ## 数据模型
 
 每个玩家身上挂着一份 `AlimentData`，由这几部分组成：炎症介质、病原体、水量、电解质、
-微量元素（碘）、药物浓度，以及体温。
+微量元素（碘与维生素C）、血糖与胰岛素指数、药物浓度（含香柠檬素）、CYP3A4 酶指数，以及体温。
 
 ### 炎症介质 `Mediators`
 
@@ -49,9 +49,9 @@ val restingInflammation = 0.15 * 25.0 + 0.20 * 30.0 + 0.15 * 30.0 + 0.35 * 20.0 
 
 公式详见 `ModelMediators.getInflammation`（权重在 `MediatorLevels`）。
 
-### 电解质 `ModelElectrolytes`（五项）与微量元素 `ModelTraceElements`（碘）
+### 电解质 `ModelElectrolytes`（五项）与微量元素 `ModelTraceElements`（碘与维生素C）
 
-**单位是真实的临床单位**：五项电解质用 **mmol/L**，碘用 **µmol/L**（碘的整个生理范围只有
+**单位是真实的临床单位**：五项电解质用 **mmol/L**，微量元素用 **µmol/L**（碘的整个生理范围只有
 零点几 mmol/L，用 mmol/L 写出来只能是"0.0005"，所以换算成千分之一的那一档）。
 
 每一项都有自己的**参考范围**（下表就是临床上的参考值），并且**四个阈值都双向生效**——
@@ -137,6 +137,7 @@ val restingInflammation = 0.15 * 25.0 + 0.20 * 30.0 + 0.15 * 30.0 + 0.35 * 20.0 
 | 曼陀罗果 `aliment:mandrake_fruit` | **+10.0 µmol/L** |
 | 海藻 `aliment:seaweed` | **+5.0 µmol/L** |
 | 熟海藻 `aliment:cooked_seaweed` | **+3.0 µmol/L** |
+| 葡萄柚片 `aliment:grapefruit_slice` | **+10.0 µmol/L**——植物性食物，又是柑橘，所以和胡萝卜一样 |
 
 ### 水量 `water`
 
@@ -149,7 +150,8 @@ val restingInflammation = 0.15 * 25.0 + 0.20 * 30.0 + 0.15 * 30.0 + 0.35 * 20.0 
 | **不出汗自然流失** | **5 游戏日从满（100）完全耗尽（0）**（无发热出汗时） |
 | **发热 39 °C 流失** | **3.5 游戏日完全耗尽（100 → 0）**（伴随出汗加速流失） |
 | **发热 40 °C 流失** | **2 游戏日完全耗尽（100 → 0）**（严重高热重度出汗） |
-| 一份饮品补水 | **+15**（水、药水、蘑菇煲、两种柳树皮汤、以及它们的带盐版本） |
+| 一份饮品补水 | **+15**（水、药水、蘑菇煲、牛奶、两种柳树皮汤、以及它们的带盐版本） |
+| 一片葡萄柚片补水 | **+5**——果片是吃进嘴里的，不是喝下去的，所以拿不到一整份饮品的量 |
 
 超过 100 后肾脏加速排水（最多两倍），同时**稀释并加速排出电解质**；
 高钠和高钙也会加重口渴。体温高于 38.25 °C 时触发非线性出汗机制，随高热程度加剧失水。
@@ -449,9 +451,14 @@ if (drugConc >= 3.0f) {
 ```
 
 - **黄连素（0.0 ~ 7.0）**：特异性对抗**细菌（Bacteria）**
-  - 在体内以最高浓度 7.0 为基准需 **2.5 游戏日（60,000 ticks）** 线性代谢归零：
+  - 在 CYP3A4 基准值下，它以最高浓度 7.0 为基准需 **2.5 游戏日（60,000 ticks）** 线性代谢归零，
+    而酶指标会缩放这个速率——见[香柠檬素与 CYP3A4](#naringin-and-cyp3a4)：
     ```scala
-    berberine = Math.max(berberine - 7.0f / 60000f, 0.0f) // -1.167e-4 / tick
+    // CYP3A4_NORMAL 是 85，所以在干净的基准下系数正好是 1，
+    // 这就是模型一直以来清除黄连素所用的 7.0f / 60000f = -1.167e-4 / tick。
+    berberine = Math.max(
+      berberine - (7.0f / 60000f) * (cyp3a4 / 85.0f),
+      0.0f)
     ```
 
 - **甘草酸（0.0 ~ 7.0）**：特异性对抗**病毒（Virus）**
@@ -459,6 +466,51 @@ if (drugConc >= 3.0f) {
     ```scala
     glycyrrhizin = Math.max(glycyrrhizin - 7.0f / 48000f, 0.0f) // -1.458e-4 / tick
     ```
+
+<a id="naringin-and-cyp3a4"></a>
+
+### 香柠檬素与 CYP3A4
+
+在这个模型里，葡萄柚不是药，香柠檬素本身也没有任何效果。它有的是一个**后果**：它压住
+**CYP3A4**——清除黄连素的那个肝酶，而黄连素没有别的清除途径。于是这三个数连成一条链：
+果片抬高香柠檬素，香柠檬素决定一个酶活性，酶活性再缩放一次代谢。
+
+香柠檬素范围 **0.0 ~ 10.0**（十个葡萄柚片），从上限起以**一个游戏日（24,000 ticks）**线性清完，
+是甘草酸寿命的一半：
+
+```scala
+naringin = Math.max(naringin - 10.0f / 24000f, 0.0f) // -4.167e-4 / tick
+```
+
+CYP3A4 范围 **0.0 ~ 100.0**，在从未吃过葡萄柚的身体里是 **85**。它是香柠檬素的**阶梯函数**
+而不是曲线，所以这个指标只会有五个取值之一，下面这张表就是它的全部：
+
+| 香柠檬素 | CYP3A4 | 黄连素被清除的速率 |
+| --- | --- | --- |
+| ≤ 2 | **85** | 1.00x——模型当初写下的速率 |
+| > 2 | **60** | 0.71x |
+| > 4 | **45** | 0.53x |
+| > 7 | **25** | 0.29x |
+| ≥ 8.5 | **10** | 0.12x |
+
+```scala
+def cyp3a4For(naringin: Float): Float =
+  if (naringin >= 8.5f) 10f
+  else if (naringin > 7f) 25f
+  else if (naringin > 4f) 45f
+  else if (naringin > 2f) 60f
+  else 85f
+```
+
+酶指标是**由 tick 写的，不是由吃写的**：果片只改动 `naringin`，下一 tick 才从它读出 `cyp3a4`，
+所以两者最多只会在一个 tick 内不一致，绝不会更久。这也正是指标能自己恢复的原因——
+香柠檬素一没，函数自己就返回 85，不需要另立一项恢复速率去跟它对齐。
+
+这个效果有多大值得直说，因为它是模组里第一个"玩家吃下的东西会改变另一样东西持续多久"的相互作用。
+一份黄连（**1.1 黄连素**）单独吃下去约 **9,400 tick** 清完；先吃九个葡萄柚片再吃同一份黄连，
+就要约 **17,800 tick**——接近翻倍，因为在那段时间的前半段，肝脏是按 10 到 45 在跑，而不是 85。
+香柠檬素只持续一天，正是这一点给它封了顶：如果它再短些，最深的那一档就会在剂量生命的大半时间里
+什么都不做。
 
 ### 水分与出汗消耗模型
 
@@ -650,6 +702,161 @@ temperature += (targetTemperature - temperature) * 0.0004f
 服务端只通过 `ServerPlayer.addPostEffect` 发一个 id，客户端自己去加载，
 加载失败只会在日志里报一行然后跳过，不会影响玩法。
 
+### 血糖症状
+
+| 血糖 | 效果 |
+| --- | --- |
+| **< 2.0 mmol/L** | 挖掘疲劳 |
+| **< 1.7 mmol/L** | 挖掘疲劳 + 虚弱 |
+| **< 1.3 mmol/L** | 以上全部，再加每两秒一次的魔法伤害：`(1.3 - glucose) * 1.0` |
+
+血糖是持续被消耗的，只有进食能补回来，所以一个不吃东西的玩家迟早会走到这几档，
+无论身体其他部分有多健康。伤害是魔法伤害，护甲帮不上忙——大脑除了葡萄糖没有别的燃料。
+
+---
+
+## 血糖与胰岛素
+
+血糖是模型里第二个——仅次于水量——**被消耗掉、而不是被拉回某个设定点的**量。这里没有糖异生：
+身体每 tick 都在烧血糖，只有吃东西能把它放回去，所以 `glucose` 是玩家自己管理的一项资源，
+而不是模型会去防守的一个值。
+
+### 参考值
+
+| 项 | 值 | 单位 |
+| --- | --- | --- |
+| 正常 / 空腹 | **5.0** | mmol/L |
+| 参考范围 | **4.0 – 5.5** | mmol/L |
+| 空腹下限（2 游戏日） | **3.5** | mmol/L |
+| 偏高（胰岛素陡升） | **> 8.0** | mmol/L |
+| 模型上下限 | 0.0 – 30.0 | mmol/L |
+| 基准胰岛素指数 | **1.0** | 指数 |
+
+### 食物值多少
+
+| 食物类别 | 血糖 | 例子 |
+| --- | --- | --- |
+| 面包 | **+0.7** | `minecraft:bread` |
+| 熟肉与熟鱼 | **+0.5** | 熟牛肉、熟猪排、熟鸡、熟羊、熟兔、熟鳕鱼、熟鲑鱼 |
+| 生肉与生鱼 | **+0.4** | 牛肉、猪排、鸡、羊、兔、鳕鱼、鲑鱼、热带鱼、腐肉 |
+| 植物性食物 | **+0.4** | 水果、蔬菜、海带、海藻、蘑菇、每一种柳树皮汤 |
+
+面包是唯一一种从正常的 5.0 出发、自己就能把血糖推出参考范围的食物（5.0 + 0.7 = 5.7），
+这就是它被从其余植物性食物里单独拎出来的原因。所有能吃的、不是肉也不是面包的东西都算植物性食物，
+所以玩家没法靠天天吃浆果来躲开进食的血糖代价。
+
+### 每 tick 的动力学
+
+有三个项在推动血糖，它们之所以分开写，是因为行为各不相同：
+
+```scala
+// 1. 基础消耗：两个游戏日固定掉 1.5 mmol/L，也就是空腹时从 5.0 走到 3.5 的那条路。
+//    过了 3.5 之后它按剩下的量缩放，所以下降是减速的，而不是一路直冲到零。
+val basal =
+  if (glucose > 3.5f) 1.5f / 48000f          // 3.125e-5 / tick
+  else (1.5f / 48000f) * (glucose / 3.5f)
+
+// 2. 身体自己的胰岛素。它在参考范围底部是关掉的：胰腺不会自己把身体推向低血糖。
+val endogenousDrive = 0.0001f * Math.max(0f, insulin - 1.0f)
+val endogenous =
+  if (glucose <= 4.0f) 0f
+  else Math.min(endogenousDrive, glucose - 4.0f)
+
+// 3. 注射的门冬胰岛素，它没有这道刹车。
+val injected = 0.00008f * insulinAspart
+
+glucose = clamp(glucose - basal - endogenous - injected, 0f, 30f)
+```
+
+胰岛素指数本身按当前血糖要求的水平松弛过去，速率 0.0005 / tick（时间常数 2,000 tick）：
+
+```scala
+// 两段斜坡，都从正常的 5.0 起：一段平缓的横跨参考范围，真正消化掉一顿普通饭的正是它；
+// 另一段陡一倍，从 8 以上开始。
+val target =
+  if (glucose <= 5.0f) 1.0f
+  else if (glucose <= 8.0f) 1.0f + (glucose - 5.0f) * 2.0f
+  else 7.0f + (glucose - 8.0f) * 4.0f
+
+insulin = clamp(insulin + (target - insulin) * 0.0005f, 0f, 60f)
+```
+
+> **为什么要有那段平缓的斜坡。** 字面上的"血糖超过 8 才分泌胰岛素"没法在半个游戏日内把 9 或 10
+> 拉回参考范围：血糖一越过 8 指数就关掉了，剩下的胰岛素在活干完之前就没了。横跨参考范围的那段
+> 斜坡，才是"半天之内回落"这句承诺成立的原因；而 8 以上那段更陡的部分，正是
+> "糖越高、胰岛素越多、回落越快"的意思。
+
+### 实测行为
+
+| 场景 | 结果 |
+| --- | --- |
+| 从 5.0 开始空腹 | 正好 2 个游戏日（48,000 ticks）后到 **3.49** |
+| 从 3.5 开始空腹 | 接下来 2 天只花掉 **1.22**，而不是 1.5——下降在减速 |
+| 一顿 8.0 的饭 | 半个游戏日内回到 **4.87** |
+| 一顿 10.0 的饭 | 半个游戏日内回到 **4.77** |
+| 一顿 20.0 的饭 | 半个游戏日内回到 **3.90** |
+| 一顿 30.0 的饭 | 半个游戏日内回到 **3.85** |
+| 2,400 tick 之后 | 20 比 9 掉得更多，曲线上的每一点都如此 |
+| 打一针门冬胰岛素 | 5.0 -> **2.74**：只是下探，还没崩 |
+| 打两针 | 低血糖崩溃，因为没有任何东西会把注射的胰岛素关掉 |
+| 八个游戏日不进食 | **0.97** mmol/L：低血糖危机 |
+
+### 门冬胰岛素 `insulinAspart`
+
+| 项 | 值 |
+| --- | --- |
+| 来源 | `aliment:insulin_injection`（右键），一次 **+10.0** |
+| 上限 | **60.0** |
+| 代谢时间 | **1 个游戏日**（线性） |
+
+```scala
+insulinAspart = Math.max(insulinAspart - 60.0f / 24000f, 0f) // -2.5e-3 / tick
+```
+
+它是模组里唯一一种**故意把身体弄坏**的药。它刻意与身体自己的 `insulin` 是**两个分开的量**：
+血糖下降时胰腺会关掉自己的分泌，而注射进去的门冬胰岛素不会被任何东西关掉。正常身体打一针还能扛，
+冷却期内叠上两针就是危机，唯一的出路是吃东西。
+
+---
+
+## 血糖仪
+
+血糖仪是模组里唯一没法靠试出来发现的部分——没有试卡，血糖仪就没用；没有采血针，试卡就没用——
+所以这三样总是一起出现在箱子里。
+
+| 物品 | 战利品概率 |
+| --- | --- |
+| `aliment:insulin_injection` | **10%** |
+| `aliment:glucose_meter` | **35%** |
+| `aliment:glucose_test_strip` | **35%**，以 **5 – 9** 张一叠出现 |
+| `aliment:microneedle` | **35%** |
+
+这四样都会生成在每一种原版村庄箱子以及掠夺者前哨站的箱子里。
+
+**诊断链：**
+
+1. 手持**采血针**右键。手指会流血 **15 秒**（300 ticks），采血针消耗 1 点耐久。
+2. 趁手指还在流血时手持**试卡**右键。它会变成**带血的血糖试卡**；血滴干后再用试卡会被拒绝，
+   并在动作栏给出一条提示。这一滴血花在那张试卡上，所以第二张试卡需要再扎一次。
+3. **主手**持**血糖仪**、**副手**持**带血的血糖试卡**，右键。读数会打印在聊天栏里——
+   `Blood glucose: 5.1 mmol/L`，在 `zh_cn` 中本地化为 `当前血糖：5.1 mmol/L`——试卡随即被消耗。
+
+系统特意从副手读试卡、从主手读血糖仪，所以只有一种摆法有效，也不存在"到底是哪件物品在起作用"的歧义。
+
+### 试卡是样本，不是传感器
+
+一张带血的试卡报告的读数，是**取血那一刻玩家的血糖**，以 mmol/L 的形式存在试卡自己的数据组件上。
+它之后不会再跟随身体变化。
+
+这正是取样的意义。一个会跟着玩家血糖走的读数，说明不了它被取下的那一刻，也会让
+"扎手指、吃饭、再比较"变成不可能——更没法把一张试卡带给另一个玩家而它仍然代表原来的意思。
+
+因为这个值挂在物品堆上，所以它经得起被放进箱子、丢在地上或转交他人，和一瓶酒上的浓度完全一样。
+完全没有样本的试卡——在这个数据存在之前留下来的，或者由指令生成的——会退回到身体当前的血糖，
+这也是所有试卡从前的行为。
+
+血糖仪在消耗试卡**之前**读样本：清空一叠会把它的组件一起带走，所以事后再读就什么都找不到了。
+
 ---
 
 ## 用到的 mixin
@@ -686,9 +893,9 @@ temperature += (targetTemperature - temperature) * 0.0004f
 | **海水瓶** + 加盐版 | **没有任何即时效果** |
 
 **海水不是脏水，是"高渗水"**：喝下它本身不会让你感染或反胃，代价在于它带的钠
-（一瓶 **+20 钠 +20 氯**，外加海水本身的 **+6 镁 +2 钙**）。这个量足以把钠一次推过 115，
-之后的事全部由电解质系统接管——剧渴、加速失水，再往下才是虚弱。
-一口海水不会立刻惩罚你，它只是把账记到后面。
+（一瓶 **+3.0 钠 +3.0 氯**，外加海水本身的 **+0.05 镁 +0.05 钙**）。一份还留在参考范围里
+（140 → 143），两份就越过上限（→ 146）；之后的事全部由电解质系统接管——剧渴、加速失水，
+再往下才是虚弱。一口海水不会立刻惩罚你，它只是把账记到后面。
 
 所有带盐饮品（粗盐水/盐水/粗盐蘑菇煲… 和沼泽水/海水系列）喝下都**补水 +15 并补钠**，
 粗盐版额外补镁和钙。
@@ -802,7 +1009,7 @@ temperature += (targetTemperature - temperature) * 0.0004f
 
 `src/main/kotlin/.../dev/AlimentPhysiologySelfTest.kt`（**默认不启用**，把它加进
 `fabric.mod.json` 的 `main` 入口点再 `gradle runServer` 就会在开服后 40 tick 自动跑完）
-跑出 **361/361 全过**：
+跑出 **686/686 全过**：
 
 ```
 homeostasis 3 days (one day's kelp a day): inflammation 25.0..25.0
@@ -843,7 +1050,7 @@ one bottle of sea water: water 95, sodium 143.0, magnesium 0.90
 raw meat 107/400 | rotten flesh 113/400 | poisonous potato ~30% | bread 0/400 (control)
 swamp water over 600 drinks: infection 179 nausea 197 poison 32
 sea water over 600 drinks:   infection 0   nausea 0   poison 0
-all 12 drinks add exactly 15 water
+all 13 drinks add exactly 15 water
 a real GrindstoneMenu slot accepts willow bark and produces willow_bark_pieces x2
 exhaustion multiplier: healthy 1.0 vs ill 1.458
 mining speed: ill 0.945 | over-hydrated < 1.0 | healthy 1.0
@@ -860,13 +1067,27 @@ gymnopilus: one raw mushroom 1.3/1.3; half a day later psilocybin 0.65 psilocin 
           a day finishes the conversion with 1.3 psilocin left; five doses take ten game days
           the trip: 1.5 -> psilocin_outline 2.0 -> psilocin_colour 3.0 -> psilocin_warp 6.0 -> storm
           a raw mushroom is 3 hunger / 4 saturation, cooked 4 / 5 and neither compound
-PHYSIOLOGY SELFTEST DONE passed=361 failed=0
+naringin: cap 10; cyp3a4 85 at 2 | 60 past 2 | 45 past 4 | 25 past 7 | 10 at 8.5
+          a full body of naringin clears in one game day; the enzyme is back to 85 once it has
+          coptis (1.1 berberine) cleared in 9429 ticks alone, 17827 with a body full of grapefruit
+grapefruit slice: 2 hunger / 3 saturation; +5 water +1 naringin +10 vitamin C
+          eleven slices still leave the body at the naringin cap, and the next tick puts the enzyme at 10
+          milk adds 15 water
+glucose: fasting 5.0 -> 3.49 in two game days; 0.97 after eight
+          a meal of 8 / 10 / 20 / 30 is home within half a day, and a 20 falls further than a 9
+          insulin 1.0 fasting; one injection 5.0 -> 2.74, two are a hypoglycaemic crash
+          bread 0.7 | cooked meat 0.5 | raw meat 0.4 | plant food 0.4 per item
+          the meter prints 6.4 from the strip and never the body's 9.9; a dry finger refuses a strip
+          a bloodied strip keeps its reading after the player's glucose changes
+PHYSIOLOGY SELFTEST DONE passed=686 failed=0
 ```
 
 覆盖了**纯模型**、**mixin 端到端**（真的调 `ItemStack.finishUsingItem` 吃生肉 / 喝汤 / 喝海水，
 以及**真的构造一个 `GrindstoneMenu`** 验证两个砂轮 mixin 生效）、**症状表**、**三条感染路径**、
 **箱子战利品**、**曼陀罗生物碱**（含同步给客户端的模糊标志）、**创造模式冻结与死亡重置**、
-**翻译覆盖**与**同步**。
+**香柠檬素与 CYP3A4**（含"吃过葡萄柚的黄连"端到端对照）、**血糖与胰岛素**（含低血糖三档的
+效果与伤害）、**血糖诊断链**（采血针 / 试卡 / 带血试卡 / 血糖仪，真的走物品交互）、
+**葡萄柚与奶的进食路径**、**翻译覆盖**与**同步**。
 
 > 箱子战利品那两条概率是**掷出来的**，不是把常数读回来断言：`LootPool` 建好之后什么也读不到
 > （只有一个 `addRandomItems` 和一个 `CODEC`），所以自检用 `LootParams` 把模组真正加进去的
@@ -964,8 +1185,8 @@ Kotlin **从不提到 Scala 的类型**：两者之间隔着 `AlimentModelBridge
 | `physiology/Mineral.kt` | Kotlin 侧的矿物枚举，每个 case 的参考范围都从模型取（这样 `when` 又是穷尽的） |
 | `physiology/AlimentSymptoms.kt` | 症状的应用：挂效果、扣血、画面效果、抖动掷骰 |
 | `physiology/AlimentInfection.kt` | 三条感染路径的概率、单次载量、接触范围、掷骰间隔 |
-| `physiology/AlimentIngestion.kt` | 每杯补水、盐分摄入（mmol/L，含海水的钠镁钙）、碘摄入（µmol/L，海带 0.10 / 干海带 0.20）、每服汤的药量 |
-| `world/AlimentLoot.kt` | 村庄（`chests/village/*`）与掠夺者前哨站箱子里的两件治疗品，以及各自的概率（注射液 3% / 汤 35%） |
+| `physiology/AlimentIngestion.kt` | 每杯补水、盐分摄入（mmol/L，含海水的钠镁钙）、碘摄入（µmol/L，海带 0.10 / 干海带 0.20）、维生素C 摄入、每种食物给多少血糖与果片带的香柠檬素、每服汤的药量 |
+| `world/AlimentLoot.kt` | 村庄（`chests/village/*`）与掠夺者前哨站箱子里模组加进去的物品，以及各自的概率（地塞米松注射液 3% / 柳树皮汤 35% / 门冬胰岛素 10% / 血糖仪、试卡、采血针各 35%） |
 | `assets/aliment/post_effect/*.json` + `assets/aliment/shaders/post/*.fsh` | 边缘扭曲（`heat_haze`）、动态模糊（`heat_blur`）、冷抖动（`cold_shiver`），以及各自的强度、起始半径、频率、反馈系数 |
 
 > **以后新的数值 / 稳态代码写在 Scala 里**，见 `AGENTS.md` 的「Languages: where code goes」。

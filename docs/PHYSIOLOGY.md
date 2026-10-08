@@ -12,7 +12,7 @@ Target Platform: **Minecraft 26.3** (Fabric, Scala 3.9 / Kotlin 2.4 / Java 25).
 
 ## Data Model
 
-Each player possesses an `AlimentData` attachment, comprised of: inflammatory mediators, pathogen loads, hydration, serum electrolytes, trace elements (iodine and vitamin C), blood glucose and the insulin index, active drug concentrations, and core body temperature.
+Each player possesses an `AlimentData` attachment, comprised of: inflammatory mediators, pathogen loads, hydration, serum electrolytes, trace elements (iodine and vitamin C), blood glucose and the insulin index, active drug concentrations (including naringin), the CYP3A4 enzyme index, and core body temperature.
 
 ### Inflammatory Mediators `Mediators`
 
@@ -126,6 +126,7 @@ Vitamin C cannot be synthesized endogenously by humans. Serum reference values a
 | Mandrake Fruit `aliment:mandrake_fruit` | **+10.0 µmol/L** |
 | Seaweed `aliment:seaweed` | **+5.0 µmol/L** |
 | Cooked Seaweed `aliment:cooked_seaweed` | **+3.0 µmol/L** |
+| Grapefruit Slice `aliment:grapefruit_slice` | **+10.0 µmol/L** - a plant food, and a citrus besides, so the same as a carrot |
 
 ### Hydration `water`
 
@@ -138,7 +139,8 @@ Vitamin C cannot be synthesized endogenously by humans. Serum reference values a
 | **Basal Water Depletion** | **5 game days from full (100) to empty (0)** (without fever or sweating) |
 | **Fever at 39 °C** | **3.5 game days to empty (100 → 0)** (accelerated sweating) |
 | **Severe Hyperthermia at 40 °C** | **2 game days to empty (100 → 0)** (profuse sweating) |
-| Hydration per Beverage | **+15** (water, potions, stew, willow bark soups, and salted variants) |
+| Hydration per Beverage | **+15** (water, potions, stew, milk, willow bark soups, and salted variants) |
+| Hydration per Grapefruit Slice | **+5** - a slice is eaten rather than drunk, so it does not get a drink's worth |
 
 Above 100, kidneys accelerate excretion (up to 2x normal rate), concurrently **diluting and washing out serum electrolytes**; high sodium and high calcium also intensify thirst. Temperatures exceeding 38.25 °C activate non-linear diaphoresis (sweating), multiplying water loss with higher fevers.
 
@@ -409,9 +411,14 @@ if (drugConc >= 3.0f) {
 ```
 
 - **Berberine (0.0 ~ 7.0)**: Specifically targets **Bacteria**
-  - Clears from peak 7.0 over **2.5 game days (60,000 ticks)**:
+  - At the CYP3A4 baseline it clears from peak 7.0 over **2.5 game days (60,000 ticks)**, and the
+    enzyme index scales that rate - see [Naringin and CYP3A4](#naringin-and-cyp3a4):
     ```scala
-    berberine = Math.max(berberine - 7.0f / 60000f, 0.0f) // -1.167e-4 / tick
+    // CYP3A4_NORMAL is 85, so at a clean baseline the factor is exactly 1 and this is the
+    // 7.0f / 60000f = -1.167e-4 / tick the model has always cleared berberine at.
+    berberine = Math.max(
+      berberine - (7.0f / 60000f) * (cyp3a4 / 85.0f),
+      0.0f)
     ```
 
 - **Glycyrrhizin (0.0 ~ 7.0)**: Specifically targets **Viruses**
@@ -419,6 +426,53 @@ if (drugConc >= 3.0f) {
     ```scala
     glycyrrhizin = Math.max(glycyrrhizin - 7.0f / 48000f, 0.0f) // -1.458e-4 / tick
     ```
+
+### Naringin and CYP3A4
+
+Grapefruit is not a drug in this model and naringin has no effect of its own. What it has is a
+*consequence*: it holds down **CYP3A4**, the liver enzyme that clears berberine, and berberine is
+cleared by nothing else. So the three numbers form a chain - a slice raises the naringin, the
+naringin picks an enzyme activity, and the enzyme activity scales a metabolism.
+
+Naringin runs **0.0 ~ 10.0** - ten grapefruit slices - and clears linearly from the cap over **one
+game day (24,000 ticks)**, half the lifetime of glycyrrhizin:
+
+```scala
+naringin = Math.max(naringin - 10.0f / 24000f, 0.0f) // -4.167e-4 / tick
+```
+
+CYP3A4 runs **0.0 ~ 100.0** and sits at **85** in a body that has eaten no grapefruit. It is a **step
+function** of the naringin rather than a curve, so the index only ever holds one of five values, and
+the table is the whole of it:
+
+| Naringin | CYP3A4 | Berberine cleared at |
+| --- | --- | --- |
+| ≤ 2 | **85** | 1.00x - the rate the model was written with |
+| > 2 | **60** | 0.71x |
+| > 4 | **45** | 0.53x |
+| > 7 | **25** | 0.29x |
+| ≥ 8.5 | **10** | 0.12x |
+
+```scala
+def cyp3a4For(naringin: Float): Float =
+  if (naringin >= 8.5f) 10f
+  else if (naringin > 7f) 25f
+  else if (naringin > 4f) 45f
+  else if (naringin > 2f) 60f
+  else 85f
+```
+
+The enzyme index is written by the tick, not by eating: a slice moves `naringin` and the next tick
+reads `cyp3a4` off it, so the two can disagree for exactly one tick and never longer. That is also
+what makes the index recover - once the naringin is gone the function returns 85 on its own, with no
+separate recovery term to keep in step.
+
+The size of the effect is worth stating plainly, because it is the first interaction in the mod where
+one thing a player eats changes how long another lasts. A single coptis herb (**1.1 berberine**)
+clears in about **9,400 ticks** on its own. Eat nine grapefruit slices first and the same herb takes
+about **17,800** - nearly twice as long, because for the first part of that the liver is running at
+10 to 45 instead of 85. The day-long lifetime of the naringin is what bounds it: a shorter
+naringin would leave the deepest step doing nothing for most of the dose.
 
 ### Hydration and Sweating Model
 

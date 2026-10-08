@@ -1,0 +1,13 @@
+{
+  "variants": {
+    "type=bottom": {
+      "model": "aliment:block/grapefruit_slab"
+    },
+    "type=double": {
+      "model": "aliment:block/grapefruit_planks"
+    },
+    "type=top": {
+      "model": "aliment:block/grapefruit_slab_top"
+    }
+  }
+}

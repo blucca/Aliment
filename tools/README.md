@@ -11,6 +11,9 @@ of the built mod — they only regenerate files under `src/main/resources`.
 | `gen_textures.ps1` / `gen_textures.cmd` | Regenerates all PNG textures (blocks, items, entity boats, bark and soup sprites, the cauldron liquid surfaces and the mod icon) from scratch with ImageMagick. |
 | `gen_glucose_textures.ps1` | The five item sprites of the glucose chain (insulin injection, glucose meter, clean and bloodied test strips, microneedle). Pure `System.Drawing` and no ImageMagick, and it writes only those five files, so it can be re-run on its own after changing one of them. |
 | `gen_glass_textures.ps1` | The fermentation tank and condenser pipe frames. Pure `System.Drawing`, writes only those two files. Keeps the copper frame pixel-for-pixel - including the tank's amber inner-corner bevel - and leaves everything inside it transparent, so the only thing it removes from the originals is the decoration that used to sit in the middle. |
+| `gen_grapefruit_textures.ps1` | The seven textures of the grapefruit tree: the hanging fruit, the whole fruit and the slice as items, the log side and top, the leaves and the sapling. Pure `System.Drawing`, writes only those seven files. The hanging fruit is drawn in the top half of its canvas because it is rendered by a cross model, and the leaves are greyscale because they are tinted by the biome. |
+| `gen_grapefruit_wood.ps1` | The grapefruit **wood set's** JSON: every blockstate, block model, item model, item definition, recipe and block loot table, mirrored from the willow's by swapping `willow` for `grapefruit`. Also writes the `aliment:grapefruit_logs` tags and adds the grapefruit entries to the vanilla `planks` / `logs` / `wooden_*` / `signs` / `fence_gates` / `boats` tags. It owns the mirrored files only - the fruit and the tree's own models are hand-written and excluded. |
+| `gen_grapefruit_wood_textures.ps1` | The sixteen **wood** textures, made by mapping the willow's palette onto the grapefruit's pixel for pixel rather than redrawing them, so the door panels, trapdoor slats and sign frames stay identical in form. It does not own the tree's bark (`gen_grapefruit_textures.ps1` does), the leaves or the sapling. |
 | `verify-datapack/` | A dev-only data pack that proves the willow world generation actually runs. See below. |
 
 Both generators are idempotent: running them twice produces byte-identical output.
@@ -19,11 +22,17 @@ Both generators are idempotent: running them twice produces byte-identical outpu
 > will silently drop keys and files that were added to `src/main/resources` afterwards - the sleep
 > refusal (`block.aliment.bed.too_stimulated`), the brewing names (`block.aliment.beer_cauldron`,
 > `item.aliment.alcohol`, `item.aliment.beer`, `tooltip.aliment.alcohol.concentration`,
-> `gui.aliment.jei.category.grindstone`), and the `alcohol_cauldron` / `fermentation_tank` blockstate
-> variants. Everything it does not know about has to be put back by hand.
+> `gui.aliment.jei.category.grindstone`), the `alcohol_cauldron` / `fermentation_tank` blockstate
+> variants, the whole glucose chain, and everything the grapefruit added (`block.aliment.grapefruit*`,
+> `item.aliment.grapefruit_slice`, the grapefruit wood set, and the `grapefruit`, `grapefruit_grove`
+> and `block_state_provider/grapefruit` worldgen). Everything it does not know about has to be put
+> back by hand. Its name sources `lang_zh_cn.json` and `lang_ja_jp.json` are stale in the same way:
+> they still only carry the willow-era names, so they are not a complete list of what the mod adds.
 >
 > `gen_textures.ps1` still carries a hard-coded `$root` for the checkout it was written in; check that
-> before running it. `gen_glucose_textures.ps1` derives its paths from `$PSScriptRoot`.
+> before running it. `gen_glucose_textures.ps1`, `gen_glass_textures.ps1`,
+> `gen_grapefruit_textures.ps1`, `gen_grapefruit_wood.ps1` and `gen_grapefruit_wood_textures.ps1`
+> derive their paths from `$PSScriptRoot`.
 
 ## Requirements
 
@@ -40,6 +49,9 @@ tools\gen_data.cmd
 tools\gen_textures.cmd
 pwsh -ExecutionPolicy Bypass -File tools\gen_glucose_textures.ps1
 pwsh -ExecutionPolicy Bypass -File tools\gen_glass_textures.ps1
+pwsh -ExecutionPolicy Bypass -File tools\gen_grapefruit_textures.ps1
+pwsh -ExecutionPolicy Bypass -File tools\gen_grapefruit_wood_textures.ps1
+pwsh -ExecutionPolicy Bypass -File tools\gen_grapefruit_wood.ps1
 ```
 
 Both `.ps1` files are pure ASCII, so they also run fine when invoked directly:
@@ -113,7 +125,7 @@ thyroid) and the fever command. Then it exercises the mixins and the symptom lay
 really eats raw meat through `ItemStack.finishUsingItem` and counts the infection rate, eats a
 mandrake fruit and its seeds and a raw and a cooked gymnopilus to check what each carries, reads the
 two mushrooms' food values off their item components, drinks all
-twelve of the drinks to check the 15 water each, drinks salt water and sea water to check the
+thirteen of the drinks to check the 15 water each, drinks salt water and sea water to check the
 minerals, checks that swamp water is foul and sea water is not, probes every mineral on both sides of
 both of its thresholds, asserts the camera-shake chance is zero for every state the player cannot
 see, counts the two per-second contagion dice, checks which screen effects each fever tier asks for,
@@ -137,7 +149,24 @@ half a game day with the higher ones falling faster, the insulin index flat whil
 with a meal, what each of the four food classes is worth, the three hypoglycaemia tiers either side of
 their thresholds, and the diagnostic chain through the real `UseItemCallback` - a microneedle starts
 the fifteen-second bleed, a test strip on that finger becomes a bloodied one, and the meter prints the
-reading. 591 checks, all passing.
+reading.
+
+And it exercises the grapefruit: the five CYP3A4 steps pinned from both sides of all four thresholds
+and swept across the whole naringin range so a sixth value can never appear, naringin filling to its
+cap and clearing over exactly one game day, the tick reading the enzyme index off the naringin, and
+berberine proved to fall at the written rate at the 85 baseline and at that step's fraction of it
+below - then the same dose of coptis cleared with and without a body full of grapefruit, which takes
+about 9,400 ticks alone against about 17,800 with the fruit. It eats a slice through the real item
+path to check 2 hunger, 3 saturation, 5 water, 1 naringin, the plant-food glucose and carrot-grade
+vitamin C, drinks a bucket of milk to check the standard 15 water, and eats eleven slices to prove the
+cap holds.
+
+The grapefruit **wood set** is checked through the loaded block tags rather than through the files,
+because tag membership is what a wood set actually is: each of the four log-shaped blocks is asserted
+to be in `aliment:grapefruit_logs`, in `minecraft:logs` and axe-mineable; each shaped block in the one
+vanilla tag that makes it craftable and mineable; a willow log is asserted *not* to be in the
+grapefruit tag; and both boats are checked to be `BoatItem`s whose entity types are registered and
+distinct from the willow's. 686 checks, all passing.
 
 ### Running either one
 

@@ -23,7 +23,7 @@ Your goal is to manage inflammation (via salicin from willow bark soup and dexam
 
 ## 1. Botanical World Generation & Ecological Distribution Overview
 
-The mod introduces 8 distinct plants and fungi, all dynamically injected into the Overworld vegetal decoration step (`GenerationStep.Decoration.VEGETAL_DECORATION`) with tailored biome filters, substrate surface predicates, and harvesting mechanics:
+The mod introduces 9 distinct plants and fungi, all dynamically injected into the Overworld vegetal decoration step (`GenerationStep.Decoration.VEGETAL_DECORATION`) with tailored biome filters, substrate surface predicates, and harvesting mechanics:
 
 | Plant / Fungus | Target Biomes | Frequency / Density | Substrate & Surface Predicates | Initial Generated State | Harvesting & Active Bioactive Yield |
 | --- | --- | --- | --- | --- | --- |
@@ -35,6 +35,7 @@ The mod introduces 8 distinct plants and fungi, all dynamically injected into th
 | **Phellodendron**<br>`aliment:phellodendron` | All non-cold Overworld biomes<br>(`baseTemperature >= 0.2` & `!#minecraft:spawns_cold_variant_frogs`) | Rarity filter 1/12<br>(~8.3% chance per chunk) | Block directly beneath must be **Grass Block** (`grass_block`); heightmap `WORLD_SURFACE_WG` | Mature shrub (`age: 3`) | Right-click harvest or break for Phellodendron Bark (Berberine +0.6) |
 | **Licorice**<br>`aliment:licorice` | All non-cold Overworld biomes<br>(`baseTemperature >= 0.2` & `!#minecraft:spawns_cold_variant_frogs`) | Rarity filter 1/12<br>(~8.3% chance per chunk) | Block directly beneath must be **Grass Block** (`grass_block`); heightmap `WORLD_SURFACE_WG` | Mature stage (`age: 3`) | Right-click harvest or break for Licorice Root (Glycyrrhizin +1.1) |
 | **Seaweed**<br>`aliment:seaweed` | All ocean biomes<br>(`#minecraft:is_ocean`: Warm, Lukewarm, Cold, Deep, Frozen Oceans, etc.) | 4 per chunk<br>(`count: 4`) | Must be fully submerged in water (`fluids: "minecraft:water"`); seabed must be **Sand or Suspicious Sand**; heightmap `OCEAN_FLOOR_WG` | Submerged mature stage (`age: 3, waterlogged: true`) | **Underwater right-click harvest** 1–2 seaweed, resetting to stage 1 (Iodine +0.20 µmol/L) |
+| **Grapefruit**<br>`aliment:grapefruit` | Jungle, Sparse Jungle, Bamboo Jungle, Savanna, Savanna Plateau, Windswept Savanna | Rarity filter 1/6<br>(~17% chance per chunk) | Would-survive test against `aliment:grapefruit_sapling`; heightmap `WORLD_SURFACE_WG` | Trunk 4–6 blocks with a blob canopy, fruit hung underneath | Break a hanging fruit for 1 `aliment:grapefruit` and craft it into **8 slices**; the trunk and canopy are a full second **wood set** (see section 24) |
 
 ---
 
@@ -173,7 +174,7 @@ Water collection source determines beverage properties: rivers yield vanilla wat
 | Water Type | Consequence of Ingestion |
 | --- | --- |
 | Swamp Water Bottle (and salted variants) | 30% Bacterial Infection, 35% Nausea, 5% Poisoning (each for 30s) |
-| **Sea Water Bottle** (and salted variants) | **No immediate negative effect**; it is purely **hypertonic**: one bottle pushes sodium past the clinical safe limit, causing severe hypernatremic thirst and rapid fluid loss later |
+| **Sea Water Bottle** (and salted variants) | **No immediate negative effect**; it is purely **hypertonic**: one bottle is a heavy sodium load that takes a body from 140 to about 143.5 mmol/L, still inside the 135–145 reference range, and a second takes it past the safe limit into hypernatremic thirst and rapid fluid loss |
 
 ---
 
@@ -681,3 +682,85 @@ player eventually runs out however healthy the rest of the body is.
 9. **Camera tremors always provide a diagnostic symptom icon.** You will never tremor without an active clinical reason.
 10. **Blood glucose only ever goes down on its own.** Nothing synthesises it, so an unfed player drifts from 5.0 to 3.5 in two game days and into a hypoglycaemic crisis by the eighth. Bread is worth 0.7 and everything else 0.4–0.5.
 11. **An insulin injection is not a treatment.** It lowers blood glucose and nothing switches it off; two doses inside the cooldown are a hypoglycaemic crisis, and eating is the only way out.
+12. **Grapefruit changes how long your other medicine lasts.** Naringin holds CYP3A4 down in steps, and CYP3A4 is what clears berberine - so a dose of coptis taken after nine slices lasts nearly twice as long. That is a way to make a herb you have go further, and a way to overcommit to one you did not mean to take. It fades on its own over a game day.
+13. **A hanging grapefruit is not a fruit you can pick and forget.** It only exists while the leaf or log above it does, so felling the tree drops the whole crop at once - which is convenient, but it also means the fruit will not survive you building through the canopy.
+
+---
+
+## 24. Grapefruit and the CYP3A4 Interaction
+
+The grapefruit is the mod's first **food that changes how long another substance lasts**. Naringin has
+no effect of its own; everything it does, it does by holding down the liver enzyme that clears
+berberine.
+
+### The Tree
+
+| | |
+| --- | --- |
+| Biomes | Jungle, Sparse Jungle, Bamboo Jungle, Savanna, Savanna Plateau, Windswept Savanna |
+| Frequency | Rarity filter 1/6 |
+| Trunk | `aliment:grapefruit_log`, 4–6 blocks tall, blob canopy of radius 2 |
+| Fruit | `aliment:grapefruit`, hung 30% of the time under each eligible canopy leaf |
+| Sapling | `aliment:grapefruit_sapling`, grows the same tree |
+
+The fruit is a **hanging block**: it is placed by vanilla's `minecraft:attached_to_leaves` decorator
+in the cell directly below a canopy leaf, and it can only exist while the block above it is still a
+leaf or a log. Felling the canopy therefore drops every fruit with it. Breaking one drops the fruit
+itself, and one fruit crafts into **eight slices**.
+
+### The Slice
+
+| | Per slice |
+| --- | --- |
+| Hunger | **2** |
+| Saturation | **3 points** |
+| Water | **5** |
+| Naringin | **1** |
+| Vitamin C | **10 µmol/L** - what a carrot is worth |
+
+A slice is the only food in the mod that also hydrates - it is a drink's job done by a snack, at a
+third of a drink's worth. Ten slices fill the body's naringin.
+
+### The Wood
+
+The tree is also a full **second wood set**, not just a fruit tree:
+
+| | |
+| --- | --- |
+| Log-shaped | `grapefruit_log`, `grapefruit_wood`, `stripped_grapefruit_log`, `stripped_grapefruit_wood` |
+| Planks | `grapefruit_planks` |
+| Shaped | stairs, slab, fence, fence gate, door, trapdoor, pressure plate, button, shelf |
+| Signs | standing, wall, hanging, wall hanging |
+| Boats | `grapefruit_boat` and `grapefruit_chest_boat`, each with its own entity type |
+| Decorative | `potted_grapefruit_sapling` |
+
+The four log-shaped blocks are in their own `aliment:grapefruit_logs` tag, which is what the planks
+recipe takes - so a grapefruit plank recipe cannot be satisfied with willow logs, and the two woods
+stay separate the whole way down the crafting tree. Everything else joins the vanilla `planks`,
+`logs`, `wooden_*`, `signs` and `fence_gates` tags, which is what makes the set axe-mineable and
+recognisable to vanilla recipes.
+
+### The Enzyme
+
+CYP3A4 sits at **85** in a body that has eaten no grapefruit, and naringin pushes it down in **steps**
+rather than along a curve, so the index only ever holds one of five values:
+
+| Naringin | CYP3A4 | Berberine is cleared | so a dose lasts |
+| --- | --- | --- | --- |
+| ≤ 2 | **85** | 1.00x | 1.0x |
+| > 2 | **60** | 0.71x | 1.4x |
+| > 4 | **45** | 0.53x | 1.9x |
+| > 7 | **25** | 0.29x | 3.4x |
+| ≥ 8.5 | **10** | 0.12x | **8.5x** |
+
+Naringin clears linearly over **one game day** from the cap, so the effect fades on its own without
+anything having to undo it - and the last column is only ever reached for part of a dose's life.
+
+### What It Is For
+
+Berberine - from coptis and phellodendron - is the mod's antibacterial, and it is now cleared by
+CYP3A4 and by nothing else. A single coptis herb clears in about **9,400 ticks** on its own; eaten
+after nine slices of grapefruit the same herb takes about **17,800**. That cuts both ways: grapefruit
+is how a player makes a herb they are short of go further, and how a player accidentally commits to
+one they only meant to take once.
+

@@ -36,4 +36,20 @@ object AlimentTreeGrowers {
         WeightedList.of(),
         WILLOW_TREE,
     )
+
+    val GRAPEFRUIT_TREE: ResourceKey<Feature> =
+        ResourceKey.create(Registries.FEATURE, Registration.id("grapefruit"))
+
+    /**
+     * A grapefruit sapling only ever grows the one tree: unlike the willow there is no tall variant,
+     * because the fruit hangs from the canopy and a taller trunk would only put it further away.
+     */
+    val GRAPEFRUIT: TreeGrower = TreeGrower(
+        "grapefruit",
+        WeightedList.of(Weighted(GRAPEFRUIT_TREE, 1)),
+        // No 2x2 mega variant and no flowering variant.
+        WeightedList.of(),
+        WeightedList.of(),
+        GRAPEFRUIT_TREE,
+    )
 }

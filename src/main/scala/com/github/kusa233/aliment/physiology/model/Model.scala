@@ -254,6 +254,15 @@ final case class ModelDrugs(
     @BeanProperty ephedrine: Float = 0f,
     @BeanProperty berberine: Float = 0f,
     @BeanProperty glycyrrhizin: Float = 0f,
+    /**
+     * Naringin, the bitter flavanone glycoside that makes a grapefruit a grapefruit,
+     * 0..[ModelConstants.NARINGIN_CAP].
+     *
+     * Nothing about it is therapeutic. It is here because it shuts down [ModelState.cyp3a4], the
+     * liver enzyme that clears berberine, and that interaction - eat grapefruit, and coptis stops
+     * leaving the body - is the whole point of tracking it.
+     */
+    @BeanProperty naringin: Float = 0f,
     @BeanProperty ethanol: Float = 0f,
     /**
      * Insulin aspart, the injected fast-acting analogue, 0..[ModelConstants.INSULIN_ASPART_CAP].
@@ -272,13 +281,14 @@ final case class ModelDrugs(
   def withEphedrine(value: Float): ModelDrugs = copy(ephedrine = value)
   def withBerberine(value: Float): ModelDrugs = copy(berberine = value)
   def withGlycyrrhizin(value: Float): ModelDrugs = copy(glycyrrhizin = value)
+  def withNaringin(value: Float): ModelDrugs = copy(naringin = value)
   def withEthanol(value: Float): ModelDrugs = copy(ethanol = value)
   def withInsulinAspart(value: Float): ModelDrugs = copy(insulinAspart = value)
 }
 
 /** The default clean drug state with zero concentration for all substances. */
 object DrugDefaults {
-  val CLEAN: ModelDrugs = new ModelDrugs(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f)
+  val CLEAN: ModelDrugs = new ModelDrugs(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f)
 }
 
 /**
@@ -456,6 +466,48 @@ object ModelConstants {
   val GLYCYRRHIZIN_METABOLISM_TICKS: Int = 48000
   val GLYCYRRHIZIN_DECAY_PER_TICK: Float = GLYCYRRHIZIN_CAP / GLYCYRRHIZIN_METABOLISM_TICKS
 
+  // ---------------------------------------------------------------- naringin and CYP3A4
+
+  /** The most naringin a body can carry, 0..10: ten grapefruit slices. */
+  val NARINGIN_CAP: Float = 10f
+
+  /**
+   * Naringin is cleared within 1 in-game day (24000 ticks) from the cap.
+   *
+   * Half the lifetime of the mod's other two-day compounds, which is what keeps grapefruit a
+   * decision about the next few hours rather than about the next few days: the enzyme is fully
+   * suppressed for most of a day and back to normal by the next one.
+   */
+  val NARINGIN_METABOLISM_TICKS: Int = 24000
+  val NARINGIN_DECAY_PER_TICK: Float = NARINGIN_CAP / NARINGIN_METABOLISM_TICKS
+
+  /**
+   * CYP3A4 activity in a body that has eaten no grapefruit: the baseline the berberine metabolism
+   * was written against, and the value the index returns to once the naringin is gone.
+   */
+  val CYP3A4_NORMAL: Float = 85f
+
+  /** The hard clamp on the index. */
+  val CYP3A4_MIN: Float = 0f
+  val CYP3A4_MAX: Float = 100f
+
+  /**
+   * The four naringin thresholds, and the CYP3A4 activity each one leaves behind.
+   *
+   * The first three are "above this", the last is "at or above": eight slices is already as bad as
+   * it gets, and 8.5 is where that starts. Read together the two lists are one step function - see
+   * `Physiology.cyp3a4For` - so the index only ever holds one of five values.
+   */
+  val NARINGIN_CYP_STEP_1: Float = 2f
+  val NARINGIN_CYP_STEP_2: Float = 4f
+  val NARINGIN_CYP_STEP_3: Float = 7f
+  val NARINGIN_CYP_STEP_4: Float = 8.5f
+
+  val CYP3A4_AT_STEP_1: Float = 60f
+  val CYP3A4_AT_STEP_2: Float = 45f
+  val CYP3A4_AT_STEP_3: Float = 25f
+  val CYP3A4_AT_STEP_4: Float = 10f
+
   // ---------------------------------------------------------------- ethanol
 
   /** The maximum ethanol index a body can carry, 0..1.0. */
@@ -606,6 +658,15 @@ final case class ModelState(
      * [ModelDrugs.insulinAspart].
      */
     @BeanProperty insulin: Float = ModelConstants.INSULIN_NORMAL,
+    /**
+     * CYP3A4 activity, 0..[ModelConstants.CYP3A4_MAX], and [ModelConstants.CYP3A4_NORMAL] in a body
+     * that has eaten no grapefruit.
+     *
+     * It is the rate at which the liver clears berberine. 85 means "at the metabolism the model was
+     * written with"; every step below it is a proportionally slower one. Naringin is the only thing
+     * that moves it, so it never disagrees with [ModelDrugs.naringin] by more than a single tick.
+     */
+    @BeanProperty cyp3a4: Float = ModelConstants.CYP3A4_NORMAL,
 ) {
   def withMediators(value: ModelMediators): ModelState = copy(mediators = value)
   def withBacteria(value: Float): ModelState = copy(bacteria = value)
@@ -619,6 +680,7 @@ final case class ModelState(
   def withDrugs(value: ModelDrugs): ModelState = copy(drugs = value)
   def withGlucose(value: Float): ModelState = copy(glucose = value)
   def withInsulin(value: Float): ModelState = copy(insulin = value)
+  def withCyp3a4(value: Float): ModelState = copy(cyp3a4 = value)
 
   // Convenience accessors delegating to drugs
   def salicin: Float = drugs.salicin
@@ -630,6 +692,7 @@ final case class ModelState(
   def ephedrine: Float = drugs.ephedrine
   def berberine: Float = drugs.berberine
   def glycyrrhizin: Float = drugs.glycyrrhizin
+  def naringin: Float = drugs.naringin
   def ethanol: Float = drugs.ethanol
   def insulinAspart: Float = drugs.insulinAspart
 
@@ -642,6 +705,7 @@ final case class ModelState(
   def withEphedrine(value: Float): ModelState = copy(drugs = drugs.withEphedrine(value))
   def withBerberine(value: Float): ModelState = copy(drugs = drugs.withBerberine(value))
   def withGlycyrrhizin(value: Float): ModelState = copy(drugs = drugs.withGlycyrrhizin(value))
+  def withNaringin(value: Float): ModelState = copy(drugs = drugs.withNaringin(value))
   def withEthanol(value: Float): ModelState = copy(drugs = drugs.withEthanol(value))
   def withInsulinAspart(value: Float): ModelState = copy(drugs = drugs.withInsulinAspart(value))
 }

@@ -50,6 +50,24 @@ object AlimentWorldGen {
     val SEAWEED_PATCH: ResourceKey<PlacedFeature> =
         ResourceKey.create(Registries.PLACED_FEATURE, Registration.id("seaweed_patch"))
 
+    val GRAPEFRUIT_GROVE: ResourceKey<PlacedFeature> =
+        ResourceKey.create(Registries.PLACED_FEATURE, Registration.id("grapefruit_grove"))
+
+    /**
+     * Where a grapefruit tree grows wild: the warm, wet and warm-dry biomes a citrus belongs in.
+     *
+     * Deliberately not every non-cold biome - a grapefruit in a taiga would be as out of place as
+     * kelp in a desert - but wide enough that a player who wants one can find one without a hunt.
+     */
+    private val GRAPEFRUIT_BIOMES = listOf(
+        Biomes.JUNGLE,
+        Biomes.SPARSE_JUNGLE,
+        Biomes.BAMBOO_JUNGLE,
+        Biomes.SAVANNA,
+        Biomes.SAVANNA_PLATEAU,
+        Biomes.WINDSWEPT_SAVANNA,
+    )
+
     /**
      * Where a mandrake grows wild: both plains and both swamps, since a sunflower plain is still a
      * plain and a mangrove swamp is still a swamp.
@@ -137,6 +155,11 @@ object AlimentWorldGen {
             BiomeSelectors.tag(BiomeTags.IS_OCEAN),
             GenerationStep.Decoration.VEGETAL_DECORATION,
             SEAWEED_PATCH,
+        )
+        BiomeModifications.addFeature(
+            BiomeSelectors.includeByKey(GRAPEFRUIT_BIOMES),
+            GenerationStep.Decoration.VEGETAL_DECORATION,
+            GRAPEFRUIT_GROVE,
         )
     }
 }

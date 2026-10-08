@@ -122,6 +122,25 @@ object AlimentIngestion {
     /** Glycyrrhizin delivered by licorice potion. */
     private const val LICORICE_POTION_GLYCYRRHIZIN = 2.5f
 
+    /**
+     * Water a grapefruit slice adds.
+     *
+     * A slice is *eaten*, not drunk, so it does not go through [isDrink] and does not get the
+     * standard drink's worth: this is a third of a bottle, which is what a slice of fruit is.
+     */
+    private const val GRAPEFRUIT_SLICE_WATER = 5f
+
+    /** Naringin one grapefruit slice delivers. Ten slices fill the body; see `NARINGIN_CAP`. */
+    private const val GRAPEFRUIT_SLICE_NARINGIN = 1f
+
+    /**
+     * Vitamin C one grapefruit slice delivers.
+     *
+     * A citrus is the obvious source of it, and a slice is a plant food like any other, so it is
+     * worth exactly what the other plant foods are: the same 10 as a carrot.
+     */
+    private const val GRAPEFRUIT_SLICE_VITAMIN_C = 10.0f
+
     /** How much pathogen a single successful roll adds. */
     private const val BACTERIA_SEED = 6f
 
@@ -265,6 +284,14 @@ object AlimentIngestion {
             AlimentItems.LICORICE_POTION -> {
                 data = AlimentPhysiology.addGlycyrrhizin(data, LICORICE_POTION_GLYCYRRHIZIN)
             }
+
+            // The grapefruit: a snack that is also a drink, and the only source of naringin. What it
+            // does is hold CYP3A4 down, which is what makes the berberine above last - so a slice
+            // after a dose of coptis is not a dessert, it is a decision.
+            AlimentItems.GRAPEFRUIT_SLICE -> {
+                data = AlimentPhysiology.drink(data, GRAPEFRUIT_SLICE_WATER)
+                data = AlimentPhysiology.addNaringin(data, GRAPEFRUIT_SLICE_NARINGIN)
+            }
             else -> Unit
         }
 
@@ -280,6 +307,7 @@ object AlimentIngestion {
             Items.PUMPKIN_PIE -> data = AlimentPhysiology.vitaminC(data, PUMPKIN_PIE_VITAMIN_C)
             Items.BEETROOT -> data = AlimentPhysiology.vitaminC(data, BEETROOT_VITAMIN_C)
             Items.BEETROOT_SOUP -> data = AlimentPhysiology.vitaminC(data, BEETROOT_SOUP_VITAMIN_C)
+            AlimentItems.GRAPEFRUIT_SLICE -> data = AlimentPhysiology.vitaminC(data, GRAPEFRUIT_SLICE_VITAMIN_C)
             AlimentItems.MANDRAKE_FRUIT -> data = AlimentPhysiology.vitaminC(data, MANDRAKE_FRUIT_VITAMIN_C)
             AlimentItems.SEAWEED -> data = AlimentPhysiology.vitaminC(data, SEAWEED_VITAMIN_C)
             AlimentItems.COOKED_SEAWEED -> data = AlimentPhysiology.vitaminC(data, COOKED_SEAWEED_VITAMIN_C)
@@ -382,6 +410,7 @@ object AlimentIngestion {
         AlimentItems.SALT_WILLOW_BARK_SOUP,
         AlimentItems.CRUDE_SALT_RAW_WILLOW_BARK_SOUP,
         AlimentItems.SALT_RAW_WILLOW_BARK_SOUP,
+        AlimentItems.GRAPEFRUIT_SLICE,
     )
 
     /**
@@ -400,9 +429,18 @@ object AlimentIngestion {
         else -> 0f
     }
 
-    /** Anything the player drinks, which counts towards the water index. */
+    /**
+     * Anything the player drinks, which counts towards the water index.
+     *
+     * Milk is on the list: it is a drink like any other, so it is worth exactly
+     * [AlimentData.WATER_PER_DRINK] - fifteen - and it is the one vanilla drink that arrives with
+     * its own `CONSUMABLE` component rather than a `BucketItem` override, which is why it reaches
+     * [onItemConsumed] at all. Drinking it still clears the player's status effects, which is
+     * vanilla's business and not the model's.
+     */
     fun isDrink(item: Item): Boolean = item === Items.POTION ||
         item === Items.MUSHROOM_STEW ||
+        item === Items.MILK_BUCKET ||
         item === AlimentItems.WINE ||
         item === AlimentItems.BEER ||
         item === AlimentItems.EPHEDRINE ||

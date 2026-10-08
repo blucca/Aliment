@@ -7,6 +7,7 @@ import com.github.kusa233.aliment.world.block.CondenserPipeBlock
 import com.github.kusa233.aliment.world.block.CoptisBlock
 import com.github.kusa233.aliment.world.block.EphedraBlock
 import com.github.kusa233.aliment.world.block.FermentationTankBlock
+import com.github.kusa233.aliment.world.block.GrapefruitBlock
 import com.github.kusa233.aliment.world.block.GymnopilusBlock
 import com.github.kusa233.aliment.world.block.LicoriceBlock
 import com.github.kusa233.aliment.world.block.MandrakeBlock
@@ -483,6 +484,227 @@ object AlimentBlocks {
             .strength(2.0F)
             .noOcclusion(),
     ) { BeerCauldronBlock(it) }
+
+    // ---------------------------------------------------------------- grapefruit
+
+    /**
+     * The grapefruit tree and the wood set cut from it.
+     *
+     * The tree generates in the jungles and the savannas and carries its fruit, but its wood is a
+     * full second set alongside the willow's: logs, bark, planks, the shaped blocks, the signs and
+     * its own two boats. It is a separate wood rather than a recolour of the willow's, so a
+     * `#aliment:grapefruit_logs` recipe cannot be satisfied with willow logs.
+     */
+    val GRAPEFRUIT_LOG: Block = Registration.registerBlockWithItem(
+        "grapefruit_log",
+        BlockBehaviour.Properties.of()
+            .mapColor(MapColor.COLOR_BROWN)
+            .instrument(NoteBlockInstrument.BASS)
+            .strength(2.0F)
+            .sound(SoundType.WOOD)
+            .ignitedByLava(),
+    ) { RotatedPillarBlock(it) }
+
+    val GRAPEFRUIT_WOOD: Block = Registration.registerBlockWithItem(
+        "grapefruit_wood",
+        BlockBehaviour.Properties.of()
+            .mapColor(MapColor.COLOR_BROWN)
+            .instrument(NoteBlockInstrument.BASS)
+            .strength(2.0F)
+            .sound(SoundType.WOOD)
+            .ignitedByLava(),
+    ) { RotatedPillarBlock(it) }
+
+    val STRIPPED_GRAPEFRUIT_LOG: Block = Registration.registerBlockWithItem(
+        "stripped_grapefruit_log",
+        BlockBehaviour.Properties.of()
+            .mapColor(MapColor.COLOR_BROWN)
+            .instrument(NoteBlockInstrument.BASS)
+            .strength(2.0F)
+            .sound(SoundType.WOOD)
+            .ignitedByLava(),
+    ) { RotatedPillarBlock(it) }
+
+    val STRIPPED_GRAPEFRUIT_WOOD: Block = Registration.registerBlockWithItem(
+        "stripped_grapefruit_wood",
+        BlockBehaviour.Properties.of()
+            .mapColor(MapColor.COLOR_BROWN)
+            .instrument(NoteBlockInstrument.BASS)
+            .strength(2.0F)
+            .sound(SoundType.WOOD)
+            .ignitedByLava(),
+    ) { RotatedPillarBlock(it) }
+
+    val GRAPEFRUIT_PLANKS: Block =
+        Registration.registerBlockWithItem("grapefruit_planks", woodProperties()) { Block(it) }
+
+    /** The canopy a grapefruit hangs from. */
+    val GRAPEFRUIT_LEAVES: Block = Registration.registerBlockWithItem(
+        "grapefruit_leaves",
+        BlockBehaviour.Properties.of()
+            .mapColor(MapColor.PLANT)
+            .strength(0.2F)
+            .randomTicks()
+            .sound(SoundType.GRASS)
+            .noOcclusion()
+            .isSuffocating { _, _, _ -> false }
+            .isViewBlocking { _, _, _, _ -> false }
+            .ignitedByLava()
+            .pushReaction(PushReaction.POPPED)
+            .isRedstoneConductor { _, _, _ -> false },
+    ) { TintedParticleLeavesBlock(0.01F, it) }
+
+    val GRAPEFRUIT_SAPLING: Block = Registration.registerBlockWithItem(
+        "grapefruit_sapling",
+        BlockBehaviour.Properties.of()
+            .mapColor(MapColor.PLANT)
+            .noCollision()
+            .randomTicks()
+            .instabreak()
+            .sound(SoundType.GRASS)
+            .pushReaction(PushReaction.POPPED),
+    ) { SaplingBlock(AlimentTreeGrowers.GRAPEFRUIT, it) }
+
+    // ---------------------------------------------------------------- grapefruit shaped blocks
+
+    val GRAPEFRUIT_STAIRS: Block = Registration.registerBlockWithItem("grapefruit_stairs", woodProperties()) {
+        StairBlock(GRAPEFRUIT_PLANKS.defaultBlockState(), it)
+    }
+
+    val GRAPEFRUIT_SLAB: Block =
+        Registration.registerBlockWithItem("grapefruit_slab", woodProperties()) { SlabBlock(it) }
+
+    val GRAPEFRUIT_FENCE: Block =
+        Registration.registerBlockWithItem("grapefruit_fence", woodProperties()) { FenceBlock(it) }
+
+    val GRAPEFRUIT_FENCE_GATE: Block = Registration.registerBlockWithItem(
+        "grapefruit_fence_gate",
+        woodProperties(),
+    ) { FenceGateBlock(AlimentWoodTypes.GRAPEFRUIT, it) }
+
+    val GRAPEFRUIT_DOOR: Block = Registration.registerBlockWithItem(
+        "grapefruit_door",
+        BlockBehaviour.Properties.of()
+            .mapColor(MapColor.COLOR_BROWN)
+            .instrument(NoteBlockInstrument.BASS)
+            .strength(3.0F)
+            .noOcclusion()
+            .pushReaction(PushReaction.POPPED)
+            .ignitedByLava(),
+        Item.Properties().stacksTo(16),
+        { block, props -> DoubleHighBlockItem(block, props) },
+    ) { DoorBlock(AlimentWoodTypes.GRAPEFRUIT_SET_TYPE, it) }
+
+    val GRAPEFRUIT_TRAPDOOR: Block = Registration.registerBlockWithItem(
+        "grapefruit_trapdoor",
+        BlockBehaviour.Properties.of()
+            .mapColor(MapColor.COLOR_BROWN)
+            .instrument(NoteBlockInstrument.BASS)
+            .strength(3.0F)
+            .noOcclusion()
+            .isValidSpawn { _, _, _, _ -> false }
+            .ignitedByLava()
+            .pushReaction(PushReaction.POPPED),
+    ) { TrapDoorBlock(AlimentWoodTypes.GRAPEFRUIT_SET_TYPE, it) }
+
+    val GRAPEFRUIT_PRESSURE_PLATE: Block = Registration.registerBlockWithItem(
+        "grapefruit_pressure_plate",
+        BlockBehaviour.Properties.of()
+            .mapColor(MapColor.COLOR_BROWN)
+            .forceSolidOn()
+            .instrument(NoteBlockInstrument.BASS)
+            .noCollision()
+            .strength(0.5F)
+            .ignitedByLava()
+            .pushReaction(PushReaction.POPPED),
+    ) { PressurePlateBlock(AlimentWoodTypes.GRAPEFRUIT_SET_TYPE, it) }
+
+    val GRAPEFRUIT_BUTTON: Block = Registration.registerBlockWithItem(
+        "grapefruit_button",
+        BlockBehaviour.Properties.of().noCollision().strength(0.5F).pushReaction(PushReaction.POPPED),
+    ) { ButtonBlock(AlimentWoodTypes.GRAPEFRUIT_SET_TYPE, 30, it) }
+
+    val GRAPEFRUIT_SHELF: Block = Registration.registerBlockWithItem(
+        "grapefruit_shelf",
+        BlockBehaviour.Properties.of()
+            .mapColor(MapColor.COLOR_BROWN)
+            .instrument(NoteBlockInstrument.BASS)
+            .sound(SoundType.SHELF)
+            .ignitedByLava()
+            .strength(2.0F, 3.0F),
+    ) { ShelfBlock(it) }
+
+    // ---------------------------------------------------------------- grapefruit signs
+
+    val GRAPEFRUIT_SIGN: Block = Registration.registerBlock(
+        "grapefruit_sign",
+        BlockBehaviour.Properties.of()
+            .mapColor(MapColor.COLOR_BROWN)
+            .forceSolidOn()
+            .instrument(NoteBlockInstrument.BASS)
+            .noCollision()
+            .strength(1.0F)
+            .ignitedByLava(),
+    ) { StandingSignBlock(AlimentWoodTypes.GRAPEFRUIT, it) }
+
+    val GRAPEFRUIT_WALL_SIGN: Block = Registration.registerBlock(
+        "grapefruit_wall_sign",
+        BlockBehaviour.Properties.of()
+            .overrideLootTable(GRAPEFRUIT_SIGN.lootTable)
+            .overrideDescription(GRAPEFRUIT_SIGN.descriptionId)
+            .mapColor(MapColor.COLOR_BROWN)
+            .forceSolidOn()
+            .instrument(NoteBlockInstrument.BASS)
+            .noCollision()
+            .strength(1.0F)
+            .ignitedByLava(),
+    ) { WallSignBlock(AlimentWoodTypes.GRAPEFRUIT, it) }
+
+    val GRAPEFRUIT_HANGING_SIGN: Block = Registration.registerBlock(
+        "grapefruit_hanging_sign",
+        BlockBehaviour.Properties.of()
+            .mapColor(MapColor.COLOR_BROWN)
+            .forceSolidOn()
+            .instrument(NoteBlockInstrument.BASS)
+            .noCollision()
+            .strength(1.0F)
+            .ignitedByLava(),
+    ) { CeilingHangingSignBlock(AlimentWoodTypes.GRAPEFRUIT, it) }
+
+    val GRAPEFRUIT_WALL_HANGING_SIGN: Block = Registration.registerBlock(
+        "grapefruit_wall_hanging_sign",
+        BlockBehaviour.Properties.of()
+            .overrideLootTable(GRAPEFRUIT_HANGING_SIGN.lootTable)
+            .overrideDescription(GRAPEFRUIT_HANGING_SIGN.descriptionId)
+            .mapColor(MapColor.COLOR_BROWN)
+            .forceSolidOn()
+            .instrument(NoteBlockInstrument.BASS)
+            .noCollision()
+            .strength(1.0F)
+            .ignitedByLava(),
+    ) { WallHangingSignBlock(AlimentWoodTypes.GRAPEFRUIT, it) }
+
+    val POTTED_GRAPEFRUIT_SAPLING: Block = Registration.registerBlock(
+        "potted_grapefruit_sapling",
+        BlockBehaviour.Properties.of().instabreak().noOcclusion().pushReaction(PushReaction.POPPED),
+    ) { FlowerPotBlock(GRAPEFRUIT_SAPLING, it) }
+
+    /**
+     * The fruit itself, hanging under the canopy.
+     *
+     * Breaking one drops the [AlimentItems]-side item of the same name, which is what the recipe
+     * turns into eight slices. It carries its own item so that a player can hang one back under a
+     * tree; see [GrapefruitBlock] for what it will and will not hang from.
+     */
+    val GRAPEFRUIT: Block = Registration.registerBlockWithItem(
+        "grapefruit",
+        BlockBehaviour.Properties.of()
+            .mapColor(MapColor.COLOR_ORANGE)
+            .noCollision()
+            .instabreak()
+            .sound(SoundType.GRASS)
+            .pushReaction(PushReaction.POPPED),
+    ) { GrapefruitBlock(it) }
 
     /** Touching this forces the whole object graph to be built. */
     fun initialize() {

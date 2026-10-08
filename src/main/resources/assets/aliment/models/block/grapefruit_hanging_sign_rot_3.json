@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/template_hanging_sign_rot_3",
+  "textures": {
+    "all": "aliment:block/grapefruit_hanging_sign",
+    "particle": "aliment:block/stripped_grapefruit_log"
+  }
+}

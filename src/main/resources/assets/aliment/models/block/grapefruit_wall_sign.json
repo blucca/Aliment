@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/template_wall_sign",
+  "textures": {
+    "all": "aliment:block/grapefruit_sign",
+    "particle": "aliment:block/grapefruit_planks"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "group": "wooden_pressure_plate",
+  "key": {
+    "#": "aliment:grapefruit_planks"
+  },
+  "pattern": [
+    "##"
+  ],
+  "result": {
+    "id": "aliment:grapefruit_pressure_plate"
+  }
+}

@@ -15,7 +15,9 @@ import com.github.kusa233.aliment.physiology.AlimentRuntime
 import com.github.kusa233.aliment.physiology.AlimentSymptoms
 import com.github.kusa233.aliment.physiology.TraceElements
 import com.github.kusa233.aliment.registry.AlimentBlocks
+import com.github.kusa233.aliment.registry.AlimentEntities
 import com.github.kusa233.aliment.registry.AlimentItems
+import com.github.kusa233.aliment.registry.Registration
 import com.github.kusa233.aliment.world.AlimentGrinding
 import com.github.kusa233.aliment.world.AlimentLoot
 import com.github.kusa233.aliment.world.item.BloodiedTestStripItem
@@ -31,10 +33,13 @@ import net.minecraft.core.Holder
 import net.minecraft.core.Registry
 import net.minecraft.core.component.DataComponents
 import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.core.registries.Registries
 import net.minecraft.network.chat.Component
 import net.minecraft.resources.Identifier
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
+import net.minecraft.tags.BlockTags
+import net.minecraft.tags.TagKey
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.InteractionResult
 import net.minecraft.world.effect.MobEffect
@@ -46,6 +51,7 @@ import net.minecraft.world.entity.Mob
 import net.minecraft.world.entity.ai.attributes.Attributes
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.inventory.GrindstoneMenu
+import net.minecraft.world.item.BoatItem
 import net.minecraft.world.item.DyeColor
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
@@ -88,6 +94,8 @@ class AlimentPhysiologySelfTest : ModInitializer {
                 runAll()
                 translationChecks()
                 languageParity()
+                grapefruitWoodChecks()
+                grapefruitChecks(server.overworld())
                 mixinChecks(server.overworld())
                 symptomChecks(server.overworld())
                 grinding(server.overworld())
@@ -136,6 +144,159 @@ class AlimentPhysiologySelfTest : ModInitializer {
         insulinInjection()
         foodGlucoseAmounts()
         hypoglycemiaSymptoms()
+        naringinAndCyp3a4()
+    }
+
+    /**
+     * Naringin, the enzyme it holds down, and what that does to berberine.
+     *
+     * Grapefruit is not a drug in this model: it is one number that picks a second number out of five
+     * options, and that second number is a rate multiplier on the clearance of a third. So the checks
+     * come in three layers - the five steps pinned on both sides, the decay that walks the naringin
+     * back down, and finally a real dose of coptis cleared with and without grapefruit in the body to
+     * prove the multiplier is actually wired to the metabolism rather than merely computed.
+     */
+    private fun naringinAndCyp3a4() {
+        logger.info(
+            "PHYS naringin cap {}; cyp3a4 normal {} range {}-{}; steps {} {} {} {} -> {} {} {} {}",
+            AlimentData.NARINGIN_CAP, AlimentData.CYP3A4_NORMAL, AlimentData.CYP3A4_MIN,
+            AlimentData.CYP3A4_MAX, AlimentData.NARINGIN_CYP_STEP_1, AlimentData.NARINGIN_CYP_STEP_2,
+            AlimentData.NARINGIN_CYP_STEP_3, AlimentData.NARINGIN_CYP_STEP_4,
+            AlimentData.CYP3A4_AT_STEP_1, AlimentData.CYP3A4_AT_STEP_2,
+            AlimentData.CYP3A4_AT_STEP_3, AlimentData.CYP3A4_AT_STEP_4,
+        )
+        check("naringin runs 0..10", AlimentData.NARINGIN_CAP == 10f)
+        check("CYP3A4 defaults to 85", AlimentData.CYP3A4_NORMAL == 85f)
+        check("and is reported on a 0..100 scale", AlimentData.CYP3A4_MIN == 0f && AlimentData.CYP3A4_MAX == 100f)
+
+        // Each threshold from both sides. The first three are "past this" and the fourth is "at or
+        // above", so 2.0 still runs at the full 85 while 2.1 has already dropped.
+        val steps = listOf(
+            Triple(0f, 85f, "nothing eaten"),
+            Triple(2f, 85f, "at the first threshold"),
+            Triple(2.1f, 60f, "past 2"),
+            Triple(4f, 60f, "at the second threshold"),
+            Triple(4.1f, 45f, "past 4"),
+            Triple(7f, 45f, "at the third threshold"),
+            Triple(7.1f, 25f, "past 7"),
+            Triple(8.4f, 25f, "just short of 8.5"),
+            Triple(8.5f, 10f, "at 8.5"),
+            Triple(10f, 10f, "at the cap"),
+        )
+        for ((naringin, expected, label) in steps) {
+            val actual = AlimentPhysiology.cyp3a4For(naringin)
+            logger.info("PHYS cyp3a4 at naringin {}: {} ({})", naringin, actual, label)
+            check("$label leaves CYP3A4 at $expected", actual == expected)
+        }
+
+        // The property behind those ten cases: sweeping the whole range never produces a sixth value.
+        val allowed = setOf(
+            AlimentData.CYP3A4_NORMAL,
+            AlimentData.CYP3A4_AT_STEP_1,
+            AlimentData.CYP3A4_AT_STEP_2,
+            AlimentData.CYP3A4_AT_STEP_3,
+            AlimentData.CYP3A4_AT_STEP_4,
+        )
+        var offGrid = 0
+        var swept = 0f
+        while (swept <= AlimentData.NARINGIN_CAP) {
+            if (AlimentPhysiology.cyp3a4For(swept) !in allowed) offGrid++
+            swept += 0.01f
+        }
+        check("sweeping 0..10 never leaves the five steps", offGrid == 0)
+        check("and every step is inside the reported range", allowed.all { it in AlimentData.CYP3A4_MIN..AlimentData.CYP3A4_MAX })
+        check(
+            "the steps only ever go down as the grapefruit goes in",
+            AlimentData.CYP3A4_AT_STEP_1 > AlimentData.CYP3A4_AT_STEP_2 &&
+                AlimentData.CYP3A4_AT_STEP_2 > AlimentData.CYP3A4_AT_STEP_3 &&
+                AlimentData.CYP3A4_AT_STEP_3 > AlimentData.CYP3A4_AT_STEP_4,
+        )
+
+        // Eating grapefruit fills the index and stops at the cap.
+        var data = AlimentPhysiology.addNaringin(AlimentData.HEALTHY, AlimentData.NARINGIN_CAP)
+        check("naringin fills to the cap", data.naringin == AlimentData.NARINGIN_CAP)
+        data = AlimentPhysiology.addNaringin(data, 5f)
+        check("and cannot go past it", data.naringin == AlimentData.NARINGIN_CAP)
+        check("adding nothing changes nothing", AlimentPhysiology.addNaringin(AlimentData.HEALTHY, 0f).naringin == 0f)
+
+        // The tick is what reads the index off the naringin; eating only moves the naringin.
+        val justEaten = AlimentPhysiology.addNaringin(AlimentData.HEALTHY, AlimentData.NARINGIN_CAP)
+        check("the index is untouched the instant the fruit is swallowed", justEaten.cyp3a4 == AlimentData.CYP3A4_NORMAL)
+        check("and the next tick reads it off the naringin", AlimentPhysiology.tick(justEaten).cyp3a4 == AlimentData.CYP3A4_AT_STEP_4)
+
+        // Half way through the stated metabolism the body should be carrying half of it, which pins
+        // the rate itself without depending on how the rounding accumulates over the full run.
+        var half = justEaten
+        repeat(AlimentData.NARINGIN_METABOLISM_TICKS / 2) { half = AlimentPhysiology.tick(half) }
+        logger.info("PHYS naringin after half a metabolism: {}", half.naringin)
+        check(
+            "half way through, the body is carrying half of it",
+            abs(half.naringin - (AlimentData.NARINGIN_CAP / 2f)) < 0.02f,
+        )
+
+        // A full body of naringin clears in the stated game day. The window is a couple of hundred
+        // ticks wide either way because subtracting a rate this small from a number this large 24,000
+        // times leaves float residue; the rate check above is what pins the value exactly.
+        var clearing = justEaten
+        var clearedAfter = 0
+        while (clearing.naringin > 0f && clearedAfter < AlimentData.NARINGIN_METABOLISM_TICKS + 5000) {
+            clearing = AlimentPhysiology.tick(clearing)
+            clearedAfter++
+        }
+        logger.info("PHYS a full body of naringin cleared in {} ticks", clearedAfter)
+        check(
+            "a full body of naringin clears in one game day",
+            abs(clearedAfter - AlimentData.NARINGIN_METABOLISM_TICKS) < 200,
+        )
+        check("and the enzyme is back to normal once it has", clearing.cyp3a4 == AlimentData.CYP3A4_NORMAL)
+
+        // Berberine is cleared by CYP3A4, so at the baseline it falls at exactly the rate the model
+        // has always used, and at each step below it falls by that step's fraction of it.
+        //
+        // The tolerance is 1e-6 rather than something tighter because the fall is measured as
+        // `1f - after`, and subtracting two numbers that are both close to 1 leaves float residue of
+        // the order of the spacing at 1.0 - about 1.2e-7. The rates themselves are ~1e-4, so this is
+        // still a check on the ratio to within a fraction of a percent.
+        val berberineStart = 1f
+        val baseline = AlimentPhysiology.tick(AlimentData.HEALTHY.copy(berberine = berberineStart))
+        val baselineFall = berberineStart - baseline.berberine
+        logger.info("PHYS berberine falls {} in a tick at CYP3A4 85", baselineFall)
+        check(
+            "at the 85 baseline berberine falls at the written rate",
+            abs(baselineFall - AlimentData.BERBERINE_DECAY_PER_TICK) < 1e-6f,
+        )
+
+        for ((naringin, cyp3a4) in listOf(3f to 60f, 5f to 45f, 7.5f to 25f, 9f to 10f)) {
+            val slow = AlimentPhysiology.tick(AlimentData.HEALTHY.copy(berberine = berberineStart, naringin = naringin))
+            val fall = berberineStart - slow.berberine
+            val expected = AlimentData.BERBERINE_DECAY_PER_TICK * (cyp3a4 / AlimentData.CYP3A4_NORMAL)
+            logger.info("PHYS berberine falls {} in a tick at CYP3A4 {} (expected {})", fall, cyp3a4, expected)
+            check("at CYP3A4 $cyp3a4 berberine falls proportionally slower", abs(fall - expected) < 1e-6f)
+        }
+
+        // End to end: one coptis herb, cleared with and without a body full of grapefruit.
+        val alone = AlimentPhysiology.addBerberine(AlimentData.HEALTHY, 1.1f)
+        val withFruit = AlimentPhysiology.addNaringin(AlimentPhysiology.addBerberine(AlimentData.HEALTHY, 1.1f), 9f)
+        val aloneTicks = ticksToClearBerberine(alone)
+        val withFruitTicks = ticksToClearBerberine(withFruit)
+        logger.info("PHYS coptis cleared in {} ticks alone, {} with grapefruit", aloneTicks, withFruitTicks)
+        check("a single coptis herb clears in about 9400 ticks on its own", aloneTicks in 9000..10000)
+        check("grapefruit makes the same dose last longer", withFruitTicks > aloneTicks)
+        // Naringin clears in a game day, so the enzyme is only held down for part of the dose's
+        // life: the effect is large but nothing like the eight-fold the deepest step would give on
+        // its own. Half again is the floor that keeps this a check rather than a restatement.
+        check("and it is a large difference, not a rounding one", withFruitTicks > aloneTicks * 1.5)
+    }
+
+    /** Ticks until the body has no berberine left, bounded so a broken model cannot hang the test. */
+    private fun ticksToClearBerberine(start: AlimentData): Int {
+        var data = start
+        var ticks = 0
+        while (data.berberine > 0f && ticks < 300_000) {
+            data = AlimentPhysiology.tick(data)
+            ticks++
+        }
+        return ticks
     }
 
     private fun homeostasis() {
@@ -2165,6 +2326,209 @@ class AlimentPhysiologySelfTest : ModInitializer {
 
     // ================================================================== mixins
 
+    /**
+     * The grapefruit wood set, checked through the block tags rather than through the files.
+     *
+     * A wood set is not a list of blocks; it is a set of *tag memberships*. Being in
+     * `minecraft:planks` is what makes a plank a plank - it is what vanilla recipes match on, what
+     * `minecraft:mineable/axe` already includes, and what the mod's own `#aliment:grapefruit_logs`
+     * recipe refers to. So the checks below ask the loaded tags, which is also the only way to
+     * notice a tag file that was written but never picked up.
+     */
+    private fun grapefruitWoodChecks() {
+        val logs = TagKey.create(Registries.BLOCK, Registration.id("grapefruit_logs"))
+
+        // The four log-shaped blocks the planks recipe is allowed to take.
+        val logBlocks = listOf(
+            "grapefruit_log" to AlimentBlocks.GRAPEFRUIT_LOG,
+            "grapefruit_wood" to AlimentBlocks.GRAPEFRUIT_WOOD,
+            "stripped_grapefruit_log" to AlimentBlocks.STRIPPED_GRAPEFRUIT_LOG,
+            "stripped_grapefruit_wood" to AlimentBlocks.STRIPPED_GRAPEFRUIT_WOOD,
+        )
+        for ((name, block) in logBlocks) {
+            val state = block.defaultBlockState()
+            check("$name is in aliment:grapefruit_logs", state.`is`(logs))
+            check("$name counts as a log", state.`is`(BlockTags.LOGS))
+            check("$name is axe-mineable through the log tags", state.`is`(BlockTags.MINEABLE_WITH_AXE))
+        }
+        check(
+            "a willow log is not a grapefruit log",
+            !AlimentBlocks.WILLOW_LOG.defaultBlockState().`is`(logs),
+        )
+
+        // Each shaped block in the one vanilla tag that makes it work: craftable by vanilla
+        // recipes, and already listed under `minecraft:mineable/axe` by the chain from that tag.
+        val tagged = listOf(
+            Triple("grapefruit_planks", AlimentBlocks.GRAPEFRUIT_PLANKS, BlockTags.PLANKS),
+            Triple("grapefruit_stairs", AlimentBlocks.GRAPEFRUIT_STAIRS, BlockTags.WOODEN_STAIRS),
+            Triple("grapefruit_slab", AlimentBlocks.GRAPEFRUIT_SLAB, BlockTags.WOODEN_SLABS),
+            Triple("grapefruit_fence", AlimentBlocks.GRAPEFRUIT_FENCE, BlockTags.WOODEN_FENCES),
+            Triple("grapefruit_fence_gate", AlimentBlocks.GRAPEFRUIT_FENCE_GATE, BlockTags.FENCE_GATES),
+            Triple("grapefruit_door", AlimentBlocks.GRAPEFRUIT_DOOR, BlockTags.WOODEN_DOORS),
+            Triple("grapefruit_trapdoor", AlimentBlocks.GRAPEFRUIT_TRAPDOOR, BlockTags.WOODEN_TRAPDOORS),
+            Triple(
+                "grapefruit_pressure_plate",
+                AlimentBlocks.GRAPEFRUIT_PRESSURE_PLATE,
+                BlockTags.WOODEN_PRESSURE_PLATES,
+            ),
+            Triple("grapefruit_button", AlimentBlocks.GRAPEFRUIT_BUTTON, BlockTags.WOODEN_BUTTONS),
+            Triple("grapefruit_shelf", AlimentBlocks.GRAPEFRUIT_SHELF, BlockTags.WOODEN_SHELVES),
+            Triple("grapefruit_sign", AlimentBlocks.GRAPEFRUIT_SIGN, BlockTags.STANDING_SIGNS),
+            Triple("grapefruit_wall_sign", AlimentBlocks.GRAPEFRUIT_WALL_SIGN, BlockTags.WALL_SIGNS),
+            Triple(
+                "grapefruit_hanging_sign",
+                AlimentBlocks.GRAPEFRUIT_HANGING_SIGN,
+                BlockTags.CEILING_HANGING_SIGNS,
+            ),
+            Triple(
+                "grapefruit_wall_hanging_sign",
+                AlimentBlocks.GRAPEFRUIT_WALL_HANGING_SIGN,
+                BlockTags.WALL_HANGING_SIGNS,
+            ),
+            Triple("grapefruit_leaves", AlimentBlocks.GRAPEFRUIT_LEAVES, BlockTags.LEAVES),
+            Triple("grapefruit_sapling", AlimentBlocks.GRAPEFRUIT_SAPLING, BlockTags.SAPLINGS),
+        )
+        for ((name, block, tag) in tagged) {
+            check("$name is in its vanilla tag", block.defaultBlockState().`is`(tag))
+        }
+
+        // Every wood block is axe-mineable, including the ones no vanilla tag covers for us.
+        for ((name, block) in listOf(
+            "grapefruit_planks" to AlimentBlocks.GRAPEFRUIT_PLANKS,
+            "grapefruit_stairs" to AlimentBlocks.GRAPEFRUIT_STAIRS,
+            "grapefruit_slab" to AlimentBlocks.GRAPEFRUIT_SLAB,
+            "grapefruit_fence" to AlimentBlocks.GRAPEFRUIT_FENCE,
+            "grapefruit_fence_gate" to AlimentBlocks.GRAPEFRUIT_FENCE_GATE,
+            "grapefruit_door" to AlimentBlocks.GRAPEFRUIT_DOOR,
+            "grapefruit_trapdoor" to AlimentBlocks.GRAPEFRUIT_TRAPDOOR,
+            "grapefruit_pressure_plate" to AlimentBlocks.GRAPEFRUIT_PRESSURE_PLATE,
+            "grapefruit_button" to AlimentBlocks.GRAPEFRUIT_BUTTON,
+            "grapefruit_shelf" to AlimentBlocks.GRAPEFRUIT_SHELF,
+            "grapefruit_sign" to AlimentBlocks.GRAPEFRUIT_SIGN,
+            "grapefruit_hanging_sign" to AlimentBlocks.GRAPEFRUIT_HANGING_SIGN,
+        )) {
+            check("$name is axe-mineable", block.defaultBlockState().`is`(BlockTags.MINEABLE_WITH_AXE))
+        }
+
+        // The boats: a second wood means a second pair of entity types, and the item has to point
+        // at the right one or a placed grapefruit boat would drop a willow boat.
+        check("the grapefruit boat item is a boat", AlimentItems.GRAPEFRUIT_BOAT is BoatItem)
+        check("and so is the chest boat", AlimentItems.GRAPEFRUIT_CHEST_BOAT is BoatItem)
+        check(
+            "the two woods have their own boat entities",
+            AlimentEntities.GRAPEFRUIT_BOAT !== AlimentEntities.WILLOW_BOAT &&
+                AlimentEntities.GRAPEFRUIT_CHEST_BOAT !== AlimentEntities.WILLOW_CHEST_BOAT,
+        )
+        for (path in listOf("grapefruit_boat", "grapefruit_chest_boat")) {
+            val key = net.minecraft.resources.ResourceKey.create(Registries.ENTITY_TYPE, Registration.id(path))
+            check("$path is registered as an entity type", BuiltInRegistries.ENTITY_TYPE.containsKey(key))
+            check("and as an item", BuiltInRegistries.ITEM.containsKey(Registration.id(path)))
+        }
+
+        // Every block in the set needs a blockstate and a loot table *on disk*. A block that is
+        // registered, tagged and craftable can still have no model and drop nothing, and nothing
+        // above would notice: this is the check that catches a block added to the registrations
+        // without its resource files, which is exactly what happened to `stripped_` and `potted_`
+        // when the set was first generated.
+        val blocks = listOf(
+            "grapefruit_log", "grapefruit_wood", "stripped_grapefruit_log", "stripped_grapefruit_wood",
+            "grapefruit_planks", "grapefruit_stairs", "grapefruit_slab", "grapefruit_fence",
+            "grapefruit_fence_gate", "grapefruit_door", "grapefruit_trapdoor",
+            "grapefruit_pressure_plate", "grapefruit_button", "grapefruit_shelf",
+            "grapefruit_sign", "grapefruit_wall_sign", "grapefruit_hanging_sign",
+            "grapefruit_wall_hanging_sign", "potted_grapefruit_sapling",
+            "grapefruit_leaves", "grapefruit_sapling", "grapefruit",
+        )
+        val missing = mutableListOf<String>()
+        for (name in blocks) {
+            if (javaClass.getResourceAsStream("/assets/aliment/blockstates/$name.json") == null) {
+                missing += "$name (blockstate)"
+            }
+        }
+        // The two wall signs deliberately inherit the standing sign's loot table, so they are the
+        // only two without a file of their own.
+        for (name in blocks - setOf("grapefruit_wall_sign", "grapefruit_wall_hanging_sign")) {
+            if (javaClass.getResourceAsStream("/data/aliment/loot_table/blocks/$name.json") == null) {
+                missing += "$name (loot table)"
+            }
+        }
+        logger.info("PHYS grapefruit wood resources missing: {}", missing)
+        check("every grapefruit wood block has its blockstate and its loot table", missing.isEmpty())
+
+        // A blockstate that names a *vanilla* model is a block that draws itself as something else.
+        // The willow's potted sapling shipped pointing at `minecraft:block/potted_oak_sapling` - so
+        // a potted willow rendered as a potted oak, and the correct `aliment:block/potted_willow_sapling`
+        // model existed the whole time and was never referenced. The grapefruit's was mirrored from
+        // it, which is why both woods are checked here.
+        for (name in listOf("potted_willow_sapling", "potted_grapefruit_sapling")) {
+            val text = javaClass.getResourceAsStream("/assets/aliment/blockstates/$name.json")
+                ?.use { it.reader().readText() }
+            val model = text
+                ?.let { JsonParser.parseString(it).asJsonObject.getAsJsonObject("variants") }
+                ?.entrySet()?.firstOrNull()?.value?.asJsonObject?.get("model")?.asString
+            logger.info("PHYS {} blockstate model: {}", name, model)
+            check("$name is drawn with its own model", model == "aliment:block/$name")
+        }
+    }
+
+    /**
+     * The grapefruit end to end: the slice as a food, as a drink and as a naringin dose, through the
+     * real `Item.finishUsingItem` path everything else in the mod is tested through.
+     *
+     * Milk rides along here because it is the one vanilla drink that had to be checked rather than
+     * assumed: in 26.3 it is a plain `Item` carrying a `CONSUMABLE` component rather than the
+     * `MilkBucketItem` of older versions, which is exactly what makes `Item.finishUsingItem` - and
+     * so this mod's hook - run for it at all. This is the check that notices if that ever changes.
+     */
+    private fun grapefruitChecks(level: ServerLevel) {
+        val player = FakePlayer.get(level)
+
+        // A slice is 2 hunger and 3 saturation *points*; `saturation()` is already points, so these
+        // read straight off the item, the way the mushroom checks do.
+        val sliceFood = AlimentItems.GRAPEFRUIT_SLICE.components().get(DataComponents.FOOD)
+        logger.info("PHYS grapefruit slice food: {} hunger {} saturation", sliceFood?.nutrition(), sliceFood?.saturation())
+        check(
+            "a grapefruit slice is 2 hunger and 3 saturation",
+            sliceFood != null && sliceFood.nutrition() == 2 && abs(sliceFood.saturation() - 3f) < 0.01f,
+        )
+        check("and a slice is ordinary food, not something you can eat on a full stomach", sliceFood != null && !sliceFood.canAlwaysEat())
+
+        player.setAttached(AlimentAttachments.DATA, AlimentData.HEALTHY)
+        ItemStack(AlimentItems.GRAPEFRUIT_SLICE, 1).finishUsingItem(level, player)
+        val after = player.getAttachedOrCreate(AlimentAttachments.DATA)
+        logger.info(
+            "PHYS grapefruit slice eaten: water {} naringin {} glucose {} cyp3a4 {}",
+            after.water, after.naringin, after.glucose, after.cyp3a4,
+        )
+        check("a slice adds 5 water", abs(after.water - 85f) < 0.01f)
+        check("and one naringin", abs(after.naringin - 1f) < 0.001f)
+        check(
+            "and counts as plant food for glucose",
+            abs(after.glucose - (AlimentData.GLUCOSE_NORMAL + AlimentData.GLUCOSE_PER_PLANT_FOOD)) < 0.001f,
+        )
+        check("eating it does not move CYP3A4 by itself", after.cyp3a4 == AlimentData.CYP3A4_NORMAL)
+
+        // Milk: the standard drink's worth of water, through vanilla's own consumable path.
+        player.setAttached(AlimentAttachments.DATA, AlimentData.HEALTHY)
+        ItemStack(Items.MILK_BUCKET, 1).finishUsingItem(level, player)
+        val milk = player.getAttachedOrCreate(AlimentAttachments.DATA)
+        logger.info("PHYS milk drunk: water {}", milk.water)
+        check("milk adds 15 water", abs(milk.water - 95f) < 0.01f)
+
+        // Ten slices fill the body and the eleventh is wasted; the enzyme then follows the index.
+        player.setAttached(AlimentAttachments.DATA, AlimentData.HEALTHY)
+        repeat(11) { ItemStack(AlimentItems.GRAPEFRUIT_SLICE, 1).finishUsingItem(level, player) }
+        val full = player.getAttachedOrCreate(AlimentAttachments.DATA)
+        logger.info("PHYS eleven slices: naringin {} cyp3a4 {}", full.naringin, AlimentPhysiology.tick(full).cyp3a4)
+        check("eleven slices still leave the body at the naringin cap", full.naringin == AlimentData.NARINGIN_CAP)
+        check(
+            "and the next tick puts the enzyme at the deepest step",
+            AlimentPhysiology.tick(full).cyp3a4 == AlimentData.CYP3A4_AT_STEP_4,
+        )
+
+        player.setAttached(AlimentAttachments.DATA, AlimentData.HEALTHY)
+    }
+
     private fun mixinChecks(level: ServerLevel) {
         val player = FakePlayer.get(level)
 
@@ -2186,6 +2550,7 @@ class AlimentPhysiologySelfTest : ModInitializer {
         for (item in listOf(
             Items.POTION,
             Items.MUSHROOM_STEW,
+            Items.MILK_BUCKET,
             AlimentItems.RAW_WILLOW_BARK_SOUP_BOWL,
             AlimentItems.WILLOW_BARK_SOUP_BOWL,
             AlimentItems.CRUDE_SALT_WATER,
@@ -2311,6 +2676,17 @@ class AlimentPhysiologySelfTest : ModInitializer {
         val afterMelon = player.getAttachedOrCreate(AlimentAttachments.DATA).traceElements.vitaminC
         logger.info("PHYS vitamin C from melon: {}", afterMelon)
         check("melon slice adds 8 umol/L of vitamin C", abs(afterMelon - 38.0f) < 0.001f)
+
+        // The grapefruit slice is a plant food like the carrot, and a citrus besides, so it is
+        // worth the same 10.
+        player.setAttached(AlimentAttachments.DATA, vitCDeficient)
+        ItemStack(AlimentItems.GRAPEFRUIT_SLICE, 1).finishUsingItem(level, player)
+        val afterGrapefruit = player.getAttachedOrCreate(AlimentAttachments.DATA).traceElements.vitaminC
+        logger.info("PHYS vitamin C from grapefruit slice: {}", afterGrapefruit)
+        check(
+            "a grapefruit slice adds as much vitamin C as a carrot",
+            abs(afterGrapefruit - afterCarrot) < 0.001f,
+        )
 
         // The mandrake, eaten: the fruit and the seeds both carry the two alkaloids.
         player.setAttached(AlimentAttachments.DATA, AlimentData.HEALTHY)

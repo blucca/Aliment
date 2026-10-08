@@ -1,0 +1,25 @@
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "condition": {
+        "type": "minecraft:survives_explosion"
+      },
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "condition": {
+            "type": "minecraft:match_block",
+            "blocks": "aliment:grapefruit_door",
+            "state": {
+              "half": "lower"
+            }
+          },
+          "name": "aliment:grapefruit_door"
+        }
+      ],
+      "rolls": 1
+    }
+  ],
+  "random_sequence": "aliment:blocks/grapefruit_door"
+}

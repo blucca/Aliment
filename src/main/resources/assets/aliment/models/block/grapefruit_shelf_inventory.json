@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/template_shelf_inventory",
+  "textures": {
+    "all": "aliment:block/grapefruit_shelf",
+    "particle": "aliment:block/stripped_grapefruit_log"
+  }
+}

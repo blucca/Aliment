@@ -11,7 +11,8 @@ import net.minecraft.world.entity.vehicle.boat.Boat
 import net.minecraft.world.entity.vehicle.boat.ChestBoat
 
 /**
- * 26.2 gives every wood its own boat entity type, so the willow boat needs two registrations.
+ * 26.2 gives every wood its own boat entity type, so each of the mod's two woods needs two
+ * registrations.
  * The dropped item is resolved lazily through a [Supplier] to avoid an initialisation cycle
  * between [AlimentEntities] and [AlimentItems].
  */
@@ -48,6 +49,38 @@ object AlimentEntities {
             .eyeHeight(0.5625F)
             .clientTrackingRange(10)
             .build(boatKey("willow_chest_boat")),
+    )
+
+    val GRAPEFRUIT_BOAT: EntityType<Boat> = Registry.register(
+        BuiltInRegistries.ENTITY_TYPE,
+        boatKey("grapefruit_boat"),
+        EntityType.Builder.of(
+            EntityType.EntityFactory<Boat> { type, level ->
+                Boat(type, level, Supplier { AlimentItems.GRAPEFRUIT_BOAT })
+            },
+            MobCategory.MISC,
+        )
+            .noLootTable()
+            .sized(1.375F, 0.5625F)
+            .eyeHeight(0.5625F)
+            .clientTrackingRange(10)
+            .build(boatKey("grapefruit_boat")),
+    )
+
+    val GRAPEFRUIT_CHEST_BOAT: EntityType<ChestBoat> = Registry.register(
+        BuiltInRegistries.ENTITY_TYPE,
+        boatKey("grapefruit_chest_boat"),
+        EntityType.Builder.of(
+            EntityType.EntityFactory<ChestBoat> { type, level ->
+                ChestBoat(type, level, Supplier { AlimentItems.GRAPEFRUIT_CHEST_BOAT })
+            },
+            MobCategory.MISC,
+        )
+            .noLootTable()
+            .sized(1.375F, 0.5625F)
+            .eyeHeight(0.5625F)
+            .clientTrackingRange(10)
+            .build(boatKey("grapefruit_chest_boat")),
     )
 
     fun initialize() {

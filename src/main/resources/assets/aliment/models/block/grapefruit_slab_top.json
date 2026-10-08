@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/slab_top",
+  "textures": {
+    "bottom": "aliment:block/grapefruit_planks",
+    "side": "aliment:block/grapefruit_planks",
+    "top": "aliment:block/grapefruit_planks"
+  }
+}

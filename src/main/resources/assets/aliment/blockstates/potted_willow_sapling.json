@@ -1,7 +1,7 @@
 {
   "variants": {
     "": {
-      "model": "minecraft:block/potted_oak_sapling"
+      "model": "aliment:block/potted_willow_sapling"
     }
   }
 }

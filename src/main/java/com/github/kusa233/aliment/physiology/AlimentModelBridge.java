@@ -231,6 +231,30 @@ public final class AlimentModelBridge {
     public static final int GLYCYRRHIZIN_METABOLISM_TICKS = ModelConstants.GLYCYRRHIZIN_METABOLISM_TICKS();
     public static final float GLYCYRRHIZIN_DECAY_PER_TICK = ModelConstants.GLYCYRRHIZIN_DECAY_PER_TICK();
 
+    // ---------------------------------------------------------------- naringin & CYP3A4
+
+    /** The maximum naringin a body can carry (0..10): ten grapefruit slices. */
+    public static final float NARINGIN_CAP = ModelConstants.NARINGIN_CAP();
+
+    public static final int NARINGIN_METABOLISM_TICKS = ModelConstants.NARINGIN_METABOLISM_TICKS();
+    public static final float NARINGIN_DECAY_PER_TICK = ModelConstants.NARINGIN_DECAY_PER_TICK();
+
+    /** CYP3A4 activity in a body that has eaten no grapefruit, and the clamp on the index. */
+    public static final float CYP3A4_NORMAL = ModelConstants.CYP3A4_NORMAL();
+    public static final float CYP3A4_MIN = ModelConstants.CYP3A4_MIN();
+    public static final float CYP3A4_MAX = ModelConstants.CYP3A4_MAX();
+
+    /** The four naringin steps, and the CYP3A4 activity each one leaves behind. */
+    public static final float NARINGIN_CYP_STEP_1 = ModelConstants.NARINGIN_CYP_STEP_1();
+    public static final float NARINGIN_CYP_STEP_2 = ModelConstants.NARINGIN_CYP_STEP_2();
+    public static final float NARINGIN_CYP_STEP_3 = ModelConstants.NARINGIN_CYP_STEP_3();
+    public static final float NARINGIN_CYP_STEP_4 = ModelConstants.NARINGIN_CYP_STEP_4();
+
+    public static final float CYP3A4_AT_STEP_1 = ModelConstants.CYP3A4_AT_STEP_1();
+    public static final float CYP3A4_AT_STEP_2 = ModelConstants.CYP3A4_AT_STEP_2();
+    public static final float CYP3A4_AT_STEP_3 = ModelConstants.CYP3A4_AT_STEP_3();
+    public static final float CYP3A4_AT_STEP_4 = ModelConstants.CYP3A4_AT_STEP_4();
+
     // ---------------------------------------------------------------- ethanol
 
     /** The maximum ethanol index (0..1.0). */
@@ -438,9 +462,11 @@ public final class AlimentModelBridge {
                 0f,
                 0f,
                 0f,
+                0f,
                 GLUCOSE_NORMAL,
                 INSULIN_NORMAL,
-                0f);
+                0f,
+                CYP3A4_NORMAL);
     }
 
     // ================================================================== derived values
@@ -680,6 +706,21 @@ public final class AlimentModelBridge {
         return fromModel(Physiology.addGlycyrrhizin(toModel(data), amount));
     }
 
+    /**
+     * Adds naringin from grapefruit, capped.
+     *
+     * The CYP3A4 index follows on the next tick rather than here, so that the step function stays in
+     * one place.
+     */
+    public static AlimentData addNaringin(AlimentData data, float amount) {
+        return fromModel(Physiology.addNaringin(toModel(data), amount));
+    }
+
+    /** The CYP3A4 activity a given naringin load leaves the liver at, 0..100. */
+    public static float cyp3a4For(float naringin) {
+        return Physiology.cyp3a4For(naringin);
+    }
+
     /** Adds ethanol, capped. */
     public static AlimentData addEthanol(AlimentData data, float amount) {
         return fromModel(Physiology.addEthanol(toModel(data), amount));
@@ -735,6 +776,7 @@ public final class AlimentModelBridge {
                 data.getEphedrine(),
                 data.getBerberine(),
                 data.getGlycyrrhizin(),
+                data.getNaringin(),
                 data.getEthanol(),
                 data.getInsulinAspart());
 
@@ -750,7 +792,8 @@ public final class AlimentModelBridge {
                 data.getImmuneActive(),
                 drugs,
                 data.getGlucose(),
-                data.getInsulin());
+                data.getInsulin(),
+                data.getCyp3a4());
     }
 
     private static AlimentData fromModel(ModelState state) {
@@ -774,10 +817,12 @@ public final class AlimentModelBridge {
                 state.getImmuneActive(),
                 drugs.getBerberine(),
                 drugs.getGlycyrrhizin(),
+                drugs.getNaringin(),
                 drugs.getEthanol(),
                 state.getGlucose(),
                 state.getInsulin(),
-                drugs.getInsulinAspart());
+                drugs.getInsulinAspart(),
+                state.getCyp3a4());
     }
 
     private static ModelMediators toModel(Mediators mediators) {

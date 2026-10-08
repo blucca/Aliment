@@ -15,8 +15,9 @@ import net.minecraft.client.renderer.entity.EntityRenderers
 class AlimentClient : ClientModInitializer {
 
     override fun onInitializeClient() {
-        // Willow leaves use the biome foliage colour the same way vanilla leaves do.
+        // Willow and grapefruit leaves use the biome foliage colour the same way vanilla leaves do.
         BlockColorRegistry.register(listOf(BlockTintSources.foliage()), AlimentBlocks.WILLOW_LEAVES)
+        BlockColorRegistry.register(listOf(BlockTintSources.foliage()), AlimentBlocks.GRAPEFRUIT_LEAVES)
 
         // Camera shake driven by the physiology system on the server.
         AlimentClientShake.initialize()
@@ -29,12 +30,20 @@ class AlimentClient : ClientModInitializer {
         // assets/aliment/textures/entity/boat/willow.png.
         ModelLayerRegistry.registerModelLayer(WILLOW_BOAT_LAYER) { BoatModel.createBoatModel() }
         ModelLayerRegistry.registerModelLayer(WILLOW_CHEST_BOAT_LAYER) { BoatModel.createChestBoatModel() }
+        ModelLayerRegistry.registerModelLayer(GRAPEFRUIT_BOAT_LAYER) { BoatModel.createBoatModel() }
+        ModelLayerRegistry.registerModelLayer(GRAPEFRUIT_CHEST_BOAT_LAYER) { BoatModel.createChestBoatModel() }
 
         EntityRenderers.register(AlimentEntities.WILLOW_BOAT) { context ->
             BoatRenderer(context, WILLOW_BOAT_LAYER)
         }
         EntityRenderers.register(AlimentEntities.WILLOW_CHEST_BOAT) { context ->
             BoatRenderer(context, WILLOW_CHEST_BOAT_LAYER)
+        }
+        EntityRenderers.register(AlimentEntities.GRAPEFRUIT_BOAT) { context ->
+            BoatRenderer(context, GRAPEFRUIT_BOAT_LAYER)
+        }
+        EntityRenderers.register(AlimentEntities.GRAPEFRUIT_CHEST_BOAT) { context ->
+            BoatRenderer(context, GRAPEFRUIT_CHEST_BOAT_LAYER)
         }
     }
 
@@ -44,5 +53,11 @@ class AlimentClient : ClientModInitializer {
 
         val WILLOW_CHEST_BOAT_LAYER: ModelLayerLocation =
             ModelLayerLocation(Registration.id("chest_boat/willow"), "main")
+
+        val GRAPEFRUIT_BOAT_LAYER: ModelLayerLocation =
+            ModelLayerLocation(Registration.id("boat/grapefruit"), "main")
+
+        val GRAPEFRUIT_CHEST_BOAT_LAYER: ModelLayerLocation =
+            ModelLayerLocation(Registration.id("chest_boat/grapefruit"), "main")
     }
 }
