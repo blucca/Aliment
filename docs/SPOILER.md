@@ -2,713 +2,431 @@
 
 # Spoilers Guide
 
-**Aliment** is a Minecraft mod centered around physiology, disease, pharmacology, and contagion.
+**Aliment** is a Minecraft mod about physiology, disease, pharmacology and contagion.
 
-This document contains **complete gameplay and mechanics spoilers**: hidden numerical thresholds, crafting progression, post-processing screen effects, and diagnostic commands.
-If you prefer discovering mechanics organically—such as discovering why drinking sea water produces no immediate ill effect but causes unbearable thirst later, or why raw willow bark soup makes you ill—do not read further.
+Everything below is a spoiler: the hidden thresholds, the crafting chains, the screen effects and the
+commands that print the numbers. If you would rather work out for yourself why sea water does nothing
+at first and then ruins you, or why raw willow broth makes you ill, stop reading here.
 
-Related Technical Documents:
-- Mathematical and Biological Model: [`PHYSIOLOGY.md`](PHYSIOLOGY.md) ([中文版](PHYSIOLOGY_zh.md))
-- Architecture and Implementation: [`TECHNICAL.md`](TECHNICAL.md) ([中文版](TECHNICAL_zh.md))
-- Asset Generators and Tests: [`tools/README.md`](../tools/README.md)
-
----
-
-## 30-Second Summary
-
-You do **not** take immediate hitpoint damage from eating spoiled food. Infection follows a continuous curve: pathogens reproduce logistically over time, while your immune system operates with peak clearance efficiency **only in the optimal middle range**. Too little inflammation leaves the immune system inactive; excessive inflammation triggers a destructive cytokine storm that attacks your own body.
-Your goal is to manage inflammation (via salicin from willow bark soup and dexamethasone injections), maintain hydration, electrolytes, iodine, vitamin C, and core body temperature in their homeostatic windows, and avoid drinking untreated swamp water or handling wild bats barehanded.
+- The mathematical model: [`PHYSIOLOGY.md`](PHYSIOLOGY.md) · [中文](PHYSIOLOGY_zh.md)
+- Architecture: [`TECHNICAL.md`](TECHNICAL.md) · [中文](TECHNICAL_zh.md)
+- Asset generators and the dev self tests: [`tools/README.md`](../tools/README.md)
 
 ---
 
-## 1. Botanical World Generation & Ecological Distribution Overview
+## The Thirty-Second Version
 
-The mod introduces 9 distinct plants and fungi, all dynamically injected into the Overworld vegetal decoration step (`GenerationStep.Decoration.VEGETAL_DECORATION`) with tailored biome filters, substrate surface predicates, and harvesting mechanics:
+Spoiled food does not take hitpoints off you. Infection runs on a curve: pathogens multiply
+logistically while your immune system works at full efficiency **only in a middle band**. Too little
+inflammation and nothing is fighting; too much and the response itself is the disease.
 
-| Plant / Fungus | Target Biomes | Frequency / Density | Substrate & Surface Predicates | Initial Generated State | Harvesting & Active Bioactive Yield |
+So the game is keeping inflammation (salicin from willow broth, dexamethasone injections), water,
+electrolytes, iodine, vitamin C and core temperature inside their windows - and not drinking untreated
+swamp water or standing in a herd of cattle.
+
+---
+
+## 1. World Generation Overview
+
+Nine plants and trees, all injected into the Overworld's `VEGETAL_DECORATION` step. Each has its own
+section below covering growth, harvest and pharmacology; this table is where they grow and how often.
+
+| Plant | Biomes | Frequency | Substrate | Found as | Yields |
 | --- | --- | --- | --- | --- | --- |
-| **Weeping Willow**<br>`aliment:willow` | All river biomes<br>(`#minecraft:is_river`: River, Frozen River, etc.) | Rarity filter 1/2<br>(50% chance per chunk) | Riverbank dirt/grass; water depth must be 0 (`max_water_depth: 0`, never submerged); heightmap `OCEAN_FLOOR` | Full Weeping / Tall Willow<br>(cascading vines) | Strip logs with axe for Willow Bark (raw Salicin +1.1) |
-| **Mandrake**<br>`aliment:mandrake` | Plains, Sunflower Plains, Swamp, Mangrove Swamp | 1 per chunk<br>(`count: 1`) | Position must be air (`#minecraft:air`); block directly beneath must be **Grass Block** (`grass_block`); heightmap `WORLD_SURFACE_WG` | Mature stage (`age: 3`)<br>(blooming with hanging fruit) | Break to harvest 1–2 fruits (Scopolamine +1.0, Atropine +0.1) |
-| **Gymnopilus Mushroom**<br>`aliment:gymnopilus` | Dark Forest, Swamp, Mangrove Swamp, Taiga, Old Growth Pine Taiga, Old Growth Spruce Taiga | 3 per chunk<br>(`count: 3`) | Block directly beneath must be Overworld substrate (`#minecraft:substrate_overworld`, dirt or wood logs); heightmap `WORLD_SURFACE_WG`; **no darkness restriction** | Mature solitary mushroom | Break by hand; eat raw for Psilocybin & Psilocin (+1.3 each); cooked yields zero psychedelics |
-| **Ephedra**<br>`aliment:ephedra` | Desert, Badlands, Eroded Badlands, Wooded Badlands, Windswept Hills, Savanna, Savanna Plateau, Windswept Savanna | Rarity filter 1/8<br>(12.5% chance per chunk) | Supports 4 substrate blocks: Sand, Red Sand, Terracotta, Grass Block; heightmap `WORLD_SURFACE_WG` | Mature stage (`age: 3`) | **Right-click harvest** 1–2 twigs, resetting plant to stage 1 (Ephedrine +0.5) |
-| **Coptis**<br>`aliment:coptis` | All non-cold Overworld biomes<br>(`baseTemperature >= 0.2` & `!#minecraft:spawns_cold_variant_frogs`) | Rarity filter 1/12<br>(~8.3% chance per chunk) | Block directly beneath must be **Grass Block** (`grass_block`); heightmap `WORLD_SURFACE_WG` | Mature stage (`age: 3`) | Right-click harvest or break for raw Coptis (Berberine +1.1) |
-| **Phellodendron**<br>`aliment:phellodendron` | All non-cold Overworld biomes<br>(`baseTemperature >= 0.2` & `!#minecraft:spawns_cold_variant_frogs`) | Rarity filter 1/12<br>(~8.3% chance per chunk) | Block directly beneath must be **Grass Block** (`grass_block`); heightmap `WORLD_SURFACE_WG` | Mature shrub (`age: 3`) | Right-click harvest or break for Phellodendron Bark (Berberine +0.6) |
-| **Licorice**<br>`aliment:licorice` | All non-cold Overworld biomes<br>(`baseTemperature >= 0.2` & `!#minecraft:spawns_cold_variant_frogs`) | Rarity filter 1/12<br>(~8.3% chance per chunk) | Block directly beneath must be **Grass Block** (`grass_block`); heightmap `WORLD_SURFACE_WG` | Mature stage (`age: 3`) | Right-click harvest or break for Licorice Root (Glycyrrhizin +1.1) |
-| **Seaweed**<br>`aliment:seaweed` | All ocean biomes<br>(`#minecraft:is_ocean`: Warm, Lukewarm, Cold, Deep, Frozen Oceans, etc.) | 4 per chunk<br>(`count: 4`) | Must be fully submerged in water (`fluids: "minecraft:water"`); seabed must be **Sand or Suspicious Sand**; heightmap `OCEAN_FLOOR_WG` | Submerged mature stage (`age: 3, waterlogged: true`) | **Underwater right-click harvest** 1–2 seaweed, resetting to stage 1 (Iodine +0.20 µmol/L) |
-| **Grapefruit**<br>`aliment:grapefruit` | Jungle, Sparse Jungle, Bamboo Jungle, Savanna, Savanna Plateau, Windswept Savanna | Rarity filter 1/6<br>(~17% chance per chunk) | Would-survive test against `aliment:grapefruit_sapling`; heightmap `WORLD_SURFACE_WG` | Trunk 4–6 blocks with a blob canopy, fruit hung underneath | Break a hanging fruit for 1 `aliment:grapefruit` and craft it into **8 slices**; the trunk and canopy are a full second **wood set** (see section 24) |
+| **Willow**<br>`aliment:willow` | every river biome (`#minecraft:is_river`) | rarity 1/2 | riverbank dirt or grass, never submerged (`max_water_depth: 0`), heightmap `OCEAN_FLOOR` | weeping or tall willow, with hanging vines | strip a log with an axe for willow bark (**salicin +1.1** once brewed) |
+| **Mandrake**<br>`aliment:mandrake` | Plains, Sunflower Plains, Swamp, Mangrove Swamp | `count: 1`, heightmap `WORLD_SURFACE_WG` | air above a **grass block** | mature (`age: 3`), flowering with fruit | break for 1–2 fruit (**scopolamine +1.0, atropine +0.1**) |
+| **Gymnopilus**<br>`aliment:gymnopilus` | Dark Forest, Swamp, Mangrove Swamp, Taiga, both Old Growth Taigas | `count: 3`, heightmap `WORLD_SURFACE_WG` | air above any Overworld substrate (`#minecraft:substrate_overworld`: dirt, grass, **and logs**) | mature solitary mushroom | break by hand; **raw is +1.3 psilocybin and +1.3 psilocin**, cooked is nothing |
+| **Ephedra**<br>`aliment:ephedra` | Desert, Badlands and its variants, Windswept Hills, all three Savannas | rarity 1/8, heightmap `WORLD_SURFACE_WG` | air above sand, red sand, terracotta or grass | mature (`age: 3`) | right-click for 1–2 twigs, resetting to `age: 1` (**ephedrine +0.5**) |
+| **Coptis**<br>`aliment:coptis` | every non-cold Overworld biome (`baseTemperature >= 0.2` and not `#minecraft:spawns_cold_variant_frogs`) | rarity 1/12, heightmap `WORLD_SURFACE_WG` | air above a **grass block** | mature (`age: 3`) | right-click or break (**berberine +1.1**) |
+| **Phellodendron**<br>`aliment:phellodendron` | as coptis | rarity 1/12, heightmap `WORLD_SURFACE_WG` | air above a **grass block** | mature (`age: 3`) | right-click or break (**berberine +0.6**) |
+| **Licorice**<br>`aliment:licorice` | as coptis | rarity 1/12, heightmap `WORLD_SURFACE_WG` | air above a **grass block** | mature (`age: 3`) | right-click or break (**glycyrrhizin +1.1**) |
+| **Seaweed**<br>`aliment:seaweed` | every ocean biome (`#minecraft:is_ocean`) | `count: 4`, heightmap `OCEAN_FLOOR_WG` | **water** over sand or suspicious sand | submerged and mature (`age: 3, waterlogged: true`) | harvest underwater for 1–2, resetting to `age: 1` (**iodine +0.20**, +0.25 cooked) |
+| **Grapefruit**<br>`aliment:grapefruit` | Jungle, Sparse Jungle, Bamboo Jungle and all three Savannas | rarity 1/6, heightmap `WORLD_SURFACE_WG` | would-survive test against a grapefruit sapling | trunk 4–6 with a blob canopy and fruit hung below | one fruit per hanging block, eight slices (**+1 naringin** each); see §14 |
+
+Every plant that has growth stages can be advanced with bone meal, and every one of them is plantable
+by hand on the substrates listed above.
 
 ---
 
-## 2. Willow Ecology
+## 2. Willow
 
-### Generation Rules
-* **Riparian Exclusivity**: Injected into `#minecraft:is_river` (River, Frozen River) biomes during the `VEGETAL_DECORATION` phase. Trees adhere to vanilla placement criteria (`surface_water_depth_filter`), generating only on riverbank dirt/grass blocks and **never underwater**.
-* **Two Tree Morphologies**: Standard Weeping Willow (trunk height 5–7 blocks, canopy radius 3 blocks) and Tall Weeping Willow (trunk height 8–10 blocks). Saplings select between them with a **65% / 35%** probability distribution.
-* **Leaning Growth Pattern**: Utilizes a custom `leaning_willow_trunk_placer`. Scans water presence within a 7-block radius, dynamically curving the trunk 1–4 blocks toward the densest body of water to mimic trees overhanging rivers; grows vertically if no water is detected.
-* **Cascading Vines**: Hanging vines (`willow_vines` tips and `willow_vines_plant` stems) suspend 1–3 blocks below the foliage canopy. Vines grow naturally downward over time and can be accelerated with bone meal.
-* **Saplings**: Plantable on dirt, grass blocks, farmland, coarse dirt, and mud. **Bone meal accelerates growth**. Willow leaves **never drop apples** (apple drop tables are stripped).
+**Where it grows.** Rivers only, on the bank and never in the water - see §1. Saplings grow on dirt,
+grass, farmland, coarse dirt and mud, and take bone meal.
 
----
+**Two shapes.** A sapling picks between the weeping willow (trunk 5–7) and the tall one (trunk 8–10)
+at **65% / 35%**. Both have the same canopy, radius 3.
 
-## 3. Willow Blocks and Items Roster
+**It leans.** A custom trunk placer looks for water within 7 blocks and curves the trunk 1–4 blocks
+towards the densest water it can see, so willows overhang the river they grew beside. With no water
+nearby it grows straight up.
 
-All items are indexed under the dedicated Creative Tab **"Aliment"** (`itemGroup.aliment.main`).
+**It trails.** Hanging vines (`willow_vines` tips, `willow_vines_plant` stems) suspend 1–3 blocks
+below the canopy and grow downward over time; bone meal hastens them.
 
-| Item / Block ID | English Name | Notes |
-| --- | --- | --- |
-| `aliment:willow_log` | Willow Log | Contains `axis` property; strip with an axe to obtain willow bark |
-| `aliment:willow_wood` | Willow Wood | 6-sided barked wood block |
-| `aliment:stripped_willow_log` | Stripped Willow Log | Result of stripping |
-| `aliment:stripped_willow_wood` | Stripped Willow Wood | 6-sided stripped wood block |
-| `aliment:willow_planks` | Willow Planks | Fundamental carpentry material crafted from logs |
-| `aliment:willow_leaves` | Willow Leaves | Foliage dynamically tinted by local biome foliage color |
-| `aliment:willow_sapling` | Willow Sapling | Grows into a willow tree |
-| `aliment:potted_willow_sapling` | Potted Willow Sapling | Decorative potted plant |
-| `aliment:willow_vines` | Willow Vines | Trailing vine tip hanging beneath canopies |
-| `aliment:willow_vines_plant` | Willow Vines Plant | Intermediate vine stem block |
-| `aliment:willow_stairs` / `_slab` | Willow Stairs / Slab | Architectural carpentry blocks |
-| `aliment:willow_fence` / `_fence_gate` | Willow Fence / Gate | Standard enclosure carpentry |
-| `aliment:willow_door` / `_trapdoor` | Willow Door / Trapdoor | Complete woodset doors |
-| `aliment:willow_pressure_plate` / `_button` | Willow Pressure Plate / Button | Redstone triggers |
-| `aliment:willow_shelf` | Willow Shelf | Display block backed by the vanilla `SHELF` block entity |
-| `aliment:willow_sign` / `_wall_sign` | Willow Sign / Wall Sign | Standing and wall signage |
-| `aliment:willow_hanging_sign` / `_wall_hanging_sign` | Willow Hanging Sign / Wall Hanging Sign | Suspended ceiling and wall signage |
-| `aliment:willow_boat` | Willow Boat | Willow rowing vessel with custom entity rendering |
-| `aliment:willow_chest_boat` | Willow Chest Boat | Boat with onboard storage container |
-| `aliment:willow_bark` | Willow Bark | Dropped by stripping willow logs with an axe |
-| `aliment:willow_bark_pieces` | Willow Bark Pieces | Obtained by grinding willow bark on a grindstone |
-| `aliment:willow_soup_cauldron` | Willow Broth Cauldron | Cauldron holding medicinal willow broth (`level` and `cooked` states) |
-| `aliment:raw_willow_bark_soup_bottle` | Raw Willow Broth Bottle | Bottled unboiled broth; carries bacterial infection risk |
-| `aliment:raw_willow_bark_soup_bowl` | Raw Willow Broth Bowl | Bowled unboiled broth |
-| `aliment:willow_bark_soup_bottle` | Willow Broth Bottle | Fully boiled broth bottle; safe salicin remedy |
-| `aliment:willow_bark_soup_bowl` | Willow Broth Bowl | Fully boiled broth bowl; restores hunger and administers salicin |
-| `aliment:insulin_injection` | Insulin Aspart Injection | Loot only; right-click to add +10.0 insulin aspart. Lowers blood glucose, and nothing switches it off |
-| `aliment:glucose_meter` | Blood Glucose Meter | Loot only; reads a bloodied test strip from the other hand and prints the value in chat |
-| `aliment:glucose_test_strip` | Blood Glucose Test Strip | Loot only (stacks of 5–9); becomes a bloodied strip on a finger that is still bleeding |
-| `aliment:bloodied_test_strip` | Bloodied Test Strip | Never found; what a test strip becomes. The only thing the meter will read |
-| `aliment:microneedle` | Microneedle | Loot only; right-click to prick a finger, which then bleeds for 15 seconds |
+**Willow leaves never drop apples.**
+
+### The wood set
+
+Everything below is in the mod's own creative tab (`itemGroup.aliment.main`).
+
+| Id | Notes |
+| --- | --- |
+| `willow_log`, `willow_wood`, `stripped_willow_log`, `stripped_willow_wood` | `axis` property; strip with an axe |
+| `willow_planks`, `_stairs`, `_slab`, `_fence`, `_fence_gate`, `_door`, `_trapdoor`, `_pressure_plate`, `_button`, `_shelf` | an ordinary wood set; the shelf is backed by the vanilla `SHELF` block entity |
+| `willow_sign`, `_wall_sign`, `willow_hanging_sign`, `_wall_hanging_sign` | signage |
+| `willow_boat`, `willow_chest_boat` | each with its own entity type and textures |
+| `willow_leaves`, `willow_sapling`, `potted_willow_sapling`, `willow_vines`, `willow_vines_plant` | foliage |
+| `willow_bark`, `willow_bark_pieces` | the broth chain, §3 |
+| `willow_soup_cauldron`, `raw_willow_bark_soup_bottle`/`_bowl`, `willow_bark_soup_bottle`/`_bowl` | the broth itself, §3 |
 
 ---
 
-## 3. Bark to Willow Broth Processing
+## 3. Willow Bark and Broth
 
 ```
-Willow Log / Wood ──Right-click with Axe──> Stripped Log/Wood + Willow Bark ×1
-Willow Bark ──Grindstone──> Willow Bark Pieces ×2
-Willow Bark Pieces ──Right-click Water Cauldron──> Raw Willow Broth Cauldron
-                                                         │
-                                        Campfire or Soul Campfire underneath; heat for 60s
-                                                         ▼
-                                                    Boiled Willow Broth Cauldron (darker color)
-                                                         │
-                                  Glass Bottle Right-click ──> Broth Bottle (returns bottle)
-                                  Bowl Right-click         ──> Broth Bowl (returns bowl)
+log or wood ──right-click with an axe──> stripped log/wood + willow bark ×1
+willow bark ──grindstone──> willow bark pieces ×2
+willow bark pieces ──right-click a water cauldron──> raw broth cauldron
+                                                          │ campfire or soul campfire below, 60 s
+                                                          ▼
+                                                     boiled broth cauldron
+                                                          │ glass bottle ──> broth bottle
+                                                          │ bowl         ──> broth bowl
 ```
 
-* **Cauldron Mechanics**:
-  - The water level (1–3) determines how many servings can be ladled out.
-  - Ladling a portion reduces the liquid level by 1; emptying it returns an empty cauldron.
-  - Breaking a cauldron holding broth drops only an empty cauldron.
-  - Extinguishing or removing the campfire pauses brewing progress without resetting; reigniting resumes the 60-second brew cycle.
-* **Raw Broth vs. Boiled Broth**:
-  - Raw broth is cloudy, pale, and contains suspended raw fibers; boiled broth is dark, clear, and fragrant.
-  - Raw broth carries dangerous environmental contaminants that were not boiled off.
+* **The cauldron's water level is its servings.** Ladling one out drops the level by one; emptying it
+  leaves an empty cauldron. Breaking a cauldron of broth drops an empty cauldron and nothing else.
+* **The brew pauses, it does not reset.** Take the fire away and the 60-second timer stops where it
+  is; put it back and it carries on.
+* Raw broth is cloudy and pale; boiled broth is dark, clear and fragrant.
 
-| Broth Category | Nutrition | Saturation | Physiological and Pharmacological Effects |
+| Broth | Hunger | Saturation | What it does |
 | --- | --- | --- | --- |
-| **Raw Willow Broth** (Bottle / Bowl / Salted) | 1 | 1 | **25% Nausea** (20s), **15% Hunger** (20s), **30% Bacterial Infection**, +1.1 Salicin, +15 Water |
-| **Boiled Willow Broth** (Bottle / Bowl / Salted) | 1 | 2 | **Completely safe**, +1.1 Salicin (antipyretic & anti-inflammatory), +15 Water |
+| **Raw** (bottle, bowl or salted) | 1 | 1 | **25% nausea** and **15% hunger** for 20 s, **30% bacterial infection**, +1.1 salicin, +15 water |
+| **Boiled** (bottle, bowl or salted) | 1 | 2 | **safe**, +1.1 salicin, +15 water |
 
 ---
 
-## 4. Salt Processing Chain
+## 4. Salt
 
 ```
-Rock Salt Ore (underground y=20–90; requires stone pickaxe; drops itself)
-   └─Grindstone─> Crude Salt ×9 ──Grindstone──> Crude Salt Powder
-                                                   └─Right-click Water Cauldron─> Brine Cauldron
-                                                                                       │ Campfire underneath
-                                                                                       │ Evaporates every 20s (3 stages)
-                                                                                       ▼ Boiled dry
-                                                                                   Salt Powder ×1 (cauldron empties)
-
-Crude Salt / Salt Powder + Water / Mushroom Stew / Willow Broth / Raw Broth
-   ──> Salted Water, Salted Stew, Salted Willow Broth, Salted Raw Broth
+rock salt ore (y=20–90 underground, stone pickaxe, drops itself)
+   └─grindstone─> crude salt ×9 ──grindstone──> crude salt powder
+                                                   └─right-click a water cauldron─> brine cauldron
+                                                                                       │ campfire below
+                                                                                       │ one stage per 20 s
+                                                                                       ▼ boiled dry
+                                                                                   salt powder ×1
 ```
 
-* **Stirring Rod** (crafted with two sticks vertically) right-clicks a brine cauldron to **instantly advance evaporation by one stage**, consuming 1 durability (16 uses total).
-* Crude salt carries trace rock minerals: beyond sodium and chloride, it provides small amounts of **magnesium and calcium**; refined salt is nearly pure NaCl and pushes sodium higher.
-* All salted beverages **replenish hydration (+15) and sodium**, with crude salt versions providing supplemental magnesium and calcium.
+* **Stirring rod** (two sticks, vertical) right-clicks a brine cauldron to skip it forward one
+  evaporation stage, at the cost of one durability (16 uses).
+* **Crude salt carries the rock with it**: besides sodium and chloride it adds a little magnesium and
+  calcium. Refined salt is nearly pure sodium chloride, and pushes sodium higher for it.
+* **Every salted drink hydrates (+15) and salts you.** The crude versions also carry the extra
+  minerals.
+* Salted variants exist for water, mushroom stew, willow broth and raw willow broth.
 
 ---
 
-## 5. Grindstone Mechanics
+## 5. Grindstone
 
-| Input (1 Item) | Output |
+| In | Out |
 | --- | --- |
-| Willow Bark ×1 | Willow Bark Pieces ×2 |
-| Rock Salt Ore ×1 | Crude Salt ×9 |
-| Crude Salt ×1 | Crude Salt Powder ×1 |
-| Ephedra Herb ×1 | Crushed Ephedra ×1 |
-| Coptis ×1 | Crushed Coptis ×1 |
-| Phellodendron ×1 | Crushed Phellodendron ×1 |
-| Licorice ×1 | Crushed Licorice ×1 |
-| Seaweed ×1 | Crushed Seaweed ×1 |
+| Willow bark ×1 | Willow bark pieces ×2 |
+| Rock salt ore ×1 | Crude salt ×9 |
+| Crude salt ×1 | Crude salt powder ×1 |
+| Ephedra ×1 | Crushed ephedra ×1 |
+| Coptis ×1 | Crushed coptis ×1 |
+| Phellodendron ×1 | Crushed phellodendron ×1 |
+| Licorice ×1 | Crushed licorice ×1 |
+| Seaweed ×1 | Crushed seaweed ×1 |
 
-Items can be placed directly into the **vanilla grindstone GUI**, but **only one item at a time** (stacked items are rejected to prevent output loss).
-For fast bulk processing, **sneak + right-click** the grindstone with an item: it processes an item directly from your hand without opening the interface.
+The vanilla grindstone GUI accepts these, but **one item at a time** - a stack is refused, so that a
+mis-click cannot destroy the rest of it. **Sneak + right-click** grinds the held item directly,
+without opening the GUI.
 
 ---
 
-## 6. Hydration and Thirst
+## 6. Water and Thirst
 
-* A **10-pip thirst bar** is displayed above your health indicators on the left side of the HUD (each pip represents 10 units of water).
-* Optimal range is **30 – 100**, maximum ceiling is 200, and standard resting health sits at 80.
-* Beverages grant **+15 hydration** (water, potions, stew, willow broths, salted drinks).
-* **Depletes completely from full to empty (100 → 0) in 5 game days** under temperate, healthy conditions.
-* **Fever accelerates water depletion**: 39.0 °C fever empties reserves in 3.5 game days; 40.0 °C hyperthermia empties reserves in 2.0 game days.
-* Hydration above 100 triggers **overhydration**: weakness, reduced mining speed, accelerated food exhaustion, and electrolyte dilution; exceeding 150 adds **nausea**.
+* A **ten-pip thirst bar** sits above the health bar; each pip is 10 water.
+* The healthy band is **30 – 100**, the ceiling is 200, and a resting body sits at 80.
+* **+15 water per drink** - water bottles, potions, stew, milk, both broths, and the salted versions.
+  Grapefruit slices are the exception, at **+5**: a slice is eaten rather than drunk, so it does not
+  get a drink's worth.
+* **Full to empty (100 → 0) takes 5 game days** at rest in a temperate place.
+* **Fever drinks it faster**: 39.0 °C empties it in 3.5 days, 40.0 °C in 2.0.
+* **Above 100 is overhydration**: weakness, slower mining, faster exhaustion and diluted
+  electrolytes. Above 150 it adds nausea.
 
-Water collection source determines beverage properties: rivers yield vanilla water bottles, **swamps** yield swamp water bottles, and **oceans** yield sea water bottles.
+Where you fill the bottle from decides what is in it.
 
-| Water Type | Consequence of Ingestion |
+| Water | What it does |
 | --- | --- |
-| Swamp Water Bottle (and salted variants) | 30% Bacterial Infection, 35% Nausea, 5% Poisoning (each for 30s) |
-| **Sea Water Bottle** (and salted variants) | **No immediate negative effect**; it is purely **hypertonic**: one bottle is a heavy sodium load that takes a body from 140 to about 143.5 mmol/L, still inside the 135–145 reference range, and a second takes it past the safe limit into hypernatremic thirst and rapid fluid loss |
+| Swamp water (and salted) | 30% bacterial infection, 35% nausea, 5% poisoning, 30 s each |
+| **Sea water** (and salted) | **nothing at first**. It is simply hypertonic: one bottle takes sodium from 140 to about 143.5 mmol/L, still inside 135–145, and a second takes it past the limit - thirst and rapid fluid loss follow |
 
 ---
 
 ## 7. Electrolytes and Trace Elements
 
-Aliment uses **clinical units**: electrolytes in **mmol/L**, and trace elements in **µmol/L**. Four bilateral thresholds define clinical states:
+Electrolytes are in **mmol/L** and trace elements in **µmol/L**, with the reference ranges a blood
+test would print.
 
-| Mineral | Baseline | Reference Range | Units |
+| Mineral | Healthy | Reference range | Unit |
 | --- | --- | --- | --- |
-| Sodium `sodium` | 140 | **135 – 145** | mmol/L |
-| Potassium `potassium` | 4.2 | **3.5 – 5.0** | mmol/L |
-| Magnesium `magnesium` | 0.85 | **0.70 – 1.00** | mmol/L |
-| Chloride `chloride` | 101 | **96 – 106** | mmol/L |
-| Calcium `calcium` | 2.35 | **2.10 – 2.60** | mmol/L |
-| Iodine `iodine` | 0.50 | **0.40 – 0.80** | µmol/L |
-| Vitamin C `vitamin_c` | 60.0 | **40.0 – 80.0** | µmol/L |
+| Sodium | 140 | **135 – 145** | mmol/L |
+| Potassium | 4.2 | **3.5 – 5.0** | mmol/L |
+| Magnesium | 0.85 | **0.70 – 1.00** | mmol/L |
+| Chloride | 101 | **96 – 106** | mmol/L |
+| Calcium | 2.35 | **2.10 – 2.60** | mmol/L |
+| Iodine | 0.50 | **0.40 – 0.80** | µmol/L |
+| Vitamin C | 60.0 | **40.0 – 80.0** | µmol/L |
 
-Serum electrolytes return to normal homeostatically. **Iodine and Vitamin C are exceptions**:
+The five electrolytes find their own way home. **Iodine and vitamin C do not** - see below and §15.
 
-* **Iodine drains constantly without endogenous replenishment**: depletes from normal 0.50 to the floor (0.05) in **exactly 3 in-game days**. Replenish by consuming:
-  * Vanilla Kelp: `+0.10 µmol/L`
-  * Vanilla Dried Kelp: `+0.20 µmol/L`
-  * Seaweed: `+0.20 µmol/L`
-  * Cooked Seaweed: `+0.25 µmol/L`
-  * Seaweed Iodized Salt: `+0.40 µmol/L` (also provides `+1.5 mmol/L` Na and Cl)
-  Basal daily drain is 0.15 µmol/L; 1 dried kelp or raw seaweed daily balances metabolism. Severe deficiency (0.05) drops hypothalamic set point by 0.8 °C and causes severe hypothyroidism (slowness II, weakness II, fatigue).
-* **Rapid water ingestion washes out sodium first**, followed by chloride; magnesium and calcium clear most slowly.
-* **Salt Intake Realism**: Crude salt adds +3.0 mmol/L Na, and refined salt adds +3.5 mmol/L. Consuming two salted servings pushes sodium to 146–147 mmol/L, causing hypernatremic thirst.
+* **Iodine only ever leaves.** From a normal 0.50 it drains 0.15 a day and is gone in exactly
+  **3 game days**: one kelp a day is not quite enough, two is comfortable. The thyroid reads it, so
+  the set point starts moving as soon as iodine drops below 0.40 and is 0.8 °C lower by the 0.05
+  floor - which is the severe hypothyroidism behind slowness II, weakness II and fatigue.
+* **Drinking a lot of water washes out sodium first**, then chloride; magnesium and calcium go last.
+* **A crude salted serving is +3.0 mmol/L of sodium, a refined one +3.5.** Two salted servings take
+  a healthy 140 to 146–147 and the thirst that comes with it.
 
-| Mineral | Severe Deficit | Mild Deficit | Mild Excess | Severe Excess |
+| Mineral | Severe deficit | Mild deficit | Mild excess | Severe excess |
 | --- | --- | --- | --- | --- |
-| Sodium | Nausea + Slowness (Confusion) | Weakness | Hunger (Thirst) | Hunger + Weakness |
-| Potassium | Weakness II + Mining Fatigue | Weakness | Weakness | Slowness II + Periodic Magic Damage (Arrhythmia) |
-| Magnesium | Weakness + Slowness (Tremors) | Weakness | Slowness | Slowness + Weakness (Lethargy) |
-| Chloride | Nausea (Metabolic Alkalosis) | Weakness | Hunger (Metabolic Acidosis) | Hunger + Nausea |
-| Calcium | Slowness + Weakness (Tetany) | Weakness | Slowness | Slowness II + Weakness (Lethargy) |
-| Iodine | Slowness II + Weakness II + Fatigue | Weakness + Slowness + Hunger | Hunger + Nausea | Adds Weakness |
-| Vitamin C | Mining Fatigue + Weakness | Mining Fatigue | None (Safely Excreted) | None (Safely Excreted) |
+| Sodium | nausea + slowness | weakness | hunger (thirst) | hunger + weakness |
+| Potassium | weakness II + mining fatigue | weakness | weakness | slowness II + periodic magic damage (arrhythmia) |
+| Magnesium | weakness + slowness (tremor) | weakness | slowness | slowness + weakness |
+| Chloride | nausea | weakness | hunger | hunger + nausea |
+| Calcium | slowness + weakness (tetany) | weakness | slowness | slowness II + weakness |
+| Iodine | slowness II + weakness II + fatigue | weakness + slowness + hunger | hunger + nausea | adds weakness |
+| Vitamin C | mining fatigue + weakness | mining fatigue | none - excreted | none - excreted |
 
 ---
 
-## 8. Immune System Dynamics
+## 8. Immune System
 
-Inflammation is calculated as a weighted composite of five mediators, centering at 25.0 in health:
+Inflammation is a weighted composite of five mediators and centres on **25.0** in health.
 
-| Mediator | Function | Inhibited By |
+| Mediator | Does | Held down by |
 | --- | --- | --- |
-| Histamine | Vasodilation, itching, swelling | Mildly by both |
-| Prostaglandin | Pain, **fever** | **Salicin** |
-| Leukotriene | Bronchial constriction, mucus | **Dexamethasone** |
-| Cytokine | Systemic fever, cytokine storm driver | **Dexamethasone** (most potent) |
-| Bradykinin | Pain, vascular permeability | Salicin |
+| Histamine | vasodilation, itching, swelling | mildly by both |
+| Prostaglandin | pain and **fever** | **salicin** |
+| Leukotriene | bronchial constriction, mucus | **dexamethasone** |
+| Cytokine | systemic fever, the storm's driver | **dexamethasone** (strongest) |
+| Bradykinin | pain, vascular permeability | salicin |
 
-* **Low Inflammation (< 12)**: Immune paralysis; infection grows unchecked, and opportunistic bacterial infection occurs spontaneously.
-* **High Inflammation (> 75)**: Cytokine storm; immune clearance fails and host tissue is damaged.
-* **Optimal Band (20–40)**: Peak clearance competence where infections are suppressed.
+| Band | What happens |
+| --- | --- |
+| **< 12** | immune paralysis: infection grows unchecked and opportunistic bacteria appear on their own |
+| **20 – 40** | peak clearance |
+| **> 75** | cytokine storm: clearance fails and your own tissue takes the damage |
 
-Overdosing on anti-inflammatories suppresses basal inflammation into immunosuppression, accelerating pathogen proliferation.
+Which is the whole tension in one sentence: **overdosing anti-inflammatories is as dangerous as
+infection**, because suppressing the response below 12 lets the pathogen run.
 
 ---
 
-## 9. Infection Mechanisms
+## 9. Infection
 
-Three infection vectors exist:
-
-| Vector | Pathogen | Chance | Inoculum Load |
+| Vector | Pathogen | Chance | Load |
 | --- | --- | --- | --- |
-| Raw meat (beef, pork, chicken, mutton, rabbit, cod, salmon, tropical fish), rotten flesh, poisonous potato | Bacteria | **30%** | +6 |
-| Raw willow broth (including salted) | Bacteria | **30%** | +6 |
-| Within 2 blocks of **any living mob** | Virus | **5% / second** | +5 |
-| **Severe Immunosuppression** (inflammation ≤ 12) | Bacteria | **15% / second** | **+4 to +12 (random)** |
+| Raw meat (all of it), rotten flesh, poisonous potato | bacteria | **30%** | +6 |
+| Raw willow broth, including salted | bacteria | **30%** | +6 |
+| Within 2 blocks of **any living mob** | virus | **5% per second** | +5 |
+| **Inflammation ≤ 12** | bacteria | **15% per second** | **+4 to +12**, random |
 
-* Proximity contact evaluates against all living `Mob` entities (cows, wolves, villagers, bats). Standing near dense livestock quickly spreads viral infection.
-* **Opportunistic Colonization**: Immunosuppression permits resident flora to colonize without external vectors.
-* **Sepsis Magic Damage (Load >= 60.0)**: Deals unblockable magic damage every 2 seconds:
+* The proximity roll is against every living `Mob` - cows, wolves, villagers, bats. Standing in a herd
+  is the fastest way to catch something.
+* **Immunosuppression colonises you from your own flora**, with no vector at all.
+* **Sepsis: from a load of 60.0**, unblockable magic damage every two seconds:
 
   ```scala
-  // Magic damage every 2 seconds when pathogen load >= 60.0:
   val damage = 1.0f + (load - 60.0f) / 40.0f
   ```
 
-  At load 100, this deals 2 damage (1 full heart) every 10 seconds.
+  At a load of 100 that is 2 damage - a full heart - every ten seconds.
 
 ---
 
 ## 10. Pharmacology
 
-| Drug | Source | Dose | Elimination Window | Elimination Rate |
+| Drug | From | Dose | Lasts | Rate |
 | --- | --- | --- | --- | --- |
-| Salicin | Willow Broth (raw or boiled) | +1.1 | **3 game days** | `salicin = Math.max(salicin - 3.0f / 72000f, 0f)` (-4.167e-5 / tick) | Dexamethasone | Injection syringe (right-click) | +1.2 | **2 game days** | `dexamethasone = Math.max(dexamethasone - 2.0f / 48000f, 0f)` (-4.167e-5 / tick) |
-| Insulin Aspart | Insulin injection (right-click) | +10.0 | **1 game day** | `insulinAspart = Math.max(insulinAspart - 60.0f / 24000f, 0f)` (-2.5e-3 / tick) |
+| Salicin | willow broth, raw or boiled | +1.1 | **3 game days** | `salicin -= 3.0f / 72000f` (−4.167e-5 / tick) |
+| Dexamethasone | injection, right-click | +1.2 | **2 game days** | `dexamethasone -= 2.0f / 48000f` (−4.167e-5 / tick) |
+| Insulin aspart | injection, right-click | +10.0 | **1 game day** | `insulinAspart -= 60.0f / 24000f` (−2.5e-3 / tick) |
+| Berberine | coptis, phellodendron, their potions | +0.6 to +2.5 | 2.5 game days at the 7.0 cap | see §20, and §14 for what slows it down |
+| Glycyrrhizin | licorice, licorice potion | +1.1 to +2.5 | 2.0 game days at the 7.0 cap | `glycyrrhizin -= 7.0f / 48000f` |
+| Ephedrine | ephedra, ephedrine potion | +0.5 to +2.5 | 1 game day at the 5.0 cap | see §19 |
+| Scopolamine, atropine | mandrake | see §16 | 1 game day at the 5.0 cap | see §16 |
+| Naringin | grapefruit slices | +1 each | 1 game day at the 10 cap | see §14 |
 
-Salicin is a COX inhibitor acting as an antipyretic by blocking prostaglandin synthesis. Dexamethasone strongly halts cytokine transcription, aborting cytokine storms. **Neither directly kills pathogens.**
+Salicin is a COX inhibitor: it is an antipyretic because it blocks prostaglandin synthesis.
+Dexamethasone halts cytokine transcription and aborts storms. **Neither kills anything directly** -
+they buy the immune system room. Berberine and glycyrrhizin are the ones that do the killing, in §20.
 
-Insulin aspart is the opposite: it is the one drug that makes a body **worse** on purpose. It lowers
-blood glucose, and unlike the body's own insulin it is not switched off at the bottom of the reference
-range - so one dose from a normal body is a survivable dip to about 2.7 mmol/L, and two are a
-hypoglycaemic crisis. Eating is the only way out.
+Insulin aspart is the opposite of a remedy: it is the one drug that makes a body **worse** on purpose.
+See §13.
 
-Remedies and diagnostics generate naturally in loot chests:
+### Where remedies come from
 
-| Loot Chest Location | Dexamethasone Injection | Willow Broth Bowl | Insulin Injection | Glucose Meter | Test Strips | Microneedle |
+| Chest | Dexamethasone | Willow broth bowl | Insulin | Meter | Test strips | Microneedle |
 | --- | --- | --- | --- | --- | --- | --- |
-| Village Chests (all 14 types) | **3%** | **35%** | **10%** | **35%** | **35%** (5–9) | **35%** |
-| Pillager Outposts | **3%** | **35%** | **10%** | **35%** | **35%** (5–9) | **35%** |
+| Every vanilla village chest (all 14 types) | **3%** | **35%** | **10%** | **35%** | **35%**, stacks of 5–9 | **35%** |
+| Pillager outpost | **3%** | **35%** | **10%** | **35%** | **35%**, stacks of 5–9 | **35%** |
 
 ---
 
 ## 11. Thermoregulation
 
-| Thermal State | Core Temperature |
+| State | Core temperature |
 | --- | --- |
-| Normal Baseline | **37.0 °C** |
-| Comfort Zone | 36.0 – 38.5 °C (no symptoms) |
-| Fever / Hyperthermia | **≥ 38.5 °C** / **≥ 40.0 °C** |
-| Mild / Severe Hypothermia | ≤ 36.0 °C / ≤ 35.0 °C |
+| Normal | **37.0 °C** |
+| Comfortable | 36.0 – 38.5 °C, no symptoms |
+| Fever / hyperthermia | **≥ 38.5 °C** / **≥ 40.0 °C** |
+| Mild / severe hypothermia | ≤ 36.0 °C / ≤ 35.0 °C |
 
-Temperature is determined by infection pyrogenesis, injected pyrogens, thyroid activity, and environment:
+Temperature is what infection pyrogen, injected pyrogen, thyroid activity and the environment add up
+to.
 
-| Environmental Exposure | Thermal Consequence |
+| Exposure | Where it settles |
 | --- | --- |
-| Temperate biomes, Desert | Minimal impact (deserts raise temp to ~37.4 °C) |
-| Snowy Plains | Drops temp to ~36.6 °C (asymptomatic) |
-| Submerged in water in cold biomes | Drops temp to ~35.1 °C (**mild hypothermia**) |
-| Buried in powder snow while wet | Drops temp to ~32.8 °C (**severe hypothermia**) |
-| On Fire | Rises to ~38.2 °C (sub-fever) |
-| In Lava | Rises to ~39.4 °C (**fever**, triggering heat haze) |
+| Temperate biomes | no effect |
+| Desert | ~37.4 °C |
+| Snowy Plains | ~36.6 °C, no symptoms |
+| Submerged in a cold biome | ~35.1 °C, **mild hypothermia** |
+| Buried in powder snow while wet | ~32.8 °C, **severe hypothermia** |
+| On fire | ~38.2 °C, sub-fever |
+| In lava | ~39.4 °C, **fever**, with heat haze |
 
-38.0 °C is achievable without illness in hot biomes with thyroid activity; fever symptoms strictly begin at **38.5 °C**.
+A hot biome plus a working thyroid can reach 38.0 °C without any illness; fever symptoms start
+strictly at **38.5 °C**.
 
 ---
 
-## 12. Post-Processing Screen Effects
+## 12. Screen Effects and Camera Tremors
 
-Full-screen shader effects distort and tint **only the peripheral edges** (`smoothstep(0.45, 1.0, ...)`), leaving crosshairs and central view crystal clear:
+Full-screen shaders distort **the periphery only** (`smoothstep(0.45, 1.0, ...)`), so the crosshair
+and the middle of the screen stay clean.
 
-| Effect | Trigger Condition | Visual Appearance |
+| Effect | Trigger | Looks like |
 | --- | --- | --- |
-| Heat Haze (`aliment:heat_haze`) | Temp ≥ 38.5 °C | Peripheral reddish wavy shimmering |
-| Heat Motion Blur (`aliment:heat_blur`) | Temp ≥ 40.0 °C | Peripheral haze with camera motion blur trails |
-| Cold Shiver (`aliment:cold_shiver`) | Temp ≤ 36.0 °C | Slower, vertical shivering with bluish tint |
+| Heat haze | ≥ 38.5 °C | reddish waviness at the edges |
+| Heat blur | ≥ 40.0 °C | haze plus motion-blur trails |
+| Cold shiver | ≤ 36.0 °C | slower vertical shivering, blue tint |
 
----
+**Camera tremors** are rolled every **15 seconds** and shake for 16 ticks when they fire. Every cause
+on that table puts an icon in the effect bar, so a shake is never unexplained.
 
-## 13. Camera Tremors
-
-Evaluated every **15 seconds**; on success, shakes the camera for 16 ticks. Shivering requires an accompanying symptom icon:
-
-| Cause | Probability |
+| Cause | Chance |
 | --- | --- |
-| Active symptomatic infection | 20% (doubles during cytokine storm) |
-| Temperature tier deviation | +15% per tier with increased roll amplitude |
+| Symptomatic infection | 20%, doubled during a cytokine storm |
+| Each temperature tier away from comfortable | +15%, with a larger shake |
 | Low magnesium | +15% |
 | Severe low calcium | +20% |
 | Iodine excess (palpitations) | +10% |
-| Severe overhydration (with nausea icon) | +10% |
+| Severe overhydration, with the nausea icon | +10% |
 
-Temperatures below 38.0 °C and hydration between 100–149 do not trigger tremors.
-
----
-
-## 14. Diagnostic Commands
-
-```
-/aliment status                 Inspect all physiological metrics
-/aliment fever [temperature]    Induce calibrated fever/hypothermia (default 39.5, range 31–42; OP only)
-/aliment cure                   Reset body to perfect health and clear screen shaders (OP only)
-/aliment set <field> <value>    Directly set values (OP only, tab autocomplete)
-```
-
-`/aliment fever` injects a calculated dose of pyrogen so that peak temperature reaches the target within two minutes and metabolizes completely within one game day.
+Below 38.0 °C, and between 100 and 149 water, nothing tremors.
 
 ---
 
-## 15. Mandrake Botany and Toxicology
+## 13. Blood Glucose and the Glucose Chain
 
-A wild herbaceous nightshade plant with four growth stages, **planted on soil blocks rather than farmland**.
-
-### Natural Biomes and Generation Criteria
-* **Target Biomes**: `minecraft:plains`, `minecraft:sunflower_plains`, `minecraft:swamp`, `minecraft:mangrove_swamp`.
-* **Generation Step**: `GenerationStep.Decoration.VEGETAL_DECORATION`.
-* **Placement & Frequency**: 1 plant per chunk (`count: 1`, `in_square`) evaluated against surface heightmap `WORLD_SURFACE_WG`.
-* **Substrate Predicate**: Current position must be air (`#minecraft:air`); block directly beneath (offset `[0, -1, 0]`) must be **Grass Block** (`minecraft:grass_block`).
-* **Initial State**: Naturally generates in its **mature stage** (`age: 3`), displaying flowering top leaves and hanging green fruits.
-
-### Cultivation and Harvesting
-* **Cultivation**: Plantable on grass blocks, dirt, coarse dirt, rooted dirt, mud, moss blocks, and farmland. Grows via random ticks when light level >= 9 (1/8 chance per step); bone meal advances 1 stage per use (3 applications to mature).
-* **Harvesting**: Only breaking **Stage 4 (mature)** drops **1–2 fruits** (affected by Fortune); breaking immature stages drops nothing.
-* **Seed Propagation**: In crafting grid, **1 fruit -> 2 seeds**, allowing exponential agricultural expansion.
-
-### Ingestion: Scopolamine and Atropine
-
-Ingesting mandrake fruit or seeds introduces two independent alkaloids, capped at **5.0**, **clearing linearly over 1 game day**:
-
-```scala
-// Mandrake alkaloid linear clearance: 5.0 units clear in 1 game day (24,000 ticks)
-scopolamine = Math.max(scopolamine - 5.0f / 24000f, 0f) // -2.083e-4 / tick
-atropine = Math.max(atropine - 5.0f / 24000f, 0f)       // -2.083e-4 / tick
-```
-
-| Ingested Item | Scopolamine (S_scop) | Atropine (A_atro) |
-| --- | --- | --- |
-| Mandrake Fruit | **+1.0** | **+0.1** |
-| Mandrake Seeds | **+0.75** | **+0.1** |
-
-Combined alkaloid load `alkaloidSum = scopolamine + atropine` elevates core body temperature independently of prostaglandins (**salicin cannot break mandrake fever**):
-
-```scala
-val deltaT =
-  if (alkaloidSum >= 4.0f) 4.0f      // Target core temp -> 41.0 °C
-  else if (alkaloidSum >= 2.5f) 2.5f // Target core temp -> 39.5 °C
-  else if (alkaloidSum >= 1.5f) 1.0f // Target core temp -> 38.0 °C
-  else 0.0f
-```
-
-* Visual blur contracts view fog to 8 blocks when `scopolamine >= 2.3f || atropine >= 2.3f || alkaloidSum >= 2.7f`.
-* Drug fever and visual blur stack additively with infection symptoms.
-
----
-
-## 16. Gymnopilus Mushrooms and Psychedelics
-
-A rust-colored wood-decay mushroom flourishing in damp, shady, and wooded biomes.
-
-### Natural Biomes and Generation Criteria
-* **Target Biomes**: `minecraft:dark_forest` (Dark Forest), `minecraft:swamp` (Swamp), `minecraft:mangrove_swamp` (Mangrove Swamp), `minecraft:taiga` (Taiga), `minecraft:old_growth_pine_taiga` (Old Growth Pine Taiga), `minecraft:old_growth_spruce_taiga` (Old Growth Spruce Taiga).
-* **Generation Step**: `GenerationStep.Decoration.VEGETAL_DECORATION`.
-* **Placement & Frequency**: 3 attempts per chunk (`count: 3`, `in_square`) evaluated against surface heightmap `WORLD_SURFACE_WG`.
-* **Substrate Predicate**: Current position must be air (`#minecraft:air`); block directly beneath must be Overworld substrate (`#minecraft:substrate_overworld`, supporting dirt, grass, and wood logs).
-* **Cultivation & Light Independence**: As a lignicolous wood-decay fungus, it **completely bypasses vanilla mushroom darkness restrictions** (no light <= 12 requirement), growing freely under open sunlight and on tree trunks.
-
-### Consumption and Kinetics
-* **Raw Consumption**: Eating raw grants **1.3 Psilocybin + 1.3 Psilocin** (3 hunger / 4 saturation).
-* **Cooking**: Cooked in a furnace, smoker, or campfire yields **Cooked Gymnopilus** (4 hunger / 5 saturation) with zero psychedelic compounds (heat destroys alkaloids).
-* **Metabolic Kinetics**: Psilocybin is an inactive prodrug converted 1:1 into psilocin over half a game day. Psilocin clears at a constant zero-order rate of **1.3 per game day**:
-
-  ```scala
-  // Inactive prodrug conversion: 1.3 units convert over half a game day (12,000 ticks)
-  val converted = Math.min(psilocybin, 1.3f / 12000f) // 1.083e-4 / tick
-  psilocybin -= converted
-
-  // Active psilocin elimination: fixed zero-order rate of 1.3 units per game day (24,000 ticks)
-  psilocin = clamp(psilocin + converted - (1.3f / 24000f), 0f, 10.0f) // -5.417e-5 / tick
-  ```
-
-  Consuming 5 raw mushrooms extends the trip linearly to 10 game days.
-
-### Visual Distortions
-* `psilocin > 1.2`: Chromatic rays emit from block edges.
-* `psilocin > 1.7`: Chromatic color shifts on blocks + full-screen color noise.
-* `psilocin > 2.5`: Mild full-screen spatial wave warping.
-* `psilocin > 5.0`: Intense spatial warping + drug fever climbing up to 39.0 °C.
-* `psilocin >= 7.0`: Hyperthermia reaching 41.0 °C.
-
----
-
-## 17. Fermentation and Distillation
-
-### 1. Glass Fermentation Tank
-* Crafted with glass surrounding any wood planks in the top center slot.
-* Holds 3 water levels. Add **Sugar ×1** and **Brewer's Yeast ×1** to start bubbling fermentation (lasts 45s / 900 ticks), yielding **7% ABV Wine**. Ladle with a glass bottle.
-
-### 2. Brewer's Yeast
-* Shapeless crafting: Wheat + Sugar + Brown Mushroom.
-
-### 3. Glass Condenser Pipe and Still
-* Crafted with two horizontal rows of glass leaving the center row empty.
-* Placed above a heated fermentation tank with campfires below. Every 30 seconds, 1 water level of wine evaporates:
-  * Horizontal condenser pipes (facing down) over a cauldron catch distilled vapor, yielding **40% ABV Distilled Wine** (in an Alcohol Cauldron).
-  * Improper connections vent vapor into the air with hissing smoke.
-
-### 4. Ethanol Ingestion and Intoxication
-* Drinking wine restores **10 hydration**.
-* Increases blood ethanol index (0.0 to 1.0): 7% wine adds +0.07; 40% distilled spirits add +0.40.
-* Elimination follows zero-order kinetics:
-
-  ```scala
-  // Zero-order elimination: 1.0 clears in 24,000 ticks (1 game day)
-  ethanol = Math.max(ethanol - 1.0f / 24000f, 0f) // -4.167e-5 / tick
-  ```
-
-* Intoxication thresholds:
-  - `ethanol >= 0.35`: Nausea I and Slowness I.
-  - `ethanol >= 0.70`: Nausea II and Slowness II.
-
----
-
-## 18. Ephedra and Ephedrine
-
-### Natural Biomes and Generation Criteria
-* **Target Biomes**: Arid deserts, badlands plateaus, savannas, and windswept hills:
-  - Desert: `minecraft:desert`
-  - Badlands: `minecraft:badlands`, `minecraft:eroded_badlands`, `minecraft:wooded_badlands`
-  - Savanna: `minecraft:savanna`, `minecraft:savanna_plateau`, `minecraft:windswept_savanna`
-  - Hills: `minecraft:windswept_hills`
-* **Generation Step & Placement Rules**:
-  - `GenerationStep.Decoration.VEGETAL_DECORATION`.
-  - Rarity filter: `rarity_filter` with `chance: 8` (12.5% chance per chunk, `in_square`).
-  - Heightmap: `WORLD_SURFACE_WG`.
-  - Substrate Predicate: Current position must be air (`#minecraft:air`); block directly beneath supports 4 substrates: **Sand (`sand`), Red Sand (`red_sand`), Terracotta (`terracotta`), or Grass Block (`grass_block`)**.
-* **Initial State & Growth**:
-  - Naturally generates in its **mature stage** (`age: 3`).
-  - 4 growth stages (0–3); plantable on sand, red sand, terracotta, and dirt soils. Bone meal accelerates growth (1 stage per application).
-* **Sustainable Harvesting**:
-  - **Right-Click Harvest**: Right-clicking a mature plant yields 1–2 twigs and **resets the plant to stage 1 without uprooting**, eliminating replanting overhead.
-  - **Breaking**: Breaking mature plants drops 1–3 twigs (Fortune applies); breaking immature plants drops 1 twig.
-
-### Crushed Ephedra and Potion Processing
-* **Crushed Ephedra**: Ground on a grindstone or crafted in a grid with shears (consumes 1 durability).
-* **Ephedrine Potion**: Shapeless crafting with Glass Bottle + Crushed Ephedra (yields potion and restores bottle upon drinking).
-* **Pharmacology & Kinetics**: Ingesting raw twigs adds +0.5; drinking a potion adds +2.5 ephedrine (capped at 5.0).
-* **Elimination & Haste Effect**:
-
-  ```scala
-  // Zero-order elimination: 5.0 clears in 24,000 ticks (1 game day)
-  ephedrine = Math.max(ephedrine - 5.0f / 24000f, 0f) // -2.083e-4 / tick
-  ```
-
-  Concentrations `ephedrine > 1.0` grant **Haste I** (faster mining speed). A full dose (5.0) provides over 16 continuous minutes of Haste.
-* **Sleep Restriction**: A sympathomimetic load above **0.5** keeps the nervous system from settling, so `ephedrine > 0.5` **prevents sleeping**. Right-clicking a bed shows *"You cannot sleep while stimulated"* instead of lying down. One raw twig (+0.5) is exactly on the threshold and still sleeps; a second twig or any potion is not. The restriction lifts by itself as the drug is metabolised.
-
----
-
-## 19. Traditional Medicinal Herbs (Coptis, Phellodendron, Licorice)
-
-### Botanical Species and Natural Distribution
-1. **Coptis**: Shade-loving herb; raw consumption provides **+1.1 Berberine**.
-2. **Phellodendron**: Bark-producing shrub; raw consumption provides **+0.6 Berberine**.
-3. **Licorice**: Drought-hardy legume; raw consumption provides **+1.1 Glycyrrhizin**.
-
-* **Ecological Generation Criteria**:
-  - **Target Biomes**: All non-cold Overworld biomes (dynamic predicate: `baseTemperature >= 0.2f` and lacking the cold frog tag `!#minecraft:spawns_cold_variant_frogs`). Encompasses Plains, Sunflower Plains, Forests, Birch Forests, Jungles, Savannas, etc.; excludes Snowy Plains, Taiga snow peaks, and Frozen Oceans.
-  - **Generation Step**: `GenerationStep.Decoration.VEGETAL_DECORATION`.
-  - **Rarity & Density**: Independent rarity filter `rarity_filter` with `chance: 12` (~8.3% chance per chunk, `in_square`).
-  - **Substrate Predicate**: Current position must be air (`#minecraft:air`); block directly beneath must strictly be **Grass Block (`minecraft:grass_block`)**; heightmap `WORLD_SURFACE_WG`.
-  - **Initial State**: All three species generate naturally in their **mature stage (`age: 3`)**, ready for immediate right-click harvesting or breaking.
-
-### Processing and Potions
-* Grind on a grindstone into Crushed Coptis, Crushed Phellodendron, or Crushed Licorice.
-* Brew with a Water Bottle in crafting:
-  * Crushed Coptis + Water Bottle -> **Coptis Potion** (+2.5 Berberine).
-  * Crushed Phellodendron + Water Bottle -> **Phellodendron Potion** (+1.5 Berberine).
-  * Crushed Licorice + Water Bottle -> **Licorice Potion** (+2.5 Glycyrrhizin).
-
-### Antimicrobial Actions
-
-Unlike symptomatic anti-inflammatories, **Berberine** and **Glycyrrhizin** directly kill and suppress pathogens:
-
-For targeted drug concentration `drug in [0.0, 7.0]`, deceleration threshold 1.5, and suppression threshold 3.0:
-
-```scala
-if (drugConc >= 3.0f) {
-  // Complete suppression of replication; drug clearance scales with concentration
-  val drugClearance = (100.0f / (1.5f * 24000f)) * (drugConc / 3.0f)
-  load = Math.max(load - immuneClearance - drugClearance, 0.0f)
-} else if (drugConc > 1.5f) {
-  // Reduced pathogen replication rate allowing immune system to overpower it
-  val slowRatio = (drugConc - 1.5f) / (3.0f - 1.5f)
-  val reducedGrowth = baseGrowth * (1.0f - 0.75f * slowRatio)
-  load = Math.max(load + reducedGrowth - immuneClearance, 0.0f)
-} else {
-  // Normal pathogen replication minus immune clearance
-  load = Math.max(load + baseGrowth - immuneClearance, 0.0f)
-}
-```
-
-where `c_suppress = 100.0 / (1.5 * 24000) ≈ 2.778e-3 / tick`.
-
-* **Berberine (Targets Bacteria)**: `berberine = Math.max(berberine - 7.0f / 60000f, 0.0f)` (-1.167e-4 / tick, clears in 2.5 game days).
-* **Glycyrrhizin (Targets Viruses)**: `glycyrrhizin = Math.max(glycyrrhizin - 7.0f / 48000f, 0.0f)` (-1.458e-4 / tick, clears in 2.0 game days).
-
----
-
-## 20. Seaweed Aquaculture and Iodine Supply
-
-### Marine Generation and Ecology
-* **Target Biomes**: All ocean biomes (under the `#minecraft:is_ocean` tag: `minecraft:ocean`, `minecraft:deep_ocean`, `minecraft:warm_ocean`, `minecraft:lukewarm_ocean`, `minecraft:deep_lukewarm_ocean`, `minecraft:cold_ocean`, `minecraft:deep_cold_ocean`, `minecraft:frozen_ocean`, `minecraft:deep_frozen_ocean`).
-* **Generation Step**: `GenerationStep.Decoration.VEGETAL_DECORATION`.
-* **Density & Placement**: 4 attempts per chunk (`count: 4`, `in_square`) evaluated against seafloor heightmap `OCEAN_FLOOR_WG`.
-* **Substrate & Fluid Predicate**: Position must be water (`fluids: "minecraft:water"`); seabed directly beneath must be **Sand (`minecraft:sand`)** or **Suspicious Sand (`minecraft:suspicious_sand`)**.
-* **Initial State & Aquaculture**:
-  - Naturally generates in a **submerged mature state** (`age: 3, waterlogged: true`).
-  - 4 growth stages (0–3), requiring full water submersion. Plantable on sand, red sand, gravel, dirt, grass, and terracotta.
-  - **Underwater Right-Click Harvesting**: Harvesting mature seaweed yields 1–2 items and resets the plant to stage 1 without uprooting. Bone meal applied underwater accelerates growth.
-
-### Culinary and Medicinal Uses
-* **Raw Seaweed**: Eaten raw for +0.20 µmol/L iodine.
-* **Cooked Seaweed**: Cooked in furnace, smoker, or campfire for +0.25 µmol/L iodine (3 hunger / 0.6 saturation).
-* **Crushed Seaweed**: Milled on a grindstone.
-* **Seaweed Iodized Salt**: Crafted with Crushed Seaweed + Salt Powder. Provides **+0.40 µmol/L Iodine**, **+1.5 mmol/L Sodium**, and **+1.5 mmol/L Chloride**.
-
----
-
-## 21. Vitamin C and Plant Nutrition
-
-* **Clinical Reference Range**:
-  * Baseline Normal: **60.0 µmol/L**
-  * Safe Range: **40.0 – 80.0 µmol/L**
-  * Scurvy Threshold: **15.0 µmol/L**
-* **First-Order Clearance Kinetics**:
-
-  ```scala
-  // First-order excretion: half-life = 5 game days (120,000 ticks)
-  // k = ln(2) / 120000 ≈ 5.776e-6 per tick
-  val k = Math.log(2.0).toFloat / 120000f
-  vitaminC -= vitaminC * k
-  ```
-
-  Decays from 80.0 to 40.0 µmol/L in **exactly 5 in-game days** (120,000 ticks) without plant food.
-* **Deficiency Pathology**:
-  * Mild (< 40.0 µmol/L): **Mining Fatigue I**.
-  * Severe (< 15.0 µmol/L): **Mining Fatigue I + Weakness I**.
-* **Dietary Sources**:
-  * Apple (+12.0), Golden Apple (+20.0), Enchanted Golden Apple (+30.0)
-  * Melon Slice (+8.0)
-  * Sweet Berries / Glow Berries (+6.0)
-  * Carrot (+10.0), Golden Carrot (+15.0)
-  * Pumpkin Pie (+15.0)
-  * Beetroot (+6.0), Beetroot Soup (+16.0)
-  * Mandrake Fruit (+10.0)
-  * Seaweed (+5.0), Cooked Seaweed (+3.0)
-
----
-
-## 22. Blood Glucose and the Glucose Chain
-
-Glucose is the second resource - after water - that the body **spends** rather than regulates. Nothing
-stores a surplus and nothing synthesises it: eating is the only thing that puts it back, so an unfed
-player eventually runs out however healthy the rest of the body is.
+Glucose is the second resource - after water - that the body **spends** rather than regulates.
+Nothing stores a surplus and nothing makes it: eating is the only thing that puts it back, so an
+unfed player runs out however healthy the rest of the body is.
 
 | Quantity | Value |
 | --- | --- |
-| Normal / fasting | **5.0 mmol/L** |
+| Normal, fasting | **5.0 mmol/L** |
 | Reference range | **4.0 – 5.5 mmol/L** |
 | Fasting floor, reached in 2 game days | **3.5 mmol/L** |
 | Steep insulin response | **> 8.0 mmol/L** |
 | Baseline insulin index | **1.0** |
 
-* **What food is worth:**
+**What food is worth**
 
-  | Food class | Glucose |
-  | --- | --- |
-  | Bread | **+0.7** |
-  | Cooked meat and fish | **+0.5** |
-  | Raw meat and fish | **+0.4** |
-  | Plant food (fruit, vegetables, kelp, seaweed, mushrooms, willow broth) | **+0.4** |
+| Food | Glucose |
+| --- | --- |
+| Bread | **+0.7** |
+| Cooked meat and fish | **+0.5** |
+| Raw meat and fish | **+0.4** |
+| Plant food - fruit, vegetables, kelp, seaweed, mushrooms, willow broth, grapefruit | **+0.4** |
 
-  A single loaf of bread is enough to leave the reference range from a normal 5.0 (5.7); nothing else
-  is. Everything edible that is not meat or bread counts as plant food, so living on berries does not
-  avoid the glucose cost of eating.
+One loaf of bread is enough to leave the reference range from a normal 5.0 - a body reads 5.7 after
+one - and nothing else is. Everything edible that is not meat or bread counts as plant food, so
+living on berries does not avoid the glucose cost of eating.
 
-* **A meal is disposed of inside half a game day, and a bigger one comes down faster.** The insulin
-  index climbs across the reference range and then twice as steeply past 8, so a 20 mmol/L spike falls
+* **A meal is gone within half a game day, and a bigger one falls faster.** The insulin index climbs
+  across the reference range and then twice as steeply past 8.0, so a 20 mmol/L spike comes down
   further in the same time than a 9 does. Nothing overshoots into hypoglycaemia, because the body's
-  own insulin is switched off at the bottom of the range.
-* **Fasting costs 1.5 mmol/L over the first two game days (5.0 -> 3.5), and less after that** - past
-  the floor the fall scales with what is left instead of running straight to zero.
-* **Hypoglycaemia tiers:**
+  own insulin switches off at the bottom of the range.
+* **Fasting costs 1.5 mmol/L over the first two days** (5.0 → 3.5) and less after that: past the
+  floor the fall scales with what is left instead of running straight to zero.
+* **Hypoglycaemia:**
 
   | Glucose | Effect |
   | --- | --- |
-  | < 2.0 mmol/L | **Mining Fatigue I** |
-  | < 1.7 mmol/L | Mining Fatigue I **+ Weakness I** |
-  | < 1.3 mmol/L | The above, plus **magic damage** every two seconds: `(1.3 - glucose) * 1.0` |
+  | < 2.0 mmol/L | **mining fatigue** |
+  | < 1.7 mmol/L | mining fatigue **+ weakness** |
+  | < 1.3 mmol/L | the above, plus **magic damage** every two seconds: `(1.3 - glucose) * 1.0` |
 
-  The damage ignores armour - the brain has no fuel but glucose. Eight game days without food leaves a
-  body at **0.97 mmol/L**, which is a crisis.
+  The damage ignores armour - the brain has no fuel but glucose. Eight game days without food leaves
+  a body at **0.97 mmol/L**, which is a crisis.
 
-* **The four items, and where they come from:**
+### The four items
 
-  | Item | Loot chance | Notes |
-  | --- | --- | --- |
-  | `aliment:insulin_injection` | **10%** | Right-click; **+10.0** insulin aspart, ceiling 60.0, cleared over 1 game day |
-  | `aliment:glucose_meter` | **35%** | Reads a bloodied strip from the other hand |
-  | `aliment:glucose_test_strip` | **35%**, as **5–9** | Becomes a bloodied strip on a bleeding finger |
-  | `aliment:microneedle` | **35%** | Pricks a finger; it bleeds for **15 seconds** (300 ticks) |
+| Item | Chests | Notes |
+| --- | --- | --- |
+| `aliment:insulin_injection` | **10%** | right-click; **+10.0** insulin aspart, ceiling 60.0, cleared over 1 game day |
+| `aliment:glucose_meter` | **35%** | reads a bloodied strip from the other hand |
+| `aliment:glucose_test_strip` | **35%**, in 5–9s | becomes a bloodied strip on a bleeding finger |
+| `aliment:microneedle` | **35%** | pricks a finger, which bleeds for **15 seconds** (300 ticks) |
 
-  All four generate in every vanilla village chest and in the pillager outpost's. The bloodied strip is
-  never found: it is what the player makes.
+All four generate in every vanilla village chest and in the pillager outpost's. The bloodied strip is
+never found - it is what the player makes.
 
-* **The diagnostic chain:** prick a finger with the microneedle, right-click with a test strip while it
-  is still bleeding (a strip used after the drop has dried is refused), then hold the meter in the
-  **main hand** and the bloodied strip in the **off hand** and right-click. The reading is printed in
-  chat - `Blood glucose: 5.1 mmol/L` - and the strip is used up.
-* **A bloodied strip is a sample, not a sensor.** It stores the glucose the player had *when the blood
-  was taken*, and reports that value however much later it is read - so a strip can be pricked before a
-  meal, read after it, put in a chest, or handed to another player, and still mean what it meant. Only
-  a strip with no sample on it at all falls back to the body's current glucose.
-* **Insulin aspart is the one drug that makes a body worse on purpose.** Unlike the body's own insulin
-  it is not switched off at the bottom of the reference range, so one dose from a normal body is a
-  survivable dip to about 2.7 mmol/L and two are a crisis. Eating is the only way out.
+**The diagnostic chain.** Prick a finger with the microneedle, right-click with a test strip while it
+is still bleeding (a strip used after the drop has dried is refused), then hold the meter in the
+**main hand** and the bloodied strip in the **off hand** and right-click. The reading is printed in
+chat - `Blood glucose: 5.1 mmol/L` - and the strip is used up.
 
----
+**A bloodied strip is a sample, not a sensor.** It stores the glucose the player had *when the blood
+was taken* and reports that value however much later it is read - so a strip can be pricked before a
+meal, read after it, put in a chest, or handed to someone else, and still mean what it meant. Only a
+strip with no sample on it at all falls back to the body's current glucose.
 
-## 23. Common Pitfalls
-
-1. **Sea water is not dirty; it is hypertonic.** Drinking it causes no immediate nausea; the large sodium load creates severe dehydration and hypernatremic thirst later.
-2. **The thirst bar does not indicate overhydration.** 100 and 200 both render as 10 full pips; watch for the weakness icon.
-3. **Raw willow broth causes bacterial infections.** Boiled broth does not—the 60-second brew time is essential.
-4. **Iodine depletes in 3 game days without retention.** 1 dried kelp or raw seaweed daily is necessary to prevent hypothyroidism.
-5. **Salicin is both an anti-inflammatory and an antipyretic.** It reduces fever by inhibiting prostaglandins.
-6. **Iatrogenic immunosuppression is fatal.** Suppressing inflammation below 12 triggers spontaneous bacterial infection every second; once load reaches 60, septic magic damage will kill you.
-7. **Keep distance from livestock.** Standing within 2 blocks of any mob rolls a 5% viral infection chance every second.
-8. **Willow leaves never drop apples.**
-9. **Camera tremors always provide a diagnostic symptom icon.** You will never tremor without an active clinical reason.
-10. **Blood glucose only ever goes down on its own.** Nothing synthesises it, so an unfed player drifts from 5.0 to 3.5 in two game days and into a hypoglycaemic crisis by the eighth. Bread is worth 0.7 and everything else 0.4–0.5.
-11. **An insulin injection is not a treatment.** It lowers blood glucose and nothing switches it off; two doses inside the cooldown are a hypoglycaemic crisis, and eating is the only way out.
-12. **Grapefruit changes how long your other medicine lasts.** Naringin holds CYP3A4 down in steps, and CYP3A4 is what clears berberine - so a dose of coptis taken after nine slices lasts nearly twice as long. That is a way to make a herb you have go further, and a way to overcommit to one you did not mean to take. It fades on its own over a game day.
-13. **A hanging grapefruit is not a fruit you can pick and forget.** It only exists while the leaf or log above it does, so felling the tree drops the whole crop at once - which is convenient, but it also means the fruit will not survive you building through the canopy.
+**Insulin aspart is not a treatment.** Unlike the body's own insulin it is not switched off at the
+bottom of the range, so one dose from a normal body is a survivable dip to about 2.7 mmol/L and two
+are a crisis. Eating is the only way out.
 
 ---
 
-## 24. Grapefruit and the CYP3A4 Interaction
+## 14. Grapefruit and CYP3A4
 
-The grapefruit is the mod's first **food that changes how long another substance lasts**. Naringin has
-no effect of its own; everything it does, it does by holding down the liver enzyme that clears
+Grapefruit is the mod's first **food that changes how long another substance lasts**. Naringin has no
+effect of its own: everything it does, it does by holding down the liver enzyme that clears
 berberine.
 
-### The Tree
+### The tree
 
 | | |
 | --- | --- |
-| Biomes | Jungle, Sparse Jungle, Bamboo Jungle, Savanna, Savanna Plateau, Windswept Savanna |
-| Frequency | Rarity filter 1/6 |
-| Trunk | `aliment:grapefruit_log`, 4–6 blocks tall, blob canopy of radius 2 |
-| Fruit | `aliment:grapefruit`, hung 30% of the time under each eligible canopy leaf |
+| Where | the jungles and the savannas, rarity 1/6 - see §1 |
+| Trunk | `aliment:grapefruit_log`, 4–6 blocks, blob canopy radius 2 |
+| Fruit | `aliment:grapefruit`, hung under 30% of the eligible canopy leaves |
 | Sapling | `aliment:grapefruit_sapling`, grows the same tree |
 
-The fruit is a **hanging block**: it is placed by vanilla's `minecraft:attached_to_leaves` decorator
-in the cell directly below a canopy leaf, and it can only exist while the block above it is still a
-leaf or a log. Felling the canopy therefore drops every fruit with it. Breaking one drops the fruit
-itself, and one fruit crafts into **eight slices**.
+The fruit is a **hanging block**: vanilla's `minecraft:attached_to_leaves` decorator puts it in the
+cell directly below a canopy leaf, and it exists only while the block above it is still a leaf or a
+log. Felling the canopy drops the whole crop at once. Breaking one drops the fruit, and one fruit
+crafts into **eight slices**.
 
-### The Slice
+### The slice
 
 | | Per slice |
 | --- | --- |
@@ -716,17 +434,16 @@ itself, and one fruit crafts into **eight slices**.
 | Saturation | **3 points** |
 | Water | **5** |
 | Naringin | **1** |
-| Vitamin C | **10 µmol/L** - what a carrot is worth |
-| Always edible | **Yes** - a dose must not have to wait for a full stomach |
+| Vitamin C | **10 µmol/L**, the same as a carrot |
+| Always edible | **yes** - a dose should not have to wait for a full stomach |
 
-A slice is the only food in the mod that also hydrates - it is a drink's job done by a snack, at a
-third of a drink's worth. Ten slices fill the body's naringin. It is also one of the few foods that
-can be eaten on a full stomach, because what a player eats it *for* is the naringin rather than the
-two hunger.
+A slice is the only food in the mod that also hydrates - a drink's job done by a snack, at a third of
+a drink's worth. Ten slices fill the body's naringin. It is also one of the few foods that can be
+eaten on a full stomach, because what a player eats it *for* is the naringin rather than the hunger.
 
-### The Wood
+### The wood
 
-The tree is also a full **second wood set**, not just a fruit tree:
+The tree is a full **second wood set**, not just a fruit tree:
 
 | | |
 | --- | --- |
@@ -739,16 +456,16 @@ The tree is also a full **second wood set**, not just a fruit tree:
 
 The four log-shaped blocks are in their own `aliment:grapefruit_logs` tag, which is what the planks
 recipe takes - so a grapefruit plank recipe cannot be satisfied with willow logs, and the two woods
-stay separate the whole way down the crafting tree. Everything else joins the vanilla `planks`,
-`logs`, `wooden_*`, `signs` and `fence_gates` tags, which is what makes the set axe-mineable and
-recognisable to vanilla recipes.
+stay apart all the way down the crafting tree. Everything else joins the vanilla `planks`, `logs`,
+`wooden_*`, `signs` and `fence_gates` tags, which is what makes the set axe-mineable and recognisable
+to vanilla recipes.
 
-### The Enzyme
+### The enzyme
 
 CYP3A4 sits at **85** in a body that has eaten no grapefruit, and naringin pushes it down in **steps**
 rather than along a curve, so the index only ever holds one of five values:
 
-| Naringin | CYP3A4 | Berberine is cleared | so a dose lasts |
+| Naringin | CYP3A4 | Berberine cleared at | so a dose lasts |
 | --- | --- | --- | --- |
 | ≤ 2 | **85** | 1.00x | 1.0x |
 | > 2 | **60** | 0.71x | 1.4x |
@@ -756,14 +473,310 @@ rather than along a curve, so the index only ever holds one of five values:
 | > 7 | **25** | 0.29x | 3.4x |
 | ≥ 8.5 | **10** | 0.12x | **8.5x** |
 
-Naringin clears linearly over **one game day** from the cap, so the effect fades on its own without
-anything having to undo it - and the last column is only ever reached for part of a dose's life.
+Naringin clears linearly over **one game day** from the cap, so the effect goes away on its own - and
+the last column is only reached for part of a dose's life.
 
-### What It Is For
+### What it is for
 
-Berberine - from coptis and phellodendron - is the mod's antibacterial, and it is now cleared by
-CYP3A4 and by nothing else. A single coptis herb clears in about **9,400 ticks** on its own; eaten
-after nine slices of grapefruit the same herb takes about **17,800**. That cuts both ways: grapefruit
-is how a player makes a herb they are short of go further, and how a player accidentally commits to
-one they only meant to take once.
+Berberine - from coptis and phellodendron - is the mod's antibacterial, and it is cleared by CYP3A4
+and by nothing else. A single coptis herb clears in about **9,400 ticks** on its own; eaten after
+nine slices of grapefruit the same herb takes about **17,800**. That cuts both ways: grapefruit is
+how a player stretches a herb they are short of, and how a player commits to one they only meant to
+take once. No grapefruit, no interaction - a clean body clears berberine at exactly the rate it
+always did.
 
+---
+
+## 15. Vitamin C and Plant Nutrition
+
+| | |
+| --- | --- |
+| Normal | **60.0 µmol/L** |
+| Reference range | **40.0 – 80.0 µmol/L** |
+| Scurvy | **15.0 µmol/L** |
+| Half-life | **5 game days** (120,000 ticks); `k = ln(2) / 120000 ≈ 5.776e-6` per tick |
+
+Excretion is first-order, so it decays proportionally: 80.0 falls to 40.0 in exactly **5 game days**
+with no plant food at all.
+
+* **Mild deficiency** (< 40.0): mining fatigue.
+* **Severe deficiency** (< 15.0): mining fatigue + weakness.
+* Above 80.0 there is nothing to worry about - it is water-soluble and simply excreted.
+
+**What is worth what**
+
+| Food | Vitamin C |
+| --- | --- |
+| Apple | +12.0 |
+| Golden apple | +20.0 |
+| Enchanted golden apple | +30.0 |
+| Melon slice | +8.0 |
+| Sweet berries / glow berries | +6.0 |
+| Carrot | +10.0 |
+| Golden carrot | +15.0 |
+| Pumpkin pie | +15.0 |
+| Beetroot | +6.0 |
+| Beetroot soup | +16.0 |
+| Mandrake fruit | +10.0 |
+| Grapefruit slice | +10.0 |
+| Seaweed | +5.0 |
+| Cooked seaweed | +3.0 |
+
+---
+
+## 16. Mandrake
+
+A nightshade with four growth stages, sown on **soil rather than in a tilled field** - it is a
+`BushBlock`, not a crop, so it does not need farmland (though farmland works). See §1 for where it
+grows wild.
+
+* **Growing it:** on grass, dirt, coarse dirt, rooted dirt, mud, moss or farmland. Random ticks
+  advance it at light level 9 or above, one step in eight; bone meal advances one stage per use, three
+  to mature.
+* **Harvesting:** only a **mature** plant drops anything - 1–2 fruit, with Fortune. Immature plants
+  drop nothing.
+* **Seeds:** one fruit crafts into **2 seeds**, so a single find becomes a farm.
+
+Both alkaloids cap at **5.0** and clear linearly over **1 game day**:
+
+```scala
+scopolamine = Math.max(scopolamine - 5.0f / 24000f, 0f) // -2.083e-4 / tick
+atropine    = Math.max(atropine    - 5.0f / 24000f, 0f) // -2.083e-4 / tick
+```
+
+| Eaten | Scopolamine | Atropine |
+| --- | --- | --- |
+| Mandrake fruit | **+1.0** | **+0.1** |
+| Mandrake seeds | **+0.75** | **+0.1** |
+
+The two add up, and the sum drives a fever of its own that **salicin cannot touch** - it has nothing
+to do with prostaglandins:
+
+```scala
+val deltaT =
+  if (alkaloidSum >= 4.0f) 4.0f      // core temperature -> 41.0 °C
+  else if (alkaloidSum >= 2.5f) 2.5f // -> 39.5 °C
+  else if (alkaloidSum >= 1.5f) 1.0f // -> 38.0 °C
+  else 0.0f
+```
+
+Sight blurs - fog pulled in to 8 blocks - once `scopolamine >= 2.3` or `atropine >= 2.3` or the sum
+reaches `2.7`. Drug fever and blur stack on top of whatever an infection is already doing.
+
+---
+
+## 17. Gymnopilus
+
+A rust-coloured wood-decay mushroom of damp, shaded woodland - see §1. Because it decays wood and not
+soil, it **ignores vanilla's mushroom darkness rule** entirely and grows in open daylight and on tree
+trunks.
+
+* **Raw:** 1.3 psilocybin + 1.3 psilocin, and 3 hunger / 4 saturation.
+* **Cooked** (furnace, smoker or campfire): 4 hunger / 5 saturation and **no psychedelics at all** -
+  heat destroys them.
+* **Kinetics:** psilocybin does nothing on its own; it converts 1:1 into psilocin over half a game
+  day, and psilocin is cleared at a flat rate.
+
+  ```scala
+  val converted = Math.min(psilocybin, 1.3f / 12000f)          // 1.083e-4 / tick
+  psilocybin -= converted
+  psilocin = clamp(psilocin + converted - (1.3f / 24000f), 0f, 10.0f) // -5.417e-5 / tick
+  ```
+
+  Five raw mushrooms is a trip lasting ten game days, linearly.
+
+| Psilocin | What you see |
+| --- | --- |
+| > 1.2 | chromatic rays off block edges |
+| > 1.7 | colour shifts on blocks and full-screen colour noise |
+| > 2.5 | mild full-screen spatial warping |
+| > 5.0 | heavy warping, and a drug fever climbing to 39.0 °C |
+| ≥ 7.0 | hyperthermia, 41.0 °C |
+
+---
+
+## 18. Fermentation and Distillation
+
+**The tank.** Glass around any wood planks in the top centre. Three water levels (0–3); add **sugar
+×1** and **brewer's yeast ×1** and it bubbles for 45 s (900 ticks) into **7% wine**, which a glass
+bottle ladles out. A bottle carries its own strength with it, and at **70% or more it is named
+Alcohol rather than Wine**.
+
+**The yeast.** Shapeless: wheat + sugar + brown mushroom.
+
+**The still.** Two horizontal rows of glass with the middle row left open. Place it above a tank
+heated by a lit **campfire or soul campfire**, and every 30 seconds (600 ticks) one water level of
+wine evaporates:
+
+* A lone vertical condenser pipe's outlet faces **up**. Connect it to a horizontal neighbour and the
+  outlet bends **down** - which is what lets it drip into a cauldron and collect as **40% spirit**.
+* A pipe that does not line up vents the vapour into the air with a hiss, wasting the level.
+
+**Drinking.** Wine restores **10 water** rather than a drink's 15. It raises the ethanol index on a
+0.0–1.0 scale: 7% wine is +0.07, 40% spirit is +0.40. Elimination is zero-order, 1.0 per game day:
+
+```scala
+ethanol = Math.max(ethanol - 1.0f / 24000f, 0f) // -4.167e-5 / tick
+```
+
+| Ethanol | Effect |
+| --- | --- |
+| ≥ 0.35 | nausea I, slowness I |
+| ≥ 0.70 | nausea II, slowness II |
+
+One glass of 7% wine is +0.07, which is about **1.4 minutes** to sober off.
+
+---
+
+## 19. Ephedra and Ephedrine
+
+A desert and steppe shrub - see §1 for where it grows and how to harvest it. **Right-clicking a
+mature one gives 1–2 twigs and resets it to stage 1 without uprooting it**, so a patch is a
+renewable source; breaking it gives more twigs but costs the plant.
+
+* **Crushed ephedra:** grindstone, or shears in a crafting grid (one durability).
+* **Ephedrine potion:** glass bottle + crushed ephedra, shapeless. The bottle comes back.
+* **Dose:** a raw twig is +0.5, a potion +2.5, capped at 5.0.
+
+```scala
+ephedrine = Math.max(ephedrine - 5.0f / 24000f, 0f) // -2.083e-4 / tick
+```
+
+* **Haste** from `ephedrine > 1.0`, so one twig is not enough and a potion is. A full 5.0 is over
+  sixteen continuous minutes of it.
+* **It keeps you awake.** Above **0.5** the nervous system will not settle and a bed refuses you -
+  *"You cannot sleep while stimulated"*. One twig lands exactly on the threshold and still sleeps; a
+  second twig, or any potion, does not. The restriction lifts itself as the drug is metabolised.
+
+---
+
+## 20. Traditional Medicinal Herbs
+
+Coptis, phellodendron and licorice grow together across every non-cold biome - see §1.
+
+| Herb | Raw | Grind | Brew with a water bottle |
+| --- | --- | --- | --- |
+| Coptis `aliment:coptis` | **+1.1 berberine** | crushed coptis | **coptis potion**, +2.5 berberine |
+| Phellodendron `aliment:phellodendron` | **+0.6 berberine** | crushed phellodendron | **phellodendron potion**, +1.5 berberine |
+| Licorice `aliment:licorice` | **+1.1 glycyrrhizin** | crushed licorice | **licorice potion**, +2.5 glycyrrhizin |
+
+These are the only things in the mod that **kill pathogens directly**. For a concentration in
+`0.0 .. 7.0`, with a deceleration threshold at 1.5 and full suppression at 3.0:
+
+```scala
+if (drugConc >= 3.0f) {
+  // replication stops outright, and the drug's own clearance scales with concentration
+  val drugClearance = (100.0f / (1.5f * 24000f)) * (drugConc / 3.0f)
+  load = Math.max(load - immuneClearance - drugClearance, 0.0f)
+} else if (drugConc > 1.5f) {
+  // replication slowed enough for the immune system to win
+  val slowRatio = (drugConc - 1.5f) / (3.0f - 1.5f)
+  val reducedGrowth = baseGrowth * (1.0f - 0.75f * slowRatio)
+  load = Math.max(load + reducedGrowth - immuneClearance, 0.0f)
+} else {
+  load = Math.max(load + baseGrowth - immuneClearance, 0.0f)
+}
+```
+
+where the suppression clearance constant is `c_suppress = 100.0 / (1.5 * 24000) ≈ 2.778e-3` per tick.
+
+* **Berberine targets bacteria**: `berberine -= 7.0f / 60000f` (−1.167e-4 / tick), 2.5 game days from
+  the cap - **unless grapefruit is in the body**, which is what §14 is about.
+* **Glycyrrhizin targets viruses**: `glycyrrhizin -= 7.0f / 48000f` (−1.458e-4 / tick), 2.0 game days
+  from the cap.
+
+---
+
+## 21. Seaweed and Iodine
+
+An underwater crop of every ocean, harvested by right-click **while submerged**, which resets the
+plant to stage 1 instead of uprooting it. Bone meal works underwater. See §1 for where it generates.
+
+| Form | Iodine | Also |
+| --- | --- | --- |
+| Raw seaweed | **+0.20 µmol/L** | food |
+| Cooked seaweed | **+0.25 µmol/L** | 3 hunger / 0.6 saturation |
+| Crushed seaweed | - | grindstone, an ingredient |
+| Seaweed iodized salt | **+0.40 µmol/L** | crushed seaweed + salt powder; **+1.5 mmol/L** sodium and chloride |
+
+Dried kelp is the vanilla alternative at +0.20. See §7 for what a deficit does.
+
+---
+
+## 22. Creative Mode and Death
+
+**Creative mode freezes the whole system.** Nothing advances - pathogens neither grow nor clear,
+temperature does not move, drugs are not metabolised - no effects are applied, no damage is dealt, no
+mining penalty is charged and no exhaustion multiplier is applied. Any screen effect already up is
+taken down on the next tick, and the tremors stop. Eating, drinking and injecting do nothing either.
+It is a **freeze, not a cure**: walk into creative with an infection and you walk back into survival
+with it.
+
+**Death resets the body.** You respawn with a new one: inflammation back at rest, no pathogens, core
+temperature 37, water 80, iodine normal. Dying is the only way to throw the model away.
+
+---
+
+## 23. Advancements
+
+The mod has its own advancement tab, rooted at the first piece of willow bark.
+
+| Advancement | Description | Frame | For |
+| --- | --- | --- | --- |
+| **Ancient Anti-inflammatory** | Obtain a piece of willow bark | task, root | getting willow bark, by stripping a log or picking it up |
+| **Just Crude Salt** | Crush a piece of rock salt ore | task | grinding rock salt ore |
+| **Crushed and Crushed Again** | Crush a piece of crude salt | task | grinding crude salt into powder |
+| **Refined Salt** | High-purity refined table salt | task | getting salt powder out of a boiled-dry cauldron |
+| **Even If Dangerous** | Taste the mandrake | task | eating a mandrake fruit or seed |
+| **Psychedelic World** | Eat a bite of Gymnopilus | task | eating a gymnopilus |
+| **Hyperpyrexia** | Core body temperature exceeds 40 C | **challenge** | a core temperature above 40.0 °C - severe infection, mandrake, or a large dose of psilocin |
+
+---
+
+## 24. Diagnostic Commands
+
+```
+/aliment status                 every physiological metric, in one readout
+/aliment fever [temperature]    induce a calibrated fever (default 39.5, range 31–42; OP only)
+/aliment cure                   reset the body to perfect health and clear the screen shaders (OP only)
+/aliment set <field> <value>    set any field directly (OP only, tab-completed)
+```
+
+`/aliment fever` injects a calculated dose of pyrogen so that the peak is reached within two minutes
+and metabolised within one game day.
+
+---
+
+## 25. Common Pitfalls
+
+1. **Sea water is not dirty water.** Nothing happens at the time; the price is the sodium, and it
+   takes two bottles to leave the reference range.
+2. **The thirst bar cannot show overhydration.** 100 and 200 both draw as ten full pips - watch for
+   the weakness icon instead.
+3. **Raw willow broth is an infection source and boiled broth is not.** Those 60 seconds are worth
+   waiting for.
+4. **Iodine is gone in three days and the body will not hold on to it.** One kelp a day is not
+   enough, two is comfortable; without it you walk into severe hypothyroidism and a lower temperature
+   set point. The surplus does not store either - it clears in the same three days.
+5. **Salicin is an anti-inflammatory and an antipyretic at once**, because it blocks prostaglandins,
+   which is what fever runs on.
+6. **Overdosing is more dangerous than the infection.** Below 12 inflammation you are
+   immunosuppressed, and immunosuppression gives you a **random bacterial infection at 15% a second**
+   out of nothing; once the load passes 60 the sepsis damage starts. It is the only way to kill
+   yourself with medicine.
+7. **Do not stand in a herd.** Any mob within 2 blocks is a 5% viral roll every second.
+8. **Willow leaves never drop apples.**
+9. **Every tremor has a cause** and every cause has an icon in the effect bar.
+10. **Blood glucose only ever falls on its own.** Nothing synthesises it, so an unfed player drifts
+    from 5.0 to 3.5 in two game days and into a crisis by the eighth. Bread is worth 0.7 and
+    everything else 0.4–0.5.
+11. **An insulin injection is not a treatment.** It lowers blood glucose and nothing switches it off;
+    two doses inside the cooldown are a crisis, and eating is the only way out.
+12. **Grapefruit changes how long your other medicine lasts.** Nine slices make a dose of coptis last
+    nearly twice as long - a way to stretch a herb you are short of, and a way to commit to one you
+    did not mean to take. It fades on its own over a game day.
+13. **A hanging grapefruit is not a fruit you can pick and forget.** It exists only while the leaf or
+    log above it does, so felling the tree drops the whole crop - convenient, but it also means the
+    fruit will not survive you building through the canopy.
+14. **Creative mode does not cure you.** It freezes the model; the infection is still there when you
+    go back to survival.
