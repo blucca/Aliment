@@ -113,6 +113,38 @@ The mod adheres strictly to a **data-driven, code-generation-first** design. All
 ### 4.2 Procedural Texture Engine (`tools/gen_textures.ps1`, `tools/gen_ephedra_textures.ps1`, `tools/gen_herbs_textures.ps1`)
 - All textures are procedurally synthesized using ImageMagick scripting, eliminating manual drawing.
 - **Vanilla Potion Composite Algorithm**: Extracts the vanilla `potion.png` bottle mask and `potion_overlay.png` liquid overlay, blending custom chromatic matrices (e.g. amber gold for ephedrine, limpid bitter yellow for coptis, golden-brown for phellodendron, dark brown for licorice) using multiply blend modes to match vanilla pixel aesthetics.
+- `tools/gen_grape_textures.ps1` follows the same masking approach for the grape vine stages and the grape-wine bottle, and synthesizes the two new tank liquids from the closed-form weave `channel = base + ((11x + 7y) mod 25)` that every other `tank_liquid_*` sprite already uses, so the new liquids are indistinguishable in style from the old ones.
+
+### 4.3 Optional Cross-Mod Integration (`fabric:load_conditions`)
+
+Farmer's Delight support is **data-only and dependency-free**. No Gradle dependency, no `fabric.mod.json`
+entry, and no `FarmersDelight` class may be referenced: the mod must boot, pass its own self tests, and
+be fully playable with that mod absent.
+
+The gating is Fabric API's resource-condition API, which is already on the classpath through
+`fabric-api`. Every integration JSON carries a leading condition:
+
+```json
+"fabric:load_conditions": [
+  { "condition": "fabric:all_mods_loaded", "values": ["farmersdelight"] }
+]
+```
+
+The failure mode is what makes this worth a test rather than a comment. A condition that fails to parse,
+or one whose *codec field is misspelled*, does not raise an error anywhere - the resource is dropped
+with a log line and the recipe simply does not exist. So `AlimentSelfTest.testGrapeTags` asserts both
+directions: each gated recipe must be present **when** `FabricLoader.isModLoaded("farmersdelight")` and
+absent when it is not. The dev server has no Farmer's Delight installed, so the suite exercises the
+absent branch on every run.
+
+Two further traps, both avoided by construction:
+
+* **`farmersdelight:knives` does not exist** as an item tag. Knife-gated recipes must use the
+  conventional `#c:tools/knife`, which is what Farmer's Delight itself ships and reads.
+* **Conventional tags merge rather than replace.** Aliment's own `data/c/tags/item/*` files contain
+  only its own entries and no `replace: true`, so they add to Farmer's Delight's tags instead of
+  clobbering them. These tags are unconditional - they are Aliment's half of the contract, useful to
+  any mod that reads `c:`, whether or not Farmer's Delight is present.
 
 ---
 
@@ -120,10 +152,13 @@ The mod adheres strictly to a **data-driven, code-generation-first** design. All
 
 Because standard JUnit runners cannot emulate world generation checks, chunk boundaries, player inventory interactions, and network synchronization, the mod incorporates a headless test suite built on Fabric's `FakePlayer`:
 
-### 5.1 Block and Interaction Tests (`AlimentSelfTest.kt`, 107 assertions)
+### 5.1 Block and Interaction Tests (`AlimentSelfTest.kt`, 238 assertions)
 - **Arboreal Growth**: Verifies riparian riverbank detection, directional trunk angling toward open water, and vine draping.
 - **Block Mechanics**: Axe stripping drops bark; grindstone slots accept botanical herbs, rock salt, and bark; shear crafting degrades tool durability by 1; cauldrons brew broth after 60 seconds over active campfires; condenser pipes validate directional connections.
+- **No mid-process water**: Asserts that a vessel holding a finished or in-progress batch refuses to be topped up. The fermentation tank stores ethanol as a *concentration*, so water after fermentation would refill it for unlimited bottling; the brine cauldron would otherwise be **replaced outright by a full water cauldron**, because it is the one Aliment cauldron built on vanilla's `EMPTY` dispatcher rather than overriding `useItemOn` - so the assertion is that the block is still brine afterwards, not merely that a level did not rise. The lava bucket is checked from the same dispatcher, and the stirring rod is checked to still work. All four Aliment cauldrons are then checked by name against both a water and a lava bucket, so a future omission of the `useItemOn` override fails loudly instead of silently reopening the hole. The tank is also driven through the exploit end to end the way a player would try it - bottle, refill, bottle again - asserting that the batch still yields exactly one bottle per water level and nothing more; with the guard removed that loop produces 8 bottles from 3 levels, which is what the assertion exists to catch.
+- **Crops**: Sows the mandrake, ephedra and grape vine through the real `BlockItem.useOn` path against each substrate the block claims to accept, walks them through every bone-meal stage, and asserts ripe-versus-unripe drops - including that the grape vine grows wild in the biomes its placed feature is attached to, since the seeds come from the fruit and an unpatched vine would be unobtainable. The grape vine's **right-click harvest** is covered from the player's side: the test counts the `ItemEntity`s that actually land on the ground rather than trusting the returned `InteractionResult`, so a harvest that reported success without dropping anything would still fail; it then re-ripens the picked vine and picks it a second time, which is what makes the fall-back to `age=1` mean something rather than being a constant that happens to match. Because `BlockBehaviour.useItemOn` returns `TRY_WITH_EMPTY_HAND` and `BlockBehaviour.useWithoutItem` returns `PASS`, a harvest that forgot to fall through below `age=3` would silently eat every right click on a growing vine, so bone meal is driven through the interaction path as well as through `BoneMealItem` directly - the direct call alone would keep passing while the click was being swallowed. Removing the fall-through fails 4 assertions; that is the guard.
 - **Recipes and Loot**: Validates that all `RecipeSerializer` and `LootTable` entries parse cleanly on reload.
+- **Optional integrations**: Asserts that every Farmer's Delight-gated recipe is present *exactly when* that mod is loaded, because `fabric:load_conditions` drops a file silently - a typo in the condition codec would otherwise look like a working build.
 
 ### 5.2 Physiological Model and Localization Suite (`AlimentPhysiologySelfTest.kt`, 400+ assertions)
 - **Equilibrium Values**: Verifies that healthy baseline states remain centered in normal clinical reference ranges.

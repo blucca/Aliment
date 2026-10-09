@@ -1,0 +1,60 @@
+{
+  "ambientocclusion": false,
+  "textures": {
+    "particle": "aliment:block/fermentation_tank_glass",
+    "glass": {
+      "force_translucent": true,
+      "sprite": "aliment:block/fermentation_tank_glass"
+    },
+    "planks": "aliment:block/willow_planks",
+    "content": "aliment:block/tank_liquid_grape_wine"
+  },
+  "elements": [
+    {
+      "from": [ 2, 0, 2 ],
+      "to": [ 14, 1.5, 14 ],
+      "faces": {
+        "down":  { "texture": "#planks", "cullface": "down" },
+        "north": { "texture": "#planks" },
+        "south": { "texture": "#planks" },
+        "west":  { "texture": "#planks" },
+        "east":  { "texture": "#planks" }
+      }
+    },
+    {
+      "from": [ 2, 1.5, 2 ],
+      "to": [ 14, 14, 14 ],
+      "faces": {
+        "down":  { "texture": "#glass" },
+        "up":    { "texture": "#glass" },
+        "north": { "texture": "#glass" },
+        "south": { "texture": "#glass" },
+        "west":  { "texture": "#glass" },
+        "east":  { "texture": "#glass" }
+      }
+    },
+    {
+      "from": [ 4, 14, 4 ],
+      "to": [ 12, 16, 12 ],
+      "faces": {
+        "up":    { "texture": "#planks" },
+        "north": { "texture": "#planks" },
+        "south": { "texture": "#planks" },
+        "west":  { "texture": "#planks" },
+        "east":  { "texture": "#planks" }
+      }
+    },
+    {
+      "from": [ 3, 1, 3 ],
+      "to": [ 13, 9, 13 ],
+      "faces": {
+        "down":  { "texture": "#content", "cullface": "down" },
+        "up":    { "texture": "#content" },
+        "north": { "texture": "#content" },
+        "south": { "texture": "#content" },
+        "west":  { "texture": "#content" },
+        "east":  { "texture": "#content" }
+      }
+    }
+  ]
+}

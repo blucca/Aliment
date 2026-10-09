@@ -119,6 +119,54 @@
     },
     "fermenting=true,level=3,liquid=beer": {
       "model": "aliment:block/fermentation_tank_3_beer"
+    },
+    "fermenting=false,level=0,liquid=grape": {
+      "model": "aliment:block/fermentation_tank_0"
+    },
+    "fermenting=true,level=0,liquid=grape": {
+      "model": "aliment:block/fermentation_tank_0"
+    },
+    "fermenting=false,level=1,liquid=grape": {
+      "model": "aliment:block/fermentation_tank_1_grape"
+    },
+    "fermenting=true,level=1,liquid=grape": {
+      "model": "aliment:block/fermentation_tank_1_grape"
+    },
+    "fermenting=false,level=2,liquid=grape": {
+      "model": "aliment:block/fermentation_tank_2_grape"
+    },
+    "fermenting=true,level=2,liquid=grape": {
+      "model": "aliment:block/fermentation_tank_2_grape"
+    },
+    "fermenting=false,level=3,liquid=grape": {
+      "model": "aliment:block/fermentation_tank_3_grape"
+    },
+    "fermenting=true,level=3,liquid=grape": {
+      "model": "aliment:block/fermentation_tank_3_grape"
+    },
+    "fermenting=false,level=0,liquid=grape_wine": {
+      "model": "aliment:block/fermentation_tank_0"
+    },
+    "fermenting=true,level=0,liquid=grape_wine": {
+      "model": "aliment:block/fermentation_tank_0"
+    },
+    "fermenting=false,level=1,liquid=grape_wine": {
+      "model": "aliment:block/fermentation_tank_1_grape_wine"
+    },
+    "fermenting=true,level=1,liquid=grape_wine": {
+      "model": "aliment:block/fermentation_tank_1_grape_wine"
+    },
+    "fermenting=false,level=2,liquid=grape_wine": {
+      "model": "aliment:block/fermentation_tank_2_grape_wine"
+    },
+    "fermenting=true,level=2,liquid=grape_wine": {
+      "model": "aliment:block/fermentation_tank_2_grape_wine"
+    },
+    "fermenting=false,level=3,liquid=grape_wine": {
+      "model": "aliment:block/fermentation_tank_3_grape_wine"
+    },
+    "fermenting=true,level=3,liquid=grape_wine": {
+      "model": "aliment:block/fermentation_tank_3_grape_wine"
     }
   }
 }

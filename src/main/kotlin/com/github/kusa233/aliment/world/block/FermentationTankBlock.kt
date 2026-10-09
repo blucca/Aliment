@@ -98,6 +98,14 @@ class FermentationTankBlock(properties: BlockBehaviour.Properties) : BaseEntityB
             if (currentLevel < 3) {
                 if (!level.isClientSide) {
                     val entity = level.getBlockEntity(pos) as? FermentationTankBlockEntity ?: return InteractionResult.PASS
+                    // No topping up a tank that already holds a fermented product. The ethanol is
+                    // stored as a *concentration*, not as a total, so water poured in after
+                    // fermentation comes back out as another full-strength bottle: bottle one, refill
+                    // to three, bottle three more, and a single dose of sugar and yeast yields without
+                    // limit. The water the tank held when fermentation finished is the whole batch.
+                    if (entity.ethanol > 0f) {
+                        return InteractionResult.PASS
+                    }
                     entity.waterLevel = 3
                     entity.setChanged()
                     if (!player.isCreative) {
@@ -120,6 +128,12 @@ class FermentationTankBlock(properties: BlockBehaviour.Properties) : BaseEntityB
             if (currentLevel < 3) {
                 if (!level.isClientSide) {
                     val entity = level.getBlockEntity(pos) as? FermentationTankBlockEntity ?: return InteractionResult.PASS
+                    // Same rule as the water bucket above, and it has to be repeated here rather than
+                    // shared, because this branch reads the *block state* level while the bucket
+                    // branch reaches for the block entity.
+                    if (entity.ethanol > 0f) {
+                        return InteractionResult.PASS
+                    }
                     entity.waterLevel++
                     entity.setChanged()
                     if (!player.isCreative) {
@@ -139,13 +153,28 @@ class FermentationTankBlock(properties: BlockBehaviour.Properties) : BaseEntityB
 
         // 3a. Sugar -> add sugar
         if (stack.`is`(Items.SUGAR)) {
-            if (currentLevel > 0 && currentLiquid == TankLiquid.WATER) {
+            if (currentLevel > 0 && (currentLiquid == TankLiquid.WATER || currentLiquid == TankLiquid.GRAPE)) {
                 if (!level.isClientSide) {
                     val entity = level.getBlockEntity(pos) as? FermentationTankBlockEntity ?: return InteractionResult.PASS
-                    if (entity.substrate != FermentationTankBlockEntity.Substrate.NONE || entity.ethanol > 0f) {
+                    if (entity.ethanol > 0f) {
                         return InteractionResult.PASS
                     }
-                    entity.substrate = FermentationTankBlockEntity.Substrate.SUGAR
+                    when (entity.substrate) {
+                        // Sugar on its own is the whole substrate: this is the plain wine path.
+                        FermentationTankBlockEntity.Substrate.NONE ->
+                            entity.substrate = FermentationTankBlockEntity.Substrate.SUGAR
+
+                        // Grapes went in first, so the sugar completes the must instead of
+                        // replacing it.
+                        FermentationTankBlockEntity.Substrate.GRAPE -> {
+                            if (entity.sugarWithGrape) {
+                                return InteractionResult.PASS
+                            }
+                            entity.sugarWithGrape = true
+                        }
+
+                        else -> return InteractionResult.PASS
+                    }
                     entity.setChanged()
                     if (!player.isCreative) {
                         stack.shrink(1)
@@ -185,12 +214,53 @@ class FermentationTankBlock(properties: BlockBehaviour.Properties) : BaseEntityB
             return InteractionResult.PASS
         }
 
-        // 4. Brewer's Yeast -> add yeast
-        if (stack.`is`(AlimentItems.BREWER_YEAST)) {
-            if (currentLevel > 0 && (currentLiquid == TankLiquid.SUGAR || currentLiquid == TankLiquid.WHEAT)) {
+        // 3c. Grapes -> add grapes. Sugar must be in as well before yeast will take, but the two
+        // may go in either order: a recipe that reads "grapes and sugar" should not depend on which
+        // the player happens to be holding first.
+        if (stack.`is`(AlimentItems.GRAPE)) {
+            if (currentLevel > 0 && (currentLiquid == TankLiquid.WATER || currentLiquid == TankLiquid.SUGAR)) {
                 if (!level.isClientSide) {
                     val entity = level.getBlockEntity(pos) as? FermentationTankBlockEntity ?: return InteractionResult.PASS
-                    if (entity.substrate == FermentationTankBlockEntity.Substrate.NONE || entity.hasYeast || entity.ethanol > 0f) {
+                    if (entity.ethanol > 0f) {
+                        return InteractionResult.PASS
+                    }
+                    when (entity.substrate) {
+                        // Grapes first: the sugar still has to follow.
+                        FermentationTankBlockEntity.Substrate.NONE ->
+                            entity.substrate = FermentationTankBlockEntity.Substrate.GRAPE
+
+                        // Sugar first: the grapes complete the must instead, and the tank is
+                        // promoted from plain sugar to grape must.
+                        FermentationTankBlockEntity.Substrate.SUGAR -> {
+                            entity.substrate = FermentationTankBlockEntity.Substrate.GRAPE
+                            entity.sugarWithGrape = true
+                        }
+
+                        else -> return InteractionResult.PASS
+                    }
+                    entity.setChanged()
+                    if (!player.isCreative) {
+                        stack.shrink(1)
+                    }
+                    level.playSound(null, pos, SoundEvents.CROP_PLANTED, SoundSource.BLOCKS, 1.0f, 0.8f)
+                    if (level is ServerLevel) {
+                        level.sendParticles(ParticleTypes.COMPOSTER, pos.x + 0.5, pos.y + 0.85, pos.z + 0.5, 5, 0.1, 0.05, 0.1, 0.02)
+                    }
+                    player.swing(hand, stack.getInteractAnimation(), true)
+                }
+                return InteractionResult.SUCCESS
+            }
+            return InteractionResult.PASS
+        }
+
+        // 4. Brewer's Yeast -> add yeast
+        if (stack.`is`(AlimentItems.BREWER_YEAST)) {
+            if (currentLevel > 0 &&
+                (currentLiquid == TankLiquid.SUGAR || currentLiquid == TankLiquid.WHEAT || currentLiquid == TankLiquid.GRAPE)
+            ) {
+                if (!level.isClientSide) {
+                    val entity = level.getBlockEntity(pos) as? FermentationTankBlockEntity ?: return InteractionResult.PASS
+                    if (!entity.hasCompleteSubstrate || entity.hasYeast || entity.ethanol > 0f) {
                         return InteractionResult.PASS
                     }
                     entity.hasYeast = true
@@ -224,7 +294,13 @@ class FermentationTankBlock(properties: BlockBehaviour.Properties) : BaseEntityB
                     }
 
                     val resultItem = if (entity.ethanol > 0f) {
-                        AlimentItems.createWine(entity.ethanol)
+                        // A grape wine is bottled as itself at 5%: unlike beer it needs no cauldron,
+                        // because 5% is already the strength it is meant to be drunk at.
+                        if (entity.fermentedProduct == FermentationTankBlockEntity.FermentedProduct.GRAPE_WINE) {
+                            AlimentItems.createGrapeWine()
+                        } else {
+                            AlimentItems.createWine(entity.ethanol)
+                        }
                     } else {
                         PotionContents.createItemStack(Items.POTION, Potions.WATER)
                     }
@@ -234,6 +310,7 @@ class FermentationTankBlock(properties: BlockBehaviour.Properties) : BaseEntityB
                         entity.ethanol = 0f
                         entity.fermentedProduct = FermentationTankBlockEntity.FermentedProduct.NONE
                         entity.substrate = FermentationTankBlockEntity.Substrate.NONE
+                        entity.sugarWithGrape = false
                     }
                     entity.setChanged()
 
@@ -265,7 +342,9 @@ class FermentationTankBlock(properties: BlockBehaviour.Properties) : BaseEntityB
         SUGAR("sugar"),
         WINE("wine"),
         WHEAT("wheat"),
-        BEER("beer");
+        BEER("beer"),
+        GRAPE("grape"),
+        GRAPE_WINE("grape_wine");
 
         override fun getSerializedName(): String = serialized
     }

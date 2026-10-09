@@ -8,26 +8,35 @@ import com.github.kusa233.aliment.registry.Registration
 import com.github.kusa233.aliment.world.AlimentGrinding
 import com.github.kusa233.aliment.world.block.AlcoholCauldronBlock
 import com.github.kusa233.aliment.world.block.BeerCauldronBlock
+import com.github.kusa233.aliment.world.block.BrineCauldronBlock
 import com.github.kusa233.aliment.world.block.CondenserPipeBlock
 import com.github.kusa233.aliment.world.block.EphedraBlock
 import com.github.kusa233.aliment.world.block.FermentationTankBlock
 import com.github.kusa233.aliment.world.block.FermentationTankBlockEntity
+import com.github.kusa233.aliment.world.block.GrapeVineBlock
 import com.github.kusa233.aliment.world.block.MandrakeBlock
 import com.github.kusa233.aliment.world.block.WillowSoupCauldronBlock
 import com.github.kusa233.aliment.world.item.BeerItem
+import com.github.kusa233.aliment.world.item.GrapeWineItem
 import com.github.kusa233.aliment.world.item.WineItem
 import com.github.kusa233.aliment.world.recipe.ShearEphedraRecipe
 import net.minecraft.network.chat.contents.TranslatableContents
 import net.fabricmc.api.ModInitializer
 import net.fabricmc.fabric.api.entity.FakePlayer
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
+import net.fabricmc.loader.api.FabricLoader
 import net.minecraft.advancements.AdvancementType
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.core.registries.Registries
+import net.minecraft.resources.Identifier
 import net.minecraft.resources.ResourceKey
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.tags.BlockTags
+import net.minecraft.tags.TagKey
 import net.minecraft.world.InteractionHand
+import net.minecraft.world.InteractionResult
+import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.item.BoneMealItem
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
@@ -43,6 +52,7 @@ import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.CampfireBlock
 import net.minecraft.world.level.block.LayeredCauldronBlock
 import net.minecraft.world.level.levelgen.feature.Feature
+import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.BlockHitResult
 import net.minecraft.world.phys.Vec3
 import org.apache.logging.log4j.LogManager
@@ -63,6 +73,7 @@ class AlimentSelfTest : ModInitializer {
     private val FLOOR_Y = 200
     private val CENTER = BlockPos(8, FLOOR_Y + 1, 8)
     private val CAULDRON = BlockPos(4, FLOOR_Y + 1, 4)
+    private val BRINE_PROBE = BlockPos(1, FLOOR_Y + 1, 4)
     private val GRINDSTONE = BlockPos(10, FLOOR_Y + 1, 4)
     private val LOG = BlockPos(4, FLOOR_Y + 1, 10)
     private val TREE = BlockPos(8, FLOOR_Y + 1, 8)
@@ -124,6 +135,9 @@ class AlimentSelfTest : ModInitializer {
                 testAdvancements(level, FakePlayer.get(level))
                 testFermentationAndDistillation(level, FakePlayer.get(level))
                 testEphedra(level, FakePlayer.get(level))
+                testGrapeVine(level, FakePlayer.get(level))
+                testGrapeWine(level, FakePlayer.get(level))
+                testGrapeTags(level)
                 stage = 4
             }
 
@@ -201,6 +215,108 @@ class AlimentSelfTest : ModInitializer {
         val held = player.mainHandItem
         filledWhileRaw = held.`is`(AlimentItems.RAW_WILLOW_BARK_SOUP_BOTTLE)
         check("a glass bottle fills with raw willow bark soup", filledWhileRaw)
+
+        testBrineRefusesWater(level, player)
+    }
+
+    /**
+     * Brine must not take water once it is evaporating.
+     *
+     * This is the one Aliment cauldron that used to inherit `AbstractCauldronBlock.useItemOn`, and
+     * that inherited implementation reaches vanilla's `EMPTY` dispatcher - which replaces the whole
+     * block with a full water cauldron. The check is therefore not merely that the level did not
+     * rise: it is that the brine cauldron is still there at all. The lava bucket is in the same
+     * inherited dispatcher, so it is checked too: the fix is that the dispatcher never runs, not
+     * that water in particular is special-cased.
+     */
+    private fun testBrineRefusesWater(level: ServerLevel, player: FakePlayer) {
+        level.setBlockAndUpdate(BRINE_PROBE, Blocks.WATER_CAULDRON.defaultBlockState().setValue(LayeredCauldronBlock.LEVEL, 3))
+        level.setBlockAndUpdate(BRINE_PROBE.below(), Blocks.STONE.defaultBlockState())
+
+        player.inventory.clearContent()
+        player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(AlimentItems.CRUDE_SALT_POWDER))
+        useOn(level, player, BRINE_PROBE)
+        check(
+            "crude salt powder turns a water cauldron into brine",
+            level.getBlockState(BRINE_PROBE).`is`(AlimentBlocks.BRINE_CAULDRON),
+        )
+
+        fun brineStage(): Int? =
+            (level.getBlockState(BRINE_PROBE).block as? BrineCauldronBlock)
+                ?.let { level.getBlockState(BRINE_PROBE).getValue(BrineCauldronBlock.STAGE) }
+
+        player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(Items.WATER_BUCKET))
+        useOn(level, player, BRINE_PROBE)
+        check("a water bucket cannot top up a brine cauldron", brineStage() != null)
+        check("and an untouched brine is still stage 0", brineStage() == 0)
+
+        // Move it on, so the next refusal is a genuinely mid-process one.
+        player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(AlimentItems.STIRRING_ROD))
+        useOn(level, player, BRINE_PROBE)
+        check("the stirring rod still advances the brine", brineStage() == 1)
+
+        player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(Items.WATER_BUCKET))
+        useOn(level, player, BRINE_PROBE)
+        check("water is still refused part-way through evaporating", brineStage() == 1)
+
+        player.setItemInHand(
+            InteractionHand.MAIN_HAND,
+            PotionContents.createItemStack(Items.POTION, Potions.WATER),
+        )
+        useOn(level, player, BRINE_PROBE)
+        check("a water bottle cannot top it up either", brineStage() == 1)
+
+        player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(Items.LAVA_BUCKET))
+        useOn(level, player, BRINE_PROBE)
+        check("nor can a lava bucket, which the same dispatcher would have taken", brineStage() == 1)
+
+        level.setBlockAndUpdate(BRINE_PROBE, Blocks.AIR.defaultBlockState())
+
+        testNoCauldronTakesWater(level, player)
+    }
+
+    /**
+     * Every Aliment cauldron refuses a water bucket, whichever one it is.
+     *
+     * The brine test above is the detailed one, because brine is the cauldron that actually had the
+     * bug. This is the generalisation: all four are built on vanilla's `EMPTY` dispatcher, so all
+     * four would be replaced by a full water cauldron if they ever stopped overriding `useItemOn`.
+     * That is a one-line mistake to make and an easy one to make silently, so each is checked by
+     * name rather than trusting that three of them happen to be safe today.
+     */
+    private fun testNoCauldronTakesWater(level: ServerLevel, player: FakePlayer) {
+        val cauldrons = linkedMapOf(
+            "willow bark soup" to AlimentBlocks.WILLOW_SOUP_CAULDRON,
+            "brine" to AlimentBlocks.BRINE_CAULDRON,
+            "alcohol" to AlimentBlocks.ALCOHOL_CAULDRON,
+            "beer" to AlimentBlocks.BEER_CAULDRON,
+        )
+
+        for ((label, block) in cauldrons) {
+            level.setBlockAndUpdate(BRINE_PROBE, block.defaultBlockState())
+            val placed = level.getBlockState(BRINE_PROBE)
+            if (!placed.`is`(block)) {
+                check("a $label cauldron can be placed for the water test", false)
+                continue
+            }
+
+            player.inventory.clearContent()
+            player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(Items.WATER_BUCKET))
+            useOn(level, player, BRINE_PROBE)
+            check(
+                "a water bucket does not replace the $label cauldron",
+                level.getBlockState(BRINE_PROBE).`is`(block),
+            )
+
+            player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(Items.LAVA_BUCKET))
+            useOn(level, player, BRINE_PROBE)
+            check(
+                "and neither does a lava bucket on the $label cauldron",
+                level.getBlockState(BRINE_PROBE).`is`(block),
+            )
+        }
+
+        level.setBlockAndUpdate(BRINE_PROBE, Blocks.AIR.defaultBlockState())
     }
 
     private fun testCooked(level: ServerLevel) {
@@ -379,6 +495,382 @@ class AlimentSelfTest : ModInitializer {
 
     private fun age(level: ServerLevel, pos: BlockPos): Int =
         level.getBlockState(pos).getValue(MandrakeBlock.AGE)
+
+    // ------------------------------------------------------------------ grape vine
+
+    /**
+     * The grape vine: sown into soil like the mandrake, four stages, and grapes only from the last.
+     *
+     * The vine is the only source of grapes, and the grapes are the only source of the seeds, so a
+     * vine that drops nothing when ripe would make the whole chain unreachable. That is why the drop
+     * check and the seed recipe are here rather than left to a datapack validation.
+     */
+    private fun testGrapeVine(level: ServerLevel, player: FakePlayer) {
+        val row = listOf(
+            "dirt" to Blocks.DIRT,
+            "grass" to Blocks.GRASS_BLOCK,
+            "farmland" to Blocks.FARMLAND,
+            "coarse dirt" to Blocks.COARSE_DIRT,
+        )
+        val planted = mutableMapOf<String, Boolean>()
+        row.forEachIndexed { index, (label, soil) ->
+            val ground = BlockPos(10 + index, FLOOR_Y + 1, 2)
+            level.setBlockAndUpdate(ground, soil.defaultBlockState())
+            level.setBlockAndUpdate(ground.above(), Blocks.AIR.defaultBlockState())
+            level.setBlockAndUpdate(ground.below(), Blocks.STONE.defaultBlockState())
+
+            player.inventory.clearContent()
+            player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(AlimentItems.GRAPE_SEEDS))
+            useOn(level, player, ground)
+            planted[label] = level.getBlockState(ground.above()).`is`(AlimentBlocks.GRAPE_VINE)
+        }
+        logger.info("SELFTEST grape vine sown: {}", planted)
+        check("a grape seed is sown on dirt", planted["dirt"] == true)
+        check("and on grass", planted["grass"] == true)
+        check("and on farmland too", planted["farmland"] == true)
+        check("and on coarse dirt", planted["coarse dirt"] == true)
+
+        val vine = BlockPos(10, FLOOR_Y + 1, 3)
+        level.setBlockAndUpdate(vine.below(), Blocks.DIRT.defaultBlockState())
+        level.setBlockAndUpdate(vine.below(2), Blocks.STONE.defaultBlockState())
+        level.setBlockAndUpdate(vine, AlimentBlocks.GRAPE_VINE.defaultBlockState())
+        val ages = mutableListOf(level.getBlockState(vine).getValue(GrapeVineBlock.AGE))
+        repeat(GrapeVineBlock.MAX_AGE) {
+            BoneMealItem.growCrop(ItemStack(Items.BONE_MEAL), level, vine)
+            ages += level.getBlockState(vine).getValue(GrapeVineBlock.AGE)
+        }
+        logger.info("SELFTEST grape vine stages after bone meal: {}", ages)
+        check("bone meal takes a grape vine through four stages", ages == listOf(0, 1, 2, 3))
+        check("a ripe grape vine is no longer a bonemeal target", !BoneMealItem.growCrop(ItemStack(Items.BONE_MEAL), level, vine))
+
+        val ripe = Block.getDrops(level.getBlockState(vine), level, vine, null)
+        logger.info("SELFTEST ripe grape vine drops: {}", ripe.map { "${it.item} x${it.count}" })
+        val grapes = ripe.filter { it.`is`(AlimentItems.GRAPE) }.sumOf { it.count }
+        check("a ripe grape vine drops grapes", grapes in 1..3)
+        check("and nothing else", ripe.all { it.`is`(AlimentItems.GRAPE) })
+
+        // A vine picked green is a wasted seed, which is what makes waiting for the fruit matter.
+        var unripeDrops = 0
+        for (unripe in 0 until GrapeVineBlock.MAX_AGE) {
+            level.setBlockAndUpdate(
+                vine,
+                AlimentBlocks.GRAPE_VINE.defaultBlockState().setValue(GrapeVineBlock.AGE, unripe),
+            )
+            unripeDrops += Block.getDrops(level.getBlockState(vine), level, vine, null).size
+        }
+        check("an unripe grape vine drops nothing", unripeDrops == 0)
+
+        // Picking is the other half of the harvest: a ripe vine is right-clicked rather than broken,
+        // and the point is that the plant survives it. Count what actually lands on the ground
+        // instead of trusting the return value, so a harvest that reported success without dropping
+        // anything would still fail here.
+        fun grapesOnGround(): Int =
+            level.getEntitiesOfClass(ItemEntity::class.java, AABB.ofSize(Vec3.atCenterOf(vine), 8.0, 8.0, 8.0))
+                .filter { it.item.`is`(AlimentItems.GRAPE) }
+                .sumOf { it.item.count }
+
+        fun ripen() = level.setBlockAndUpdate(
+            vine,
+            AlimentBlocks.GRAPE_VINE.defaultBlockState().setValue(GrapeVineBlock.AGE, GrapeVineBlock.MAX_AGE),
+        )
+
+        player.inventory.clearContent()
+        player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY)
+        ripen()
+        val groundBefore = grapesOnGround()
+        val picked = useOn(level, player, vine)
+        logger.info("SELFTEST grape vine picked: {} grapes", grapesOnGround() - groundBefore)
+        check("right clicking a ripe grape vine succeeds", picked.consumesAction())
+        check("picking a ripe grape vine yields a bunch", (grapesOnGround() - groundBefore) in 1..3)
+        check("and leaves the vine standing", level.getBlockState(vine).`is`(AlimentBlocks.GRAPE_VINE))
+        check(
+            "a picked vine falls back to stage 1 rather than being spent",
+            level.getBlockState(vine).getValue(GrapeVineBlock.AGE) == 1,
+        )
+
+        // Falling back to 1 only means anything if the vine fruits again, which is the whole reason
+        // the harvest stops one stage short of ripe instead of resetting to a seedling.
+        repeat(2) { BoneMealItem.growCrop(ItemStack(Items.BONE_MEAL), level, vine) }
+        check("a picked vine ripens again", level.getBlockState(vine).getValue(GrapeVineBlock.AGE) == GrapeVineBlock.MAX_AGE)
+        val groundBeforeSecond = grapesOnGround()
+        useOn(level, player, vine)
+        check("and can be picked a second time", (grapesOnGround() - groundBeforeSecond) in 1..3)
+        check("a second pick also falls back to stage 1", level.getBlockState(vine).getValue(GrapeVineBlock.AGE) == 1)
+
+        // A green vine has nothing to give, and the click has to fall through rather than be
+        // swallowed - otherwise the harvest branch would eat every right click on a growing vine.
+        level.setBlockAndUpdate(vine, AlimentBlocks.GRAPE_VINE.defaultBlockState())
+        val groundBeforeGreen = grapesOnGround()
+        val greenClick = useOn(level, player, vine)
+        check("a green grape vine yields nothing to a right click", grapesOnGround() == groundBeforeGreen)
+        check("and the click is not swallowed by the harvest", !greenClick.consumesAction())
+        check("and the green vine is left alone", level.getBlockState(vine).getValue(GrapeVineBlock.AGE) == 0)
+
+        // The harvest branch must not swallow bone meal either. Driving it through the interaction
+        // path rather than calling BoneMealItem directly is what makes this a real guard: the
+        // four-stage assertion above would still pass if a ripe-vine click ate the meal.
+        player.inventory.clearContent()
+        val mealAges = mutableListOf(level.getBlockState(vine).getValue(GrapeVineBlock.AGE))
+        repeat(GrapeVineBlock.MAX_AGE) {
+            player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(Items.BONE_MEAL))
+            useOn(level, player, vine)
+            mealAges += level.getBlockState(vine).getValue(GrapeVineBlock.AGE)
+        }
+        logger.info("SELFTEST grape vine stages after bone meal by hand: {}", mealAges)
+        check("bone meal still reaches a growing grape vine through the interaction", mealAges == listOf(0, 1, 2, 3))
+
+        // Leave nothing behind for the tank tests to trip over.
+        level.getEntitiesOfClass(ItemEntity::class.java, AABB.ofSize(Vec3.atCenterOf(vine), 8.0, 8.0, 8.0))
+            .forEach { it.discard() }
+        player.inventory.clearContent()
+
+        val recipe = level.server.recipeManager.byKey(
+            ResourceKey.create(Registries.RECIPE, Registration.id("grape_seeds")),
+        )
+        check("the grape seeds recipe is loaded", recipe.isPresent)
+
+        // The grapes are only reachable if the vine also grows wild: the seeds come from the fruit,
+        // so without a worldgen patch there is no first bunch to plant.
+        val registries = level.server.registryAccess()
+        val vinePatch = registries.lookupOrThrow(Registries.PLACED_FEATURE)
+            .getOrThrow(AlimentWorldGen.GRAPE_VINE_PATCH)
+        val biomes = registries.lookupOrThrow(Registries.BIOME)
+        fun vineyard(key: ResourceKey<Biome>): Boolean =
+            biomes.getOrThrow(key).value().generationSettings.features().any { it.contains(vinePatch) }
+
+        check("grape vines grow wild in the plains", vineyard(Biomes.PLAINS))
+        check("and in the forest", vineyard(Biomes.FOREST))
+        check("but not in a desert", !vineyard(Biomes.DESERT))
+        check("nor in a taiga", !vineyard(Biomes.TAIGA))
+
+        // Clean up so the tank tests below start on a clean floor.
+        row.forEachIndexed { index, _ ->
+            level.setBlockAndUpdate(BlockPos(10 + index, FLOOR_Y + 1, 2), Blocks.AIR.defaultBlockState())
+        }
+        level.setBlockAndUpdate(vine, Blocks.AIR.defaultBlockState())
+    }
+
+    // ------------------------------------------------------------------ grape wine
+
+    /**
+     * Grape wine, from the tank side: grapes and sugar are two inputs, and neither is accepted on its
+     * own until the other is there.
+     *
+     * The interesting assertions are the refusals. A tank that took yeast straight after the grapes
+     * would silently make 7% wine out of the plain-sugar branch, so "yeast is refused while the must
+     * is incomplete" is the check that keeps the 5% figure meaningful.
+     */
+    private fun testGrapeWine(level: ServerLevel, player: FakePlayer) {
+        val tankPos = BlockPos(2, FLOOR_Y + 1, 2)
+        level.setBlockAndUpdate(tankPos, AlimentBlocks.FERMENTATION_TANK.defaultBlockState())
+        level.setBlockAndUpdate(tankPos.below(), Blocks.STONE.defaultBlockState())
+        val entity = level.getBlockEntity(tankPos) as? FermentationTankBlockEntity
+        check("grape wine tank entity exists", entity != null)
+        if (entity == null) return
+
+        player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(Items.WATER_BUCKET))
+        useOn(level, player, tankPos)
+        check("grape wine tank filled with water", entity.waterLevel == 3)
+
+        // Grapes first: the must is not ready yet, because a grape has no sugar to ferment.
+        player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(AlimentItems.GRAPE))
+        useOn(level, player, tankPos)
+        check("grapes are accepted as a substrate", entity.substrate == FermentationTankBlockEntity.Substrate.GRAPE)
+        check("grape must turns the liquid purple", level.getBlockState(tankPos).getValue(FermentationTankBlock.LIQUID) == FermentationTankBlock.TankLiquid.GRAPE)
+        check("grapes alone are not a complete substrate", !entity.hasCompleteSubstrate)
+
+        player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(AlimentItems.BREWER_YEAST))
+        useOn(level, player, tankPos)
+        check("yeast is refused while the grape must has no sugar", !entity.hasYeast)
+        check("and an incomplete must is not fermenting", !entity.isFermenting)
+
+        // Sugar completes the must rather than replacing the grapes.
+        player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(Items.SUGAR))
+        useOn(level, player, tankPos)
+        check("sugar completes the grape must", entity.sugarWithGrape)
+        check("which is now a complete substrate", entity.hasCompleteSubstrate)
+        check("and the liquid is still the grape must, not plain sugar", level.getBlockState(tankPos).getValue(FermentationTankBlock.LIQUID) == FermentationTankBlock.TankLiquid.GRAPE)
+
+        player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(AlimentItems.BREWER_YEAST))
+        useOn(level, player, tankPos)
+        check("yeast is accepted once the must is complete", entity.hasYeast)
+        check("grape must is fermenting", entity.isFermenting)
+
+        entity.fermentProgress = FermentationTankBlockEntity.FERMENT_TICKS - 1
+        FermentationTankBlockEntity.serverTick(level, tankPos, level.getBlockState(tankPos), entity)
+        check("grape fermentation produces 5% ethanol", entity.ethanol == 0.05f)
+        check("and is recorded as grape wine rather than wine", entity.fermentedProduct == FermentationTankBlockEntity.FermentedProduct.GRAPE_WINE)
+        check("grape wine turns the liquid deep red", level.getBlockState(tankPos).getValue(FermentationTankBlock.LIQUID) == FermentationTankBlock.TankLiquid.GRAPE_WINE)
+        check("fermentation consumed the grapes and sugar", entity.substrate == FermentationTankBlockEntity.Substrate.NONE && !entity.sugarWithGrape)
+
+        player.inventory.clearContent()
+        player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(Items.GLASS_BOTTLE))
+        useOn(level, player, tankPos)
+        val bottled = (0 until player.inventory.containerSize)
+            .map { player.inventory.getItem(it) }
+            .firstOrNull { it.`is`(AlimentItems.GRAPE_WINE) }
+        check("bottling a grape wine tank yields grape wine", bottled != null)
+        check("and not the generic wine", (0 until player.inventory.containerSize).none { player.inventory.getItem(it).`is`(AlimentItems.WINE) })
+        check(
+            "grape wine is bottled at 5% ethanol",
+            bottled != null && GrapeWineItem.getConcentration(bottled) == 0.05f,
+        )
+        check("the default grape wine stack is 5%", GrapeWineItem.getConcentration(AlimentItems.createGrapeWine()) == 0.05f)
+
+        // No topping up a tank that already holds alcohol. The ethanol is a *concentration*, not a
+        // total, so water poured in after fermentation comes back out as another full-strength
+        // bottle: bottle one, refill to three, bottle three more. Refusing the water is what keeps
+        // one dose of sugar and yeast to one batch.
+        player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(Items.WATER_BUCKET))
+        useOn(level, player, tankPos)
+        check("a water bucket cannot top up a tank that has already fermented", entity.waterLevel == 2)
+        check(
+            "and the grape wine is not watered down",
+            entity.ethanol == 0.05f &&
+                entity.fermentedProduct == FermentationTankBlockEntity.FermentedProduct.GRAPE_WINE,
+        )
+        check("and the tank is still a tank", level.getBlockState(tankPos).`is`(AlimentBlocks.FERMENTATION_TANK))
+        check("and the bucket did not spill into the world", level.getBlockState(tankPos.above()).`is`(Blocks.AIR))
+
+        player.setItemInHand(
+            InteractionHand.MAIN_HAND,
+            PotionContents.createItemStack(Items.POTION, Potions.WATER),
+        )
+        useOn(level, player, tankPos)
+        check("a water bottle cannot top it up either", entity.waterLevel == 2)
+        check("and that too leaves the grape wine alone", entity.ethanol == 0.05f)
+
+        // The exploit, end to end, in the shape a player would actually try it: bottle, refill,
+        // bottle again. The invariant is that the tank yields exactly as many bottles as it has
+        // water levels and that the refills add nothing, however many times they are attempted.
+        //
+        // The count is taken off the hand before each overwrite rather than from the inventory
+        // afterwards, because the loop has to put a fresh bucket and bottle into that same hand
+        // slot - reading the inventory at the end would only see the last one. The loop is driven
+        // by the batch still being live, so it stops when the tank is spent; a regression that let
+        // the water in would spin here rather than quietly pass, which is why the counter is bounded.
+        val levelsBefore = entity.waterLevel
+        var refillAttempts = 0
+        var bottledTotal = 0
+        while (entity.ethanol > 0f && refillAttempts < 8) {
+            player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(Items.WATER_BUCKET))
+            useOn(level, player, tankPos)
+            refillAttempts++
+
+            player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(Items.GLASS_BOTTLE))
+            useOn(level, player, tankPos)
+            val inHand = player.mainHandItem
+            if (inHand.`is`(AlimentItems.GRAPE_WINE)) {
+                bottledTotal += inHand.count
+            }
+        }
+        logger.info(
+            "SELFTEST grape wine: {} refill attempts over {} levels -> {} bottles",
+            refillAttempts, levelsBefore, bottledTotal,
+        )
+        check("a tank yields exactly one bottle per water level", bottledTotal == levelsBefore)
+        check(
+            "and every one of those levels was offered a refill and refused it",
+            refillAttempts == levelsBefore,
+        )
+        check("and the tank ended up empty rather than refilled", entity.waterLevel == 0)
+        check("and the batch is spent, so the water was never taken", entity.ethanol == 0f)
+
+        // Plain sugar must still make the stronger generic wine: the new substrate must not have
+        // taken over the old branch. The tank has to be cleared through air first - replacing the
+        // tank block with itself keeps the existing block entity, and this one still holds the
+        // 5% grape wine from above.
+        level.setBlockAndUpdate(tankPos, Blocks.AIR.defaultBlockState())
+        level.setBlockAndUpdate(tankPos, AlimentBlocks.FERMENTATION_TANK.defaultBlockState())
+        val plain = level.getBlockEntity(tankPos) as? FermentationTankBlockEntity
+        check("plain wine tank entity exists", plain != null)
+        if (plain != null) {
+            check("a fresh tank starts empty", plain.waterLevel == 0 && plain.ethanol == 0f && plain.substrate == FermentationTankBlockEntity.Substrate.NONE)
+            player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(Items.WATER_BUCKET))
+            useOn(level, player, tankPos)
+            player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(Items.SUGAR))
+            useOn(level, player, tankPos)
+            player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(AlimentItems.BREWER_YEAST))
+            useOn(level, player, tankPos)
+            check("plain sugar still ferments", plain.isFermenting)
+            plain.fermentProgress = FermentationTankBlockEntity.FERMENT_TICKS - 1
+            FermentationTankBlockEntity.serverTick(level, tankPos, level.getBlockState(tankPos), plain)
+            check("plain sugar still makes 7% wine", plain.ethanol == 0.07f && plain.fermentedProduct == FermentationTankBlockEntity.FermentedProduct.WINE)
+        }
+
+        // Sugar first, then grapes. The recipe reads "grapes and sugar", so a player holding the
+        // sugar first must not silently end up with plain wine instead.
+        level.setBlockAndUpdate(tankPos, Blocks.AIR.defaultBlockState())
+        level.setBlockAndUpdate(tankPos, AlimentBlocks.FERMENTATION_TANK.defaultBlockState())
+        val reversed = level.getBlockEntity(tankPos) as? FermentationTankBlockEntity
+        check("reversed order tank entity exists", reversed != null)
+        if (reversed != null) {
+            player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(Items.WATER_BUCKET))
+            useOn(level, player, tankPos)
+            player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(Items.SUGAR))
+            useOn(level, player, tankPos)
+            check("sugar first is plain sugar so far", reversed.substrate == FermentationTankBlockEntity.Substrate.SUGAR)
+
+            player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(AlimentItems.GRAPE))
+            useOn(level, player, tankPos)
+            check("grapes are accepted after the sugar", reversed.substrate == FermentationTankBlockEntity.Substrate.GRAPE)
+            check("and the tank is promoted to a grape must", reversed.sugarWithGrape && reversed.hasCompleteSubstrate)
+
+            player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(AlimentItems.BREWER_YEAST))
+            useOn(level, player, tankPos)
+            check("yeast takes on the reversed must", reversed.hasYeast && reversed.isFermenting)
+            reversed.fermentProgress = FermentationTankBlockEntity.FERMENT_TICKS - 1
+            FermentationTankBlockEntity.serverTick(level, tankPos, level.getBlockState(tankPos), reversed)
+            check("and it still lands on 5% grape wine", reversed.ethanol == 0.05f && reversed.fermentedProduct == FermentationTankBlockEntity.FermentedProduct.GRAPE_WINE)
+        }
+
+        level.setBlockAndUpdate(tankPos, Blocks.AIR.defaultBlockState())
+    }
+
+    // ------------------------------------------------------------------ conventional tags
+
+    /**
+     * The conventional `c:` tags the mod publishes so other mods can find the grape.
+     *
+     * These load whether or not Farmer's Delight is installed, so they are checked unconditionally -
+     * they are Aliment's half of the contract, and the other mod reads them.
+     */
+    private fun testGrapeTags(level: ServerLevel) {
+        val items = level.server.registryAccess().lookupOrThrow(Registries.ITEM)
+
+        fun tagged(id: String, tag: String): Boolean {
+            val holder = items.get(Registration.id(id)).orElse(null) ?: return false
+            return holder.`is`(TagKey.create(Registries.ITEM, Identifier.fromNamespaceAndPath("c", tag)))
+        }
+
+        check("the grape is in c:crops/grape", tagged("grape", "crops/grape"))
+        check("and in c:crops", tagged("grape", "crops"))
+        check("the grape seeds are in c:seeds", tagged("grape_seeds", "seeds"))
+        check("grape wine is in c:drinks", tagged("grape_wine", "drinks"))
+
+        // Farmland under a vine must stay farmland. Vanilla's FarmlandBlock reads this tag to decide
+        // whether a crop above it holds the block open, and it is an *additive* tag file of ours -
+        // vanilla's own entries survive the merge - so the assertion is membership, not equality.
+        val vine = AlimentBlocks.GRAPE_VINE.defaultBlockState()
+        check("the grape vine keeps the farmland under it tilled", vine.`is`(BlockTags.MAINTAINS_FARMLAND))
+        check("and that tag also still holds wheat, so the merge was additive", Blocks.WHEAT.defaultBlockState().`is`(BlockTags.MAINTAINS_FARMLAND))
+        check("vanilla's supports_vegetation still accepts farmland", Blocks.FARMLAND.defaultBlockState().`is`(BlockTags.SUPPORTS_VEGETATION))
+
+        // Farmer's Delight is optional, so the gated recipes are only expected where it is loaded -
+        // and, more importantly, must not be loaded where it is not, because a failed
+        // `fabric:load_conditions` drops the file with no error of any kind.
+        val fdLoaded = FabricLoader.getInstance().isModLoaded("farmersdelight")
+        logger.info("SELFTEST farmersdelight loaded={}", fdLoaded)
+        listOf("grapefruit_from_cutting", "grape_seeds_from_cutting", "grapefruit_juice_from_cooking").forEach { id ->
+            val present = level.server.recipeManager
+                .byKey(ResourceKey.create(Registries.RECIPE, Registration.id(id)))
+                .isPresent
+            check(
+                "the $id recipe is ${if (fdLoaded) "loaded with" else "absent without"} Farmer's Delight",
+                present == fdLoaded,
+            )
+        }
+    }
 
     /**
      * Asserts that one recipe takes a **real water bottle** and nothing else that is a potion.
@@ -953,9 +1445,9 @@ class AlimentSelfTest : ModInitializer {
 
     // ------------------------------------------------------------------ helpers
 
-    private fun useOn(level: ServerLevel, player: FakePlayer, pos: BlockPos) {
+    private fun useOn(level: ServerLevel, player: FakePlayer, pos: BlockPos): InteractionResult {
         val hit = BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false)
-        player.gameMode.useItemOn(player, level, player.mainHandItem, InteractionHand.MAIN_HAND, hit)
+        return player.gameMode.useItemOn(player, level, player.mainHandItem, InteractionHand.MAIN_HAND, hit)
     }
 
     private fun check(name: String, ok: Boolean) {

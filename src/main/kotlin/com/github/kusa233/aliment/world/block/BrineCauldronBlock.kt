@@ -8,6 +8,9 @@ import net.minecraft.server.level.ServerLevel
 import net.minecraft.sounds.SoundEvents
 import net.minecraft.sounds.SoundSource
 import net.minecraft.util.RandomSource
+import net.minecraft.world.InteractionHand
+import net.minecraft.world.InteractionResult
+import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.BlockGetter
 import net.minecraft.world.level.Level
@@ -20,6 +23,7 @@ import net.minecraft.world.level.block.state.StateDefinition
 import net.minecraft.world.level.block.state.properties.IntegerProperty
 import net.minecraft.world.level.gameevent.GameEvent
 import net.minecraft.world.level.redstone.Orientation
+import net.minecraft.world.phys.BlockHitResult
 
 /**
  * Brine cauldron - the evaporation vessel of the salt chain.
@@ -47,6 +51,33 @@ class BrineCauldronBlock(properties: BlockBehaviour.Properties) :
     override fun createBlockStateDefinition(builder: StateDefinition.Builder<Block, BlockState>) {
         builder.add(STAGE)
     }
+
+    // ------------------------------------------------------------------ no topping up with water
+
+    /**
+     * Refuses every item, which is what stops a water bucket or a water bottle.
+     *
+     * The other three Aliment cauldrons override this method, so a water bucket never reaches their
+     * dispatcher. Brine was the one that did not, and it has to: it is constructed with
+     * [CauldronInteractions.EMPTY], and that dispatcher carries vanilla's empty-cauldron water
+     * entry. Reaching it - which is exactly what the inherited implementation does - **replaces the
+     * brine cauldron with a full water cauldron**, throwing away however far the evaporation had
+     * got. Vanilla registers the same entry for a water potion.
+     *
+     * Returning [InteractionResult.PASS] unconditionally is the whole fix: it is the dispatcher
+     * that must not run, not any particular item that must be singled out, and no item is supposed
+     * to be used on brine at all. The stirring rod is handled earlier by `AlimentInteractions`,
+     * which cancels the interaction before vanilla ever gets here.
+     */
+    override fun useItemOn(
+        stack: ItemStack,
+        state: BlockState,
+        level: Level,
+        pos: BlockPos,
+        player: Player,
+        hand: InteractionHand,
+        hitResult: BlockHitResult,
+    ): InteractionResult = InteractionResult.PASS
 
     // ------------------------------------------------------------------ evaporating over a fire
 

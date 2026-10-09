@@ -2,6 +2,7 @@ package com.github.kusa233.aliment.registry
 
 import com.github.kusa233.aliment.Aliment
 import com.github.kusa233.aliment.world.item.BeerItem
+import com.github.kusa233.aliment.world.item.GrapeWineItem
 import com.github.kusa233.aliment.world.item.WineItem
 import net.minecraft.core.Direction
 import net.minecraft.world.effect.MobEffectInstance
@@ -424,6 +425,44 @@ object AlimentItems {
             .stacksTo(16),
     ) { BeerItem(it) }
 
+    // ---------------------------------------------------------------- grapes & grape wine
+
+    /**
+     * A bunch of grapes: the fruit of the vine, eaten as it is or fermented.
+     *
+     * Two hunger and a little saturation, and always edible, because the reason to hold a bunch is
+     * the tank rather than the meal - a player who wants wine should not have to be hungry to eat
+     * the fruit that proves the vine works.
+     */
+    val GRAPE: Item = Registration.registerItem(
+        "grape",
+        Item.Properties().food(buildFood(2, 1.0f, alwaysEdible = true)),
+    ) { Item(it) }
+
+    /**
+     * Grape seeds, sown straight into soil - the same arrangement as vanilla's wheat seeds and the
+     * mandrake's, as a plain [BlockItem] because there is no seed item class left in this version.
+     */
+    val GRAPE_SEEDS: Item = Registration.registerItem(
+        "grape_seeds",
+        Item.Properties(),
+    ) { BlockItem(AlimentBlocks.GRAPE_VINE, it) }
+
+    /**
+     * Grape wine, fermented from grapes, sugar and water at 5% ethanol.
+     *
+     * A bottle of it is worth the same hunger as the generic wine - one - but a good deal less
+     * ethanol: this is the drink a player has with a meal, and [WINE] is what the same tank makes
+     * when there are no grapes involved.
+     */
+    val GRAPE_WINE: Item = Registration.registerItem(
+        "grape_wine",
+        Item.Properties()
+            .food(buildFood(1, 0.5f, alwaysEdible = true), Consumables.defaultDrink().build())
+            .usingConvertsTo(Items.GLASS_BOTTLE)
+            .stacksTo(16),
+    ) { GrapeWineItem(it) }
+
     // ---------------------------------------------------------------- ephedra & ephedrine
 
     /** Ephedra: herbal twigs, edible or plantable into soil/sand. */
@@ -600,6 +639,10 @@ object AlimentItems {
 
     fun createBeer(concentration: Float = BeerItem.DEFAULT_BEER_CONCENTRATION): ItemStack =
         BeerItem.createStack(BEER, concentration)
+
+    fun createGrapeWine(
+        concentration: Float = GrapeWineItem.DEFAULT_GRAPE_WINE_CONCENTRATION,
+    ): ItemStack = GrapeWineItem.createStack(GRAPE_WINE, concentration)
 
     fun createAlcohol(concentration: Float = WineItem.ALCOHOL_75_CONCENTRATION): ItemStack =
         WineItem.createStack(WINE, concentration)

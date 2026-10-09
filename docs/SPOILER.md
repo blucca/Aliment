@@ -28,7 +28,7 @@ swamp water or standing in a herd of cattle.
 
 ## 1. World Generation Overview
 
-Nine plants and trees, all injected into the Overworld's `VEGETAL_DECORATION` step. Each has its own
+Ten plants and trees, all injected into the Overworld's `VEGETAL_DECORATION` step. Each has its own
 section below covering growth, harvest and pharmacology; this table is where they grow and how often.
 
 | Plant | Biomes | Frequency | Substrate | Found as | Yields |
@@ -42,9 +42,13 @@ section below covering growth, harvest and pharmacology; this table is where the
 | **Licorice**<br>`aliment:licorice` | as coptis | rarity 1/12, heightmap `WORLD_SURFACE_WG` | air above a **grass block** | mature (`age: 3`) | right-click or break (**glycyrrhizin +1.1**) |
 | **Seaweed**<br>`aliment:seaweed` | every ocean biome (`#minecraft:is_ocean`) | `count: 4`, heightmap `OCEAN_FLOOR_WG` | **water** over sand or suspicious sand | submerged and mature (`age: 3, waterlogged: true`) | harvest underwater for 1–2, resetting to `age: 1` (**iodine +0.20**, +0.25 cooked) |
 | **Grapefruit**<br>`aliment:grapefruit` | Jungle, Sparse Jungle, Bamboo Jungle and all three Savannas | rarity 1/6, heightmap `WORLD_SURFACE_WG` | would-survive test against a grapefruit sapling | trunk 4–6 with a blob canopy and fruit hung below | one fruit per hanging block, eight slices (**+1 naringin** each); see §14 |
+| **Grape vine**<br>`aliment:grape_vine` | Plains, Sunflower Plains, Forest, Flower Forest, Birch Forest, Old Growth Birch Forest, Meadow | `count: 2`, heightmap `WORLD_SURFACE_WG` | air above grass, dirt, coarse dirt or podzol | mature (`age: 3`) | right-click for 1–3 grapes, resetting to `age: 1`; breaking pays the same; 2 more seeds per grape; see §18 |
 
 Every plant that has growth stages can be advanced with bone meal, and every one of them is plantable
-by hand on the substrates listed above.
+by hand on the substrates listed above. Planting by hand is also always at least as permissive as
+world generation: the grape vine, for instance, is generated only over the four soils named above but
+goes into **farmland** as well, because it is placed against vanilla's `minecraft:supports_vegetation`
+tag rather than a list of its own.
 
 ---
 
@@ -121,6 +125,9 @@ rock salt ore (y=20–90 underground, stone pickaxe, drops itself)
 
 * **Stirring rod** (two sticks, vertical) right-clicks a brine cauldron to skip it forward one
   evaporation stage, at the cost of one durability (16 uses).
+* **Brine takes no water, at any stage.** Pouring water in would not dilute it - the concentration is
+  the stage, not the level - so it would only throw the batch away. The stirring rod is the one thing
+  a brine cauldron accepts.
 * **Crude salt carries the rock with it**: besides sodium and chloride it adds a little magnesium and
   calcium. Refined salt is nearly pure sodium chloride, and pushes sodium higher for it.
 * **Every salted drink hydrates (+15) and salts you.** The crude versions also carry the extra
@@ -627,6 +634,45 @@ trunks.
 bottle ladles out. A bottle carries its own strength with it, and at **70% or more it is named
 Alcohol rather than Wine**.
 
+**The grape must.** The same tank makes a second, weaker drink. Add **grapes ×1** and **sugar ×1** to
+the water in either order - the liquid turns purple - then yeast. The sugar completes the must rather
+than replacing it: **yeast is refused until both are in**, because a grape is mostly water and the
+sugar is the part that actually ferments. 45 s later the tank holds **grape wine at 5%**, which bottles
+straight out with no still needed. Grapes and sugar are consumed; the tank is empty again.
+
+Order does not matter. Grapes first leaves the tank a grape must waiting for sugar; sugar first makes
+plain wine and the grapes then promote it to a grape must. Either way the yeast only takes once both
+are in, and either way the product is 5% grape wine rather than 7% wine.
+
+**A tank that has fermented takes no more water.** Top it up and the alcohol does not dilute, because
+the tank stores a *concentration* and not a total - it simply comes back out at full strength. Bottle
+one bottle, refill to three, and one dose of sugar and yeast would fill the world. The water the tank
+held when fermentation finished is the whole batch, and once it is bottled out the tank is empty and
+free to refill.
+
+| In the water | Product | Ethanol | Needs a still? |
+| --- | --- | --- | --- |
+| sugar | wine | 7% | to reach 40% |
+| wheat | beer | 7% mash | **yes** - the mash cannot be bottled |
+| grapes + sugar | grape wine | **5%** | no - bottled as it is |
+
+**Where the grapes come from.** A wild vine in the plains and temperate forests - see §1 - or seeds
+from the fruit: one grape in a crafting grid gives two seeds, sown into dirt, grass, farmland or
+coarse dirt like the mandrake, and grown through four stages with bone meal. A ripe vine is
+**right-clicked** for its grapes and falls back to `age=1` rather than dying, so a vine is a plant
+you keep and walk back to; it is exactly the shape of vanilla's sweet berry bush. A pick yields a flat
+**1-3** and takes no fortune, which is again what vanilla does - its harvest table for the sweet berry
+bush carries no bonus while its block table does. Breaking a ripe vine still pays 1-3 grapes *and*
+still applies fortune, because there is no item for the vine itself; so a fortune tool is worth more
+on the break, and the pick is what you do when you would rather keep the plant. Anything picked green
+is a wasted seed: before `age=3` the vine drops nothing to either harvest, and a right click on it is
+passed through rather than swallowed, so bone meal still lands.
+A bunch is itself edible:
+2 hunger, 1.0 saturation, always edible. **With Farmer's Delight installed** a knife cuts one bunch
+into three seeds on a cutting board, and its cooking pot can also boil grapefruit slices and sugar
+into grapefruit juice. Those two recipes are gated on Farmer's Delight being present and are simply
+absent without it.
+
 **The yeast.** Shapeless: wheat + sugar + brown mushroom.
 
 **The still.** Two horizontal rows of glass with the middle row left open. Place it above a tank
@@ -638,7 +684,8 @@ wine evaporates:
 * A pipe that does not line up vents the vapour into the air with a hiss, wasting the level.
 
 **Drinking.** Wine restores **10 water** rather than a drink's 15. It raises the ethanol index on a
-0.0–1.0 scale: 7% wine is +0.07, 40% spirit is +0.40. Elimination is zero-order, 1.0 per game day:
+0.0–1.0 scale: 7% wine is +0.07, **5% grape wine is +0.05**, 40% spirit is +0.40. Elimination is
+zero-order, 1.0 per game day:
 
 ```scala
 ethanol = Math.max(ethanol - 1.0f / 24000f, 0f) // -4.167e-5 / tick

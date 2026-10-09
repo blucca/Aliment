@@ -7,6 +7,7 @@ import com.github.kusa233.aliment.world.block.CondenserPipeBlock
 import com.github.kusa233.aliment.world.block.CoptisBlock
 import com.github.kusa233.aliment.world.block.EphedraBlock
 import com.github.kusa233.aliment.world.block.FermentationTankBlock
+import com.github.kusa233.aliment.world.block.GrapeVineBlock
 import com.github.kusa233.aliment.world.block.GrapefruitBlock
 import com.github.kusa233.aliment.world.block.GymnopilusBlock
 import com.github.kusa233.aliment.world.block.LicoriceBlock
@@ -339,6 +340,26 @@ object AlimentBlocks {
             .offsetType(BlockBehaviour.OffsetType.XZ)
             .pushReaction(PushReaction.POPPED),
     ) { MandrakeBlock(it) }
+
+    // ---------------------------------------------------------------- grape vine
+
+    /**
+     * The grape vine, in four stages, sown from [AlimentItems.GRAPE_SEEDS].
+     *
+     * Like the mandrake it has no item form: a vine is planted from its seeds rather than placed
+     * out of the inventory, which is what makes growing one the way to get grapes.
+     */
+    val GRAPE_VINE: Block = Registration.registerBlock(
+        "grape_vine",
+        BlockBehaviour.Properties.of()
+            .mapColor(MapColor.PLANT)
+            .noCollision()
+            .randomTicks()
+            .instabreak()
+            .sound(SoundType.GRASS)
+            .offsetType(BlockBehaviour.OffsetType.XZ)
+            .pushReaction(PushReaction.POPPED),
+    ) { GrapeVineBlock(it) }
 
     // ---------------------------------------------------------------- gymnopilus
 

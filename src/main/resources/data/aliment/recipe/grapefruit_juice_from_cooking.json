@@ -1,0 +1,21 @@
+{
+  "fabric:load_conditions": [
+    {
+      "condition": "fabric:all_mods_loaded",
+      "values": [
+        "farmersdelight"
+      ]
+    }
+  ],
+  "type": "farmersdelight:cooking",
+  "experience": 1.0,
+  "ingredients": [
+    "aliment:grapefruit_slice",
+    "aliment:grapefruit_slice",
+    "minecraft:sugar"
+  ],
+  "recipe_book_tab": "drinks",
+  "result": {
+    "id": "aliment:grapefruit_juice"
+  }
+}

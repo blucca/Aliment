@@ -14,6 +14,7 @@ of the built mod — they only regenerate files under `src/main/resources`.
 | `gen_grapefruit_textures.ps1` | The eight textures of the grapefruit tree: the hanging fruit, the whole fruit and the slice as items, the log side and top, the leaves, the sapling and the **juice**. Pure `System.Drawing`, writes only those eight files. The hanging fruit is drawn in the top half of its canvas because it is rendered by a cross model, and the leaves are greyscale because they are tinted by the biome. The juice is the exception to the hand-drawn rule: it is vanilla's own `potion.png` bottle with vanilla's `potion_overlay.png` liquid tinted to the slice's flesh, which is why it reads `vanilla_potion*.png` from this directory. |
 | `gen_grapefruit_wood.ps1` | The grapefruit **wood set's** JSON: every blockstate, block model, item model, item definition, recipe and block loot table, mirrored from the willow's by swapping `willow` for `grapefruit`. Also writes the `aliment:grapefruit_logs` tags and adds the grapefruit entries to the vanilla `planks` / `logs` / `wooden_*` / `signs` / `fence_gates` / `boats` tags. It owns the mirrored files only - the fruit and the tree's own models are hand-written and excluded. |
 | `gen_grapefruit_wood_textures.ps1` | The sixteen **wood** textures, made by mapping the willow's palette onto the grapefruit's pixel for pixel rather than redrawing them, so the door panels, trapdoor slats and sign frames stay identical in form. It does not own the tree's bark (`gen_grapefruit_textures.ps1` does), the leaves or the sapling. |
+| `gen_grape_textures.ps1` | The nine textures of the grape: the four vine stages, the grape and seed items, the grape-wine bottle, and the two tank liquids. Pure `System.Drawing`, writes only those nine files. Every sprite is stored as **ASCII art** at the top of the script and validated on the way in - `Add-GvArt` throws on a wrong row count, a wrong row length, or a legend character that is not in the map - so the shapes are editable as text and a typo is a startup error rather than a silently mangled sprite. The vine's last two stages read as **bunches**: stage 3 is a canopy with a ripe cluster hanging in it, and the item is the same tapering lattice, 6-6-4-4-2-2 berries wide, under a bare twig. The wine bottle follows `gen_grapefruit_textures.ps1`'s vanilla-potion approach - vanilla's `potion.png` bottle pixel for pixel with the greyscale overlay tinted deep red - and the tank liquids reuse the `channel = base + ((11x + 7y) mod 25)` weave every other `tank_liquid_*` sprite already uses, so the new liquids cannot be told apart from the old ones. |
 | `verify-datapack/` | A dev-only data pack that proves the willow world generation actually runs. See below. |
 
 > **`gen_data.ps1` is stale - do not run it wholesale.** It predates the grapefruit tree, the glucose
@@ -48,8 +49,8 @@ Both generators are idempotent: running them twice produces byte-identical outpu
 >
 > `gen_textures.ps1` still carries a hard-coded `$root` for the checkout it was written in; check that
 > before running it. `gen_glucose_textures.ps1`, `gen_glass_textures.ps1`,
-> `gen_grapefruit_textures.ps1`, `gen_grapefruit_wood.ps1` and `gen_grapefruit_wood_textures.ps1`
-> derive their paths from `$PSScriptRoot`.
+> `gen_grapefruit_textures.ps1`, `gen_grapefruit_wood.ps1`, `gen_grapefruit_wood_textures.ps1`
+> and `gen_grape_textures.ps1` derive their paths from `$PSScriptRoot`.
 
 ## Requirements
 
@@ -69,6 +70,7 @@ pwsh -ExecutionPolicy Bypass -File tools\gen_glass_textures.ps1
 pwsh -ExecutionPolicy Bypass -File tools\gen_grapefruit_textures.ps1
 pwsh -ExecutionPolicy Bypass -File tools\gen_grapefruit_wood_textures.ps1
 pwsh -ExecutionPolicy Bypass -File tools\gen_grapefruit_wood.ps1
+pwsh -ExecutionPolicy Bypass -File tools\gen_grape_textures.ps1
 ```
 
 Both `.ps1` files are pure ASCII, so they also run fine when invoked directly:
@@ -119,11 +121,17 @@ stripping, grindstone grinding, filling the cauldron, the 60 second campfire coo
 with a bottle and with a bowl, and growing a willow next to a pool to check that the trunk leans
 towards the water. Then the plants: sowing a mandrake seed on dirt, grass, coarse dirt and farmland
 (through the real item path), bone meal through all four stages, the loot table dropping 1-2 fruit
-when ripe and nothing at all before that, the seeds recipe being in the recipe manager, the mandrake
+when ripe and nothing at all before that, and - for the grape vine - the right-click harvest itself,
+counted by the `ItemEntity`s that actually land on the ground rather than by the returned
+`InteractionResult`, so a pick that claimed success without dropping anything still fails. The grape
+vine is picked twice in a row to prove the fall-back to `age=1` is a real re-ripening rather than a
+constant, and bone meal is applied through the interaction path as well as directly, because a
+harvest that forgot to fall through below `age=3` would swallow the click while the direct call kept
+passing. The seeds recipe being in the recipe manager, the mandrake
 patches being attached to the plains and the swamps and to nothing else, the gymnopilus' three
 cooking recipes loading with the same timings raw beef has, and its patches being attached to the dark
 forest and the taiga and to nothing else. It reads the worldgen answer out of the biome registry
-rather than by scanning a world, which is what the patches are actually decided by, and verifies the advancement tree and triggers, and the fermentation tank and condenser pipe distillation machinery. 85 checks.
+rather than by scanning a world, which is what the patches are actually decided by, and verifies the advancement tree and triggers, and the fermentation tank and condenser pipe distillation machinery. 238 checks.
 
 ### `dev/AlimentPhysiologySelfTest.kt` - physiology
 

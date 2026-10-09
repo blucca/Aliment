@@ -31,7 +31,8 @@ class FermentationTankBlockEntity(pos: BlockPos, state: BlockState) :
     enum class Substrate(private val serialized: String) : StringRepresentable {
         NONE("none"),
         SUGAR("sugar"),
-        WHEAT("wheat");
+        WHEAT("wheat"),
+        GRAPE("grape");
 
         override fun getSerializedName(): String = serialized
     }
@@ -39,7 +40,8 @@ class FermentationTankBlockEntity(pos: BlockPos, state: BlockState) :
     enum class FermentedProduct(private val serialized: String) : StringRepresentable {
         NONE("none"),
         WINE("wine"),
-        BEER("beer");
+        BEER("beer"),
+        GRAPE_WINE("grape_wine");
 
         override fun getSerializedName(): String = serialized
     }
@@ -62,15 +64,60 @@ class FermentationTankBlockEntity(pos: BlockPos, state: BlockState) :
             updateBlockState()
         }
 
-    /** Backward-compatible sugar accessor. */
-    var hasSugar: Boolean
-        get() = substrate == Substrate.SUGAR
+    /**
+     * Whether sugar went in *on top of* the substrate.
+     *
+     * Only grape must uses this, and it is the one thing [Substrate] cannot express on its own: a
+     * single enum says what the tank is fermenting, and grape wine is the one recipe that needs two
+     * things in the water at once - the grapes for the flavour and the sugar for the yeast to eat.
+     * Sugar on its own is `substrate == SUGAR`; sugar *with* grapes is `substrate == GRAPE` plus
+     * this flag, which is why the two can never be confused.
+     */
+    var sugarWithGrape: Boolean = false
         set(value) {
-            substrate = if (value) Substrate.SUGAR else if (substrate == Substrate.SUGAR) Substrate.NONE else substrate
+            field = value
+            updateBlockState()
+        }
+
+    /**
+     * Backward-compatible sugar accessor.
+     *
+     * "Has sugar" is true for plain sugar *and* for the sugar that completes a grape must, so the
+     * setter has to clear both - otherwise `hasSugar = false` would leave a grape must still
+     * reporting sugar.
+     */
+    var hasSugar: Boolean
+        get() = substrate == Substrate.SUGAR || sugarWithGrape
+        set(value) {
+            if (value) {
+                substrate = Substrate.SUGAR
+            } else {
+                sugarWithGrape = false
+                if (substrate == Substrate.SUGAR) {
+                    substrate = Substrate.NONE
+                }
+            }
         }
 
     val hasWheat: Boolean
         get() = substrate == Substrate.WHEAT
+
+    val hasGrape: Boolean
+        get() = substrate == Substrate.GRAPE
+
+    /**
+     * Whether the tank holds everything the yeast needs.
+     *
+     * Sugar and wheat are complete substrates on their own; grapes are not, because a grape is
+     * mostly water and the sugar is what actually ferments. So grape must is only ready once the
+     * sugar is in as well.
+     */
+    val hasCompleteSubstrate: Boolean
+        get() = when (substrate) {
+            Substrate.NONE -> false
+            Substrate.GRAPE -> sugarWithGrape
+            else -> true
+        }
 
     var hasYeast: Boolean = false
         set(value) {
@@ -89,7 +136,7 @@ class FermentationTankBlockEntity(pos: BlockPos, state: BlockState) :
     var distillProgress: Int = 0
 
     val isFermenting: Boolean
-        get() = waterLevel > 0 && substrate != Substrate.NONE && hasYeast && ethanol <= 0f
+        get() = waterLevel > 0 && hasCompleteSubstrate && hasYeast && ethanol <= 0f
 
     val isDistilling: Boolean
         get() = waterLevel > 0 && ethanol > 0f && isHeated
@@ -108,8 +155,10 @@ class FermentationTankBlockEntity(pos: BlockPos, state: BlockState) :
         if (current.block is FermentationTankBlock) {
             val liquidType = when {
                 fermentedProduct == FermentedProduct.BEER -> FermentationTankBlock.TankLiquid.BEER
+                fermentedProduct == FermentedProduct.GRAPE_WINE -> FermentationTankBlock.TankLiquid.GRAPE_WINE
                 fermentedProduct == FermentedProduct.WINE -> FermentationTankBlock.TankLiquid.WINE
                 ethanol > 0f -> FermentationTankBlock.TankLiquid.WINE
+                substrate == Substrate.GRAPE -> FermentationTankBlock.TankLiquid.GRAPE
                 substrate == Substrate.WHEAT -> FermentationTankBlock.TankLiquid.WHEAT
                 substrate == Substrate.SUGAR -> FermentationTankBlock.TankLiquid.SUGAR
                 else -> FermentationTankBlock.TankLiquid.WATER
@@ -130,6 +179,7 @@ class FermentationTankBlockEntity(pos: BlockPos, state: BlockState) :
         output.putString("substrate", substrate.serializedName)
         output.putString("product", fermentedProduct.serializedName)
         output.putBoolean("sugar", hasSugar)
+        output.putBoolean("sugar_with_grape", sugarWithGrape)
         output.putBoolean("yeast", hasYeast)
         output.putInt("ferment_progress", fermentProgress)
         output.putFloat("ethanol", ethanol)
@@ -143,11 +193,18 @@ class FermentationTankBlockEntity(pos: BlockPos, state: BlockState) :
         substrate = when (substrateStr) {
             "wheat" -> Substrate.WHEAT
             "sugar" -> Substrate.SUGAR
-            else -> if (input.getBooleanOr("sugar", false)) Substrate.SUGAR else Substrate.NONE
+            "grape" -> Substrate.GRAPE
+            else -> Substrate.NONE
+        }
+        sugarWithGrape = input.getBooleanOr("sugar_with_grape", false)
+        // Legacy worlds saved only a boolean, and only ever for plain sugar.
+        if (substrate == Substrate.NONE && input.getBooleanOr("sugar", false)) {
+            substrate = Substrate.SUGAR
         }
         val productStr = input.getStringOr("product", "")
         fermentedProduct = when (productStr) {
             "beer" -> FermentedProduct.BEER
+            "grape_wine" -> FermentedProduct.GRAPE_WINE
             "wine" -> FermentedProduct.WINE
             else -> if (input.getFloatOr("ethanol", 0f) > 0f) FermentedProduct.WINE else FermentedProduct.NONE
         }
@@ -166,6 +223,15 @@ class FermentationTankBlockEntity(pos: BlockPos, state: BlockState) :
 
         /** Default fermented ethanol concentration: 7%. */
         const val FERMENTED_ETHANOL: Float = 0.07f
+
+        /**
+         * Grape wine's ethanol concentration: 5%.
+         *
+         * Weaker than [FERMENTED_ETHANOL] on purpose, and the same figure as beer. A wine is drunk
+         * as it comes out of the tank rather than distilled, so the tank has to produce the drinking
+         * strength directly instead of leaving it to the cauldron.
+         */
+        const val GRAPE_WINE_ETHANOL: Float = 0.05f
 
         /** Distilled ethanol concentration: 40%. */
         const val DISTILLED_ETHANOL: Float = 0.40f
@@ -190,13 +256,27 @@ class FermentationTankBlockEntity(pos: BlockPos, state: BlockState) :
 
                 if (entity.fermentProgress >= FERMENT_TICKS) {
                     entity.fermentProgress = 0
-                    entity.ethanol = FERMENTED_ETHANOL
-                    entity.fermentedProduct = if (entity.substrate == Substrate.WHEAT) {
-                        FermentedProduct.BEER
-                    } else {
-                        FermentedProduct.WINE
+                    // Beer is 5% and grape wine is 5% but the tank's generic ferment is 7%: the
+                    // product decides the strength, because the two weaker drinks are the two that
+                    // are meant to be drunk rather than distilled.
+                    when (entity.substrate) {
+                        Substrate.WHEAT -> {
+                            entity.ethanol = FERMENTED_ETHANOL
+                            entity.fermentedProduct = FermentedProduct.BEER
+                        }
+
+                        Substrate.GRAPE -> {
+                            entity.ethanol = GRAPE_WINE_ETHANOL
+                            entity.fermentedProduct = FermentedProduct.GRAPE_WINE
+                        }
+
+                        else -> {
+                            entity.ethanol = FERMENTED_ETHANOL
+                            entity.fermentedProduct = FermentedProduct.WINE
+                        }
                     }
                     entity.substrate = Substrate.NONE
+                    entity.sugarWithGrape = false
                     entity.hasYeast = false
                     level.playSound(null, pos, SoundEvents.BREWING_STAND_BREW, SoundSource.BLOCKS, 1.0f, 1.0f)
                     level.sendParticles(

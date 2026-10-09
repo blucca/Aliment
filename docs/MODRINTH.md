@@ -34,8 +34,10 @@ Instead of treating player health as an abstract hitpoint bar that depletes inst
 ### Agriculture, Brewing, and Crafting
 - **Salt Processing**: Extract rock salt deposits underground, pulverize chunks on grindstones into crude salt, and refine them into high-grade salt powder.
 - **Seaweed Aquaculture**: Plant and harvest underwater seaweed crops, cook them as nutritious food, or grind and combine them with salt to manufacture seaweed iodized salt.
-- **Fermentation and Distillation**: Assemble glass fermentation tanks and condenser pipes to ferment mash into wine and distill concentrated ethanol.
+- **Fermentation and Distillation**: Assemble glass fermentation tanks and condenser pipes to ferment mash into wine and distill concentrated ethanol. The tank takes wheat for beer, sugar for 7% wine, and grapes with sugar for a lighter 5% grape wine that bottles straight out.
+- **Grape Vines**: A four-stage crop that grows wild across the plains and temperate forests and sows onto any soil a vanilla crop accepts, farmland included. Right-click a ripe vine to pick 1-3 grapes and leave the plant standing one stage short of ripe, so a vineyard is something you return to; breaking it pays the same. One grape yields two seeds.
 - **Willow Woodset**: Complete decorative set featuring willow wood blocks, planks, hanging signs, and cascading hanging willow vines.
+- **Optional Farmer's Delight Integration**: With that mod installed, a knife cuts grapes into seeds on its cutting board and its cooking pot boils grapefruit juice. Nothing here is required to play: the integration is data-only, adds no dependency, and Aliment publishes conventional `c:` tags either way.
 
 ---
 

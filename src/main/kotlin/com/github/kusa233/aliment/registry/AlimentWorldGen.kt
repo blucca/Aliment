@@ -53,6 +53,26 @@ object AlimentWorldGen {
     val GRAPEFRUIT_GROVE: ResourceKey<PlacedFeature> =
         ResourceKey.create(Registries.PLACED_FEATURE, Registration.id("grapefruit_grove"))
 
+    val GRAPE_VINE_PATCH: ResourceKey<PlacedFeature> =
+        ResourceKey.create(Registries.PLACED_FEATURE, Registration.id("grape_vine_patch"))
+
+    /**
+     * Where a grape vine grows wild: the temperate, sunlit biomes a vineyard belongs in.
+     *
+     * This is not decoration - it is how a player gets their first grapes. The vine's own seeds
+     * only come out of a ripe bunch, so without a wild patch the crop would be unobtainable in
+     * survival, which is the same reason the mandrake gets one.
+     */
+    private val GRAPE_VINE_BIOMES = listOf(
+        Biomes.PLAINS,
+        Biomes.SUNFLOWER_PLAINS,
+        Biomes.FOREST,
+        Biomes.FLOWER_FOREST,
+        Biomes.BIRCH_FOREST,
+        Biomes.OLD_GROWTH_BIRCH_FOREST,
+        Biomes.MEADOW,
+    )
+
     /**
      * Where a grapefruit tree grows wild: the warm, wet and warm-dry biomes a citrus belongs in.
      *
@@ -160,6 +180,11 @@ object AlimentWorldGen {
             BiomeSelectors.includeByKey(GRAPEFRUIT_BIOMES),
             GenerationStep.Decoration.VEGETAL_DECORATION,
             GRAPEFRUIT_GROVE,
+        )
+        BiomeModifications.addFeature(
+            BiomeSelectors.includeByKey(GRAPE_VINE_BIOMES),
+            GenerationStep.Decoration.VEGETAL_DECORATION,
+            GRAPE_VINE_PATCH,
         )
     }
 }

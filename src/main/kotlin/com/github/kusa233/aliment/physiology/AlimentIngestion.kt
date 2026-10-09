@@ -3,6 +3,7 @@ package com.github.kusa233.aliment.physiology
 import com.github.kusa233.aliment.advancement.AlimentAdvancements
 import com.github.kusa233.aliment.registry.AlimentItems
 import com.github.kusa233.aliment.world.item.BeerItem
+import com.github.kusa233.aliment.world.item.GrapeWineItem
 import com.github.kusa233.aliment.world.item.WineItem
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.effect.MobEffectInstance
@@ -192,7 +193,14 @@ object AlimentIngestion {
         data = AlimentInfection.rollRiskyFood(player, data, stack)
 
         if (isDrink(stack.item)) {
-            val water = if (stack.item === AlimentItems.WINE || stack.item === AlimentItems.BEER) WINE_WATER else WATER_PER_DRINK
+            val water = if (stack.item === AlimentItems.WINE ||
+                stack.item === AlimentItems.BEER ||
+                stack.item === AlimentItems.GRAPE_WINE
+            ) {
+                WINE_WATER
+            } else {
+                WATER_PER_DRINK
+            }
             data = AlimentPhysiology.drink(data, water)
         }
 
@@ -201,6 +209,9 @@ object AlimentIngestion {
             data = AlimentPhysiology.addEthanol(data, concentration)
         } else if (stack.item === AlimentItems.BEER) {
             val concentration = BeerItem.getConcentration(stack)
+            data = AlimentPhysiology.addEthanol(data, concentration)
+        } else if (stack.item === AlimentItems.GRAPE_WINE) {
+            val concentration = GrapeWineItem.getConcentration(stack)
             data = AlimentPhysiology.addEthanol(data, concentration)
         }
 
@@ -438,6 +449,7 @@ object AlimentIngestion {
         AlimentItems.CRUDE_SALT_RAW_WILLOW_BARK_SOUP,
         AlimentItems.SALT_RAW_WILLOW_BARK_SOUP,
         AlimentItems.GRAPEFRUIT_SLICE,
+        AlimentItems.GRAPE,
     )
 
     /**
@@ -471,6 +483,7 @@ object AlimentIngestion {
         item === Items.MILK_BUCKET ||
         item === AlimentItems.WINE ||
         item === AlimentItems.BEER ||
+        item === AlimentItems.GRAPE_WINE ||
         item === AlimentItems.GRAPEFRUIT_JUICE ||
         item === AlimentItems.EPHEDRINE ||
         item === AlimentItems.COPTIS_POTION ||
