@@ -293,14 +293,17 @@ Backed by Fabric's **Data Attachment API**:
 
 Hydration packets are dispatched only when **integer values change**, reducing network traffic to ~1 packet per 270 ticks during steady dehydration.
 
-### Creative Mode Immunity
+### Creative Mode and Peaceful Immunity
 
-`AlimentSymptoms.isFrozen(player)` activates in Creative mode:
+`AlimentSymptoms.isFrozen(player)` is true in **Creative mode or on peaceful difficulty**, and both
+routes get exactly the same treatment:
 * **Physiology ticks freeze**: pathogens do not grow or clear, temperature does not adjust, and drugs do not metabolize.
 * **Symptoms are suppressed**: no effect icons, no sepsis damage, no mining fatigue, and exhaustion multipliers stay at 1.0.
-* **Shaders and HUD clear**: active post-processing effects and camera shivering are dismissed immediately.
+* **Shaders and HUD clear**: active post-processing effects, the two mod indicators and the camera shivering are dismissed immediately.
 * **Ingestion is blocked**: eating or drinking does not modify internal physiology values.
-Entering Creative mode freezes state rather than resetting it; returning to Survival resumes the exact physiological state.
+
+Entering Creative mode - or turning the difficulty down to peaceful - freezes state rather than
+resetting it; returning to Survival, or raising the difficulty, resumes the exact physiological state.
 
 ---
 
@@ -777,46 +780,54 @@ from the body's own `insulin`: the pancreas switches its own secretion off as gl
 injected aspart is not switched off by anything. One dose from a normal body is survivable; two
 stacked inside the cooldown are a crisis, and eating is the only way out.
 
-### Peaceful Difficulty Holds It
+### Peaceful Difficulty Freezes It
 
-On **peaceful** difficulty the blood glucose does not move at all. That is a stronger statement than
-it sounds: there are exactly **four** ways into it, and all four are switched off together.
+On **peaceful** difficulty the whole system is switched off, exactly as creative mode is - there is no
+longer a sugar-specific hold. Peaceful is the one difficulty that promises nothing can kill the player,
+and this mod has several ways to take hitpoints off by itself: a hypoglycaemic crash, a potassium
+excess, the sepsis of a severe infection and its tissue damage. None of them is intercepted by a
+difficulty setting, so rather than soften each one the model is simply not advanced.
 
-| Way in | Direction | Off while held |
-| --- | --- | --- |
-| The basal fasting drain | down | yes |
-| The body's own insulin clearing a load | down | yes |
-| Injected insulin aspart | down | yes |
-| Food (`addGlucose`) | **up** | yes |
-
-```scala
-// The whole of the switch, in the one place that decides whether the sugar moves. Nothing is
-// computed and then discarded, so there is no arithmetic quietly running anyway.
-val glucose =
-  if (glucoseHeld) state.glucose else stepGlucose(state, insulin, drugs.insulinAspart)
+```kotlin
+// The whole of the switch, in one place, and it covers both routes in:
+fun isFrozen(player: Player): Boolean =
+    player.isCreative || player.level().difficulty == Difficulty.PEACEFUL
 ```
 
-`addGlucose` takes the same flag, and it has to: the tick only ever takes glucose *away*, so a hold
-that stopped at the tick would leave eating as the one thing still able to move a sugar it had pinned.
+That is the entire mechanism. There is no partial switch left beside it, because a second mechanism
+that covered one curve while this one covered all of them would only be a way for the two to disagree
+about whether a body was being simulated. The glucose-specific flag this replaced was removed along
+with its plumbing in the model: `tick` and `addGlucose` no longer take it, and neither computes
+anything that is then discarded.
 
-It is a **hold, not a reset**, which is the same choice creative mode makes. Peaceful is not a way to
-top yourself up - the level the player had is the level they find again when the difficulty goes back
-up. The insulin index is deliberately *not* held: it is a response to the glucose rather than a thing
-that moves it, so it still relaxes towards whatever the held level asks for, and the self test pins
-that a held tick differs from a free one in exactly one field.
+What a frozen body does **not** keep is the symptoms stop being applied *and* come back off:
 
-> **A held crash is uncomfortable rather than lethal, and that is vanilla's doing.** A player who
-> enters peaceful *already* hypoglycaemic stays hypoglycaemic, and stays taking the magic damage that
-> comes with it: `player.damageSources().magic()` carries no causing entity, and `minecraft:magic` is
-> declared `"scaling": "when_caused_by_living_non_player"`, so `Player.hurtServer` does **not** zero
-> it on peaceful the way it zeroes a mob's hit. What saves the player is
+| On a frozen body | What happens |
+| --- | --- |
+| The state | not advanced at all - no field moves, food and injections included |
+| Symptoms (weakness, nausea, mining fatigue, hunger, slowness) | no longer applied, and lapse within six seconds |
+| The mod's `aliment:fever` / `aliment:pain` indicators | removed by hand at once - they have an infinite duration and could never lapse |
+| The mining penalty | removed by hand - it is an attribute modifier with no lifetime of its own |
+| Screen effects (heat haze, blur, shiver, trip stages) | removed at once |
+
+The three that are removed by hand are removed for the same reason: nothing else would ever have taken
+them off. The ordinary vanilla effects are left to lapse rather than being cleared, because removing
+them by hand would mean guessing which of them the mod was responsible for and would take a player's own
+potion of weakness with it.
+
+It is a **freeze, not a reset**, which is the same choice creative mode makes. Peaceful is not a way to
+top yourself up, and the body the player had is the body they find again when the difficulty goes back
+up - which is pinned by the self test from both sides, since "nothing moved" is also what a model that
+had simply broken would report.
+
+> **A frozen crash is uncomfortable rather than lethal, and that is vanilla's doing.** A player who
+> enters peaceful *already* hypoglycaemic stays hypoglycaemic. What saves them is
 > `ServerPlayer.tickRegeneration`: on peaceful, with the default `naturalRegeneration` rule, it heals
-> **1.0 HP a second whenever health is below maximum**. The crash asks for 0.8 damage per two-second
-> pass - **0.4 HP/s** - so the bar sits at full and never drains. The three symptoms that are not
-> damage (mining fatigue, weakness, and the diagnostic tag on `/aliment status`) stay exactly as they
-> are, and `/aliment cure` or raising the difficulty back up both end it. With
-> `naturalRegeneration` disabled, the arithmetic reverses and a held crash does drain health, because
-> the regeneration it was leaning on is gone.
+> **1.0 HP a second whenever health is below maximum**, where the damage a crash asks for is well under
+> that. Note that the mod no longer adds any damage on peaceful at all - it cannot, because the model is
+> not advanced - so this is about the state the player arrived with rather than about anything being
+> applied. With `naturalRegeneration` disabled the arithmetic reverses, and raising the difficulty back
+> up ends it either way.
 
 ---
 

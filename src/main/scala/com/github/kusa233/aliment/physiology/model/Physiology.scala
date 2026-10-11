@@ -697,26 +697,14 @@ object Physiology {
    * Celsius scale as the body itself; the normal temperature means "indoors, no wind, nothing to
    * fight". It defaults to neutral so the model can be driven from a test without a world.
    *
-   * `glucoseHeld` is the whole of the sugar curve's off switch. While it is set the blood glucose is
-   * carried over exactly as it came in, so all three of the terms that move it - the fasting drain,
-   * the body's own insulin and any injected aspart - stop moving it at once. Only glucose is held:
-   * the insulin index below still follows it, because insulin is a *response* to the glucose and not
-   * a thing that moves it, and holding that too would only make the readout stop agreeing with
-   * itself.
-   *
-   * This is not the same as not ticking. Nothing else in the model is affected, and the level is not
-   * reset either - a body held at 3.0 is still at 3.0 when the hold is lifted, the same way going
-   * creative does not cure an infection. The only other way into a body's glucose is [addGlucose],
-   * which takes the same switch, because a meal is the one *rise* in the system and freezing the tick
-   * alone would leave eating as the last thing that could still move a held sugar.
+   * There is no partial switch here any more: a body that is not being simulated is not ticked at
+   * all, and the caller decides that. Peaceful and creative both work that way - see
+   * `AlimentSymptoms.isFrozen`.
    */
   def tick(state: ModelState): ModelState =
-    tick(state, ModelConstants.TEMPERATURE_NORMAL, glucoseHeld = false)
+    tick(state, ModelConstants.TEMPERATURE_NORMAL)
 
-  def tick(state: ModelState, ambient: Float): ModelState =
-    tick(state, ambient, glucoseHeld = false)
-
-  def tick(state: ModelState, ambient: Float, glucoseHeld: Boolean): ModelState = {
+  def tick(state: ModelState, ambient: Float): ModelState = {
     // 1. Drugs and injected pyrogen are metabolised first so the rest of the tick sees the current
     //    concentrations. A negative pyrogen is an antipyretic offset and clears the same way.
     val drugs = stepDrugs(state.drugs)
@@ -727,12 +715,9 @@ object Physiology {
     val pyrogen = stepPyrogen(state, ambient)
 
     // 1b. Glucose and insulin, which the drugs above feed into: injected insulin aspart is what
-    //     makes the injected term of the uptake possible. A held glucose is carried straight across
-    //     rather than having the step undone afterwards, so there is one place that decides whether
-    //     the sugar moves and no arithmetic that quietly runs anyway.
+    //     makes the injected term of the uptake possible.
     val insulin = stepInsulin(state)
-    val glucose =
-      if (glucoseHeld) state.glucose else stepGlucose(state, insulin, drugs.insulinAspart)
+    val glucose = stepGlucose(state, insulin, drugs.insulinAspart)
 
     // 2. Pathogens grow logistically and are cleared in proportion to immune competence and targeted drugs.
     val competence = immuneCompetence(state.mediators.getInflammation)
@@ -1184,18 +1169,13 @@ object Physiology {
    * The body cannot store a surplus, so this is the only thing that ever puts glucose back - which
    * makes eating a glucose *dose* the player has to think about, not just a hunger bar.
    *
-   * `glucoseHeld` is the switch [tick] takes, and it has to be here as well: the tick only ever
-   * takes glucose away, so a hold that stopped there would still let a meal raise it.
+   * There is no off switch here any more. A body that must not be moved is not fed through this at
+   * all: the caller stops before it gets here, the same way it stops before [tick].
    */
   def addGlucose(state: ModelState, amount: Float): ModelState =
-    addGlucose(state, amount, glucoseHeld = false)
-
-  def addGlucose(state: ModelState, amount: Float, glucoseHeld: Boolean): ModelState =
-    if (glucoseHeld) state
-    else
-      state.withGlucose(
-        clamp(state.glucose + amount, ModelConstants.GLUCOSE_MIN, ModelConstants.GLUCOSE_MAX),
-      )
+    state.withGlucose(
+      clamp(state.glucose + amount, ModelConstants.GLUCOSE_MIN, ModelConstants.GLUCOSE_MAX),
+    )
 
   /**
    * Adds insulin aspart, the injected fast-acting analogue, capped.

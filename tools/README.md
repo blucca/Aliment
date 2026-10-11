@@ -209,7 +209,7 @@ because tag membership is what a wood set actually is: each of the four log-shap
 to be in `aliment:grapefruit_logs`, in `minecraft:logs` and axe-mineable; each shaped block in the one
 vanilla tag that makes it craftable and mineable; a willow log is asserted *not* to be in the
 grapefruit tag; and both boats are checked to be `BoatItem`s whose entity types are registered and
-distinct from the willow's. 832 checks, all passing.
+distinct from the willow's. 831 checks, all passing.
 
 ### Running either one
 

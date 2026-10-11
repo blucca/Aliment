@@ -405,14 +405,13 @@ not avoid the glucose cost of eating.
 
   The damage ignores armour - the brain has no fuel but glucose. Eight game days without food leaves
   a body at **0.97 mmol/L**, which is a crisis.
-* **On peaceful difficulty the blood glucose does not move at all.** All four ways into it are off at
-  once: the fasting drain, the body's own insulin, an injected dose, and food. The level is *held*
-  rather than reset, so it is not a way to top yourself up - and a body that was already crashing
-  stays crashing, because the one thing that could raise the sugar went off with the rest. It stays
-  uncomfortable rather than lethal, though: the crash asks for 0.4 HP a second and peaceful
-  regeneration gives back **1.0 HP a second** whenever health is below maximum, so the bar stays full.
-  `/aliment cure` and raising the difficulty back up both end it. `/aliment status` marks the line
-  **`[held: peaceful]`** so a number that has stopped meaning anything is not mistaken for a normal one.
+* **On peaceful difficulty nothing moves at all.** Peaceful is not a sugar hold any more - the whole
+  system is switched off there, exactly as it is in creative, so no effect is applied and no damage is
+  dealt. The state is *frozen* rather than reset, so it is not a way to top yourself up - and a body
+  that was already crashing stays crashing, because the one thing that could raise the sugar went off
+  with everything else. It stays uncomfortable rather than lethal, though: nothing in the mod asks for
+  damage on peaceful, and peaceful regeneration gives back **1.0 HP a second** whenever health is below
+  maximum. `/aliment cure` and raising the difficulty back up both end it.
 
 ### The four items
 
@@ -831,14 +830,20 @@ deficit does.
 
 ---
 
-## 23. Creative Mode and Death
+## 23. Creative Mode, Peaceful and Death
 
 **Creative mode freezes the whole system.** Nothing advances - pathogens neither grow nor clear,
 temperature does not move, drugs are not metabolised - no effects are applied, no damage is dealt, no
 mining penalty is charged and no exhaustion multiplier is applied. Any screen effect already up is
-taken down on the next tick, and the tremors stop. Eating, drinking and injecting do nothing either.
+taken down on the next tick, along with the mod's own fever and pain indicators, and the tremors stop.
+Eating, drinking and injecting do nothing either.
 It is a **freeze, not a cure**: walk into creative with an infection and you walk back into survival
 with it.
+
+**Peaceful difficulty does exactly the same thing**, and for the same reason: it is the one difficulty
+that promises nothing can kill you, and this mod can take hitpoints off by itself through a
+hypoglycaemic crash, a potassium excess and a severe infection. Rather than soften each of those,
+nothing is simulated at all. There is no separate sugar rule any more.
 
 **Death resets the body.** You respawn with a new one: inflammation back at rest, no pathogens, core
 temperature 37, water 80, iodine normal. Dying is the only way to throw the model away.
@@ -906,5 +911,5 @@ and metabolised within one game day.
 13. **A hanging grapefruit is not a fruit you can pick and forget.** It exists only while the leaf or
     log above it does, so felling the tree drops the whole crop - convenient, but it also means the
     fruit will not survive you building through the canopy.
-14. **Creative mode does not cure you.** It freezes the model; the infection is still there when you
-    go back to survival.
+14. **Creative mode and peaceful difficulty do not cure you.** They freeze the model; the infection is
+    still there when you go back to survival, or turn the difficulty back up.

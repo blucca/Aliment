@@ -90,7 +90,7 @@ object AlimentCommand {
     private fun status(context: CommandContext<CommandSourceStack>): Int {
         val player = context.source.playerOrException
         val data = player.getAttachedOrCreate(AlimentAttachments.DATA)
-        for (line in statusLines(data, AlimentSymptoms.isGlucoseHeld(player))) {
+        for (line in statusLines(data)) {
             context.source.sendSuccess({ Component.literal(line) }, false)
         }
         return 1
@@ -107,11 +107,12 @@ object AlimentCommand {
      * standing between the promise and a field quietly going missing from it, which is what had
      * already happened to the whole glucose chain and to the liver before it.
      *
-     * [glucoseHeld] is the peaceful hold, and it is here rather than read from [data] because on
-     * peaceful the glucose is *held*: the stored number stops being evidence of anything, so without
-     * the tag the one line a player would want explained is the one that reads like every other.
+     * There is no frozen tag on any line, and that is deliberate: the readout describes the body as
+     * it is stored, and a frozen body is one nothing is happening to rather than one whose numbers
+     * mean something different. Tagging it would mean tagging every line, which is a readout
+     * explaining its own absence rather than the body.
      */
-    internal fun statusLines(data: AlimentData, glucoseHeld: Boolean = false): List<String> {
+    internal fun statusLines(data: AlimentData): List<String> {
         val e = data.electrolytes
         val m = data.mediators
         val condition = when {
@@ -167,7 +168,7 @@ object AlimentCommand {
                 if (data.immuneActive) "  [immune response active]" else "",
                 if (data.isSevereInfection) "  [severe: taking damage]" else "",
             ),
-            "  glucose %s mmol/L  (insulin %.2f, injected %.2f)%s%s".format(
+            "  glucose %s mmol/L  (insulin %.2f, injected %.2f)%s".format(
                 data.glucoseReading, data.insulin, data.insulinAspart,
                 when {
                     data.hypoglycemiaDamage > 0f -> "  [hypoglycaemic crash: taking damage]"
@@ -175,9 +176,6 @@ object AlimentCommand {
                     data.isHyperglycemic -> "  [above range]"
                     else -> ""
                 },
-                // Added on top of the tag above rather than instead of it: a held body can be in a
-                // crash as easily as a free one, and both facts are worth reading at once.
-                if (glucoseHeld) "  [held: peaceful]" else "",
             ),
             "  drugs  salicin %.2f  dexamethasone %.2f".format(data.salicin, data.dexamethasone),
             "  mandrake  scopolamine %.2f  atropine %.2f  (load %.2f%s)%s".format(

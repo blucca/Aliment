@@ -636,14 +636,6 @@ public final class AlimentModelBridge {
         return fromModel(Physiology.tick(toModel(data), ambient));
     }
 
-    /**
-     * Advances a player's physiology by a single tick, towards {@code ambient} degrees, with the
-     * blood glucose carried over unchanged when {@code glucoseHeld}.
-     */
-    public static AlimentData tick(AlimentData data, float ambient, boolean glucoseHeld) {
-        return fromModel(Physiology.tick(toModel(data), ambient, glucoseHeld));
-    }
-
     /** How well an inflammation level fights pathogens, in 0..1. */
     public static float immuneCompetence(float inflammation) {
         return Physiology.immuneCompetence(inflammation);
@@ -761,11 +753,6 @@ public final class AlimentModelBridge {
     /** Adds what one serving of food does to blood glucose, in mmol/L, capped. */
     public static AlimentData addGlucose(AlimentData data, float amount) {
         return fromModel(Physiology.addGlucose(toModel(data), amount));
-    }
-
-    /** Adds what one serving of food does to blood glucose, or nothing when {@code glucoseHeld}. */
-    public static AlimentData addGlucose(AlimentData data, float amount, boolean glucoseHeld) {
-        return fromModel(Physiology.addGlucose(toModel(data), amount, glucoseHeld));
     }
 
     /** Adds insulin aspart, the injected fast-acting analogue, capped. */

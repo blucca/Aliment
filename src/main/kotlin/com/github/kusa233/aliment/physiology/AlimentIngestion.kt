@@ -179,9 +179,10 @@ object AlimentIngestion {
      * Called from `ItemMixin` whenever a living entity finishes using an item, which is the
      * moment the food or drink is actually consumed.
      *
-     * A creative player's body is frozen (`AlimentSymptoms.isFrozen`), so nothing eaten or drunk
-     * reaches it - otherwise the state would keep moving through the kitchen door while the model
-     * stood still. The vanilla side of eating, hunger and saturation, is untouched either way.
+     * A frozen body - creative mode, or a peaceful world (`AlimentSymptoms.isFrozen`) - takes
+     * nothing from this: nothing eaten or drunk reaches it, or the state would keep moving through
+     * the kitchen door while the model stood still. The vanilla side of eating, hunger and
+     * saturation, is untouched either way.
      */
     @JvmStatic
     fun onItemConsumed(player: ServerPlayer, stack: ItemStack) {
@@ -365,12 +366,12 @@ object AlimentIngestion {
         }
 
         // Everything edible is carbohydrate or becomes it, and the body stores none of it: this is
-        // what makes a meal a glucose dose rather than just a hunger bar. On peaceful the dose is
-        // declined by the model rather than here, so that every way into the blood sugar is shut off
-        // in one place and none of them is a special case at a call site.
+        // what makes a meal a glucose dose rather than just a hunger bar. A frozen body never reaches
+        // this line at all - the early return at the top of this method covers creative and peaceful
+        // alike - so there is no hold to ask about here any more.
         val glucose = glucoseFor(stack.item)
         if (glucose > 0f) {
-            data = AlimentPhysiology.addGlucose(data, glucose, AlimentSymptoms.isGlucoseHeld(player))
+            data = AlimentPhysiology.addGlucose(data, glucose)
         }
 
         if (data !== before) {

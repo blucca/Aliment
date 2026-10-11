@@ -106,7 +106,7 @@ class AlimentPhysiologySelfTest : ModInitializer {
                 grinding(server.overworld())
                 chestLoot(server.overworld())
                 creativeIsFrozen(server.overworld())
-                peacefulHoldsGlucose(server.overworld())
+                peacefulFreezesTheBody(server.overworld())
                 sleepRestriction(server.overworld())
                 // Last, because it makes the server hand out a second player object.
                 deathResetsTheBody(server.overworld())
@@ -151,7 +151,7 @@ class AlimentPhysiologySelfTest : ModInitializer {
         insulinInjection()
         foodGlucoseAmounts()
         hypoglycemiaSymptoms()
-        glucoseHeldInPeaceful()
+        peacefulIsFrozen()
         naringinAndCyp3a4()
         statusReadout()
     }
@@ -2486,14 +2486,24 @@ class AlimentPhysiologySelfTest : ModInitializer {
     }
 
     /**
-     * The glucose hold again, this time through a real player and the real difficulty setting.
+     * The same freeze arrives by the other route: a peaceful world.
      *
-     * [glucoseHeldInPeaceful] drives the flag by hand; this asks where the flag actually comes from, so
-     * a hold that read the difficulty wrongly - or was never wired to it at all - fails here instead of
-     * passing on the model's behalf. It is the only thing in the mod that moves the world's difficulty,
-     * and it puts it back.
+     * This asks where the flag actually comes from rather than setting it, so a freeze that read the
+     * difficulty wrongly - or was never wired to it at all - fails here instead of passing on the
+     * model's behalf. It is the only thing in the mod that moves the world's difficulty, and it puts
+     * it back.
+     *
+     * The point of the change this replaced is worth keeping in view: Peaceful used to hold only the
+     * blood glucose, so an infection, a fever, a potassium excess and a dehydration all carried on
+     * doing harm on the one difficulty that promises they cannot. What is asserted now is that
+     * *nothing* moves and *no* symptom is applied, which is the same promise creative makes.
+     *
+     * Almost every check below is negative, so the body is deliberately set up *ill* and the symptoms
+     * are shown to be really on before the difficulty changes - otherwise "no symptom is applied"
+     * would be satisfied by a healthy body and prove nothing. `peacefulIsFrozen` guards the other half
+     * of that, the liveness of the fixture itself.
      */
-    private fun peacefulHoldsGlucose(level: ServerLevel) {
+    private fun peacefulFreezesTheBody(level: ServerLevel) {
         val server = level.server
         val difficulty = level.difficulty
         val player = FakePlayer.get(level)
@@ -2501,54 +2511,118 @@ class AlimentPhysiologySelfTest : ModInitializer {
             player.setGameMode(GameType.SURVIVAL)
 
             server.setDifficulty(Difficulty.NORMAL, true)
-            check("a normal world does not hold the sugar", !AlimentSymptoms.isGlucoseHeld(player))
+            check("a normal world is not frozen", !AlimentSymptoms.isFrozen(player))
             server.setDifficulty(Difficulty.PEACEFUL, true)
             logger.info("PHYS difficulty now {} on the overworld", level.difficulty)
-            check("peaceful does", AlimentSymptoms.isGlucoseHeld(player))
+            check("and a peaceful one is", AlimentSymptoms.isFrozen(player))
 
-            // Two thousand ticks is a sixteenth of the fasting drop: far more than the rounding in the
-            // readout, and short enough to run the whole symptom pass rather than the model alone.
-            player.setAttached(
-                AlimentAttachments.DATA,
-                AlimentData.HEALTHY.copy(glucose = AlimentData.GLUCOSE_NORMAL),
+            // An ill body with something wrong on every axis the mod can produce a symptom from, so
+            // that "no negative buff" is a claim about all of them at once rather than about sugar.
+            val ill = AlimentData.HEALTHY.copy(
+                bacteria = 70f,
+                temperature = 41f,
+                water = 5f,
+                electrolytes = Electrolytes(120f, 6.5f, 0.4f, 101f, 3.2f),
+                glucose = 0.5f,
             )
-            repeat(2_000) { AlimentSymptoms.tick(player) }
-            val held = player.getAttachedOrCreate(AlimentAttachments.DATA)
-            logger.info("PHYS peaceful after 2000 real ticks: glucose {}", held.glucose)
-            check("a peaceful body's glucose does not move", held.glucose == AlimentData.GLUCOSE_NORMAL)
+            player.setGameMode(GameType.SURVIVAL)
+            player.removeAllEffects()
+            player.addPostEffect(AlimentSymptoms.HEAT_HAZE)
+
+            // The penalty is applied *before* the difficulty changes, on purpose. It is an attribute
+            // modifier rather than an effect, so it has no lifetime of its own and nothing but the
+            // frozen path can take it off; setting the ill body while already peaceful would never
+            // apply it in the first place and the check below would pass without proving anything.
+            //
+            // The fever icon is asserted here for exactly the same reason: it is a *negative* check
+            // later on ("no fever or pain icon"), and a negative check about something that was never
+            // applied is worth nothing. A full interval is ticked rather than a single tick because
+            // the effect pass is gated on `shakeCooldown % 40`, and the runtime is shared with every
+            // test that ran before this one, so the counter is wherever they left it - one pass is
+            // guaranteed inside any 40 consecutive ticks, and one tick is not.
+            server.setDifficulty(Difficulty.NORMAL, true)
+            player.setAttached(AlimentAttachments.DATA, ill)
+            repeat(40) {
+                // Kept ill across the interval: 40 ticks of a severe infection would otherwise pull
+                // the load back down and the fever with it.
+                player.setAttached(AlimentAttachments.DATA, ill)
+                AlimentSymptoms.tick(player)
+            }
+            logger.info(
+                "PHYS before the freeze: mining speed {} fever icon {} pain icon {}",
+                player.getAttributeValue(Attributes.BLOCK_BREAK_SPEED),
+                player.hasEffect(AlimentEffects.FEVER), player.hasEffect(AlimentEffects.PAIN),
+            )
+            check("the ill body is slowed at mining before we freeze it", player.getAttributeValue(Attributes.BLOCK_BREAK_SPEED) < 1.0)
+            check("and is wearing its fever icon before we freeze it", player.hasEffect(AlimentEffects.FEVER))
+            player.setAttached(AlimentAttachments.DATA, ill)
+
+            server.setDifficulty(Difficulty.PEACEFUL, true)
+            repeat(200) { AlimentSymptoms.tick(player) }
+            val frozen = player.getAttachedOrCreate(AlimentAttachments.DATA)
+            logger.info(
+                "PHYS peaceful after 200 real ticks: bacteria {} temperature {} water {} glucose {} health {}",
+                frozen.bacteria, frozen.temperature, frozen.water, frozen.glucose, player.health,
+            )
+            check("a peaceful body does not advance at all", frozen == ill)
+            // No health assertion here: `FakePlayer` is invulnerable, so its bar cannot move and
+            // "20.0 -> 20.0" would prove nothing either way. That the damage is never *asked for* is
+            // what `frozen == ill` and the absent symptoms say.
+            //
+            // These four come before the clean slate below, and their order is load-bearing: the block
+            // above proved the fever icon and the mining penalty were really on and the heat haze was
+            // really up, so "they are gone now" is a claim about the frozen path rather than about a
+            // body that never had them.
+            check("no fever shimmer is left on the screen", player.getPostEffects().isEmpty())
+            check("and no fever or pain icon", !player.hasEffect(AlimentEffects.FEVER) && !player.hasEffect(AlimentEffects.PAIN))
+            check("and there is no exhaustion penalty", AlimentSymptoms.exhaustionMultiplier(player) == 1f)
+            check(
+                "and the mining penalty it was already carrying comes back off",
+                player.getAttributeValue(Attributes.BLOCK_BREAK_SPEED) == 1.0,
+            )
+
+            // The vanilla effects are cleared by hand *before* the freeze rather than asserted to have
+            // lapsed, because a `FakePlayer` is never ticked by the server and vanilla effect durations
+            // therefore never count down on one. On a real player the ones applied above are gone
+            // within six seconds on their own - they are granted for three refresh intervals and
+            // nothing refreshes them once the frozen branch is taken - but that lapse cannot be
+            // observed from in here, and asserting it would only be asserting the harness. What this
+            // does prove is the half that matters and that the harness *can* show: with a clean slate,
+            // two hundred frozen ticks apply none of them.
+            player.removeAllEffects()
+            repeat(200) { AlimentSymptoms.tick(player) }
+            logger.info(
+                "PHYS symptoms after 200 frozen ticks from a clean slate: weakness {} mining fatigue {} hunger {} nausea {} slowness {}",
+                player.hasEffect(MobEffects.WEAKNESS), player.hasEffect(MobEffects.MINING_FATIGUE),
+                player.hasEffect(MobEffects.HUNGER), player.hasEffect(MobEffects.NAUSEA),
+                player.hasEffect(MobEffects.SLOWNESS),
+            )
+            check(
+                "and applies no symptoms",
+                !player.hasEffect(MobEffects.WEAKNESS) &&
+                    !player.hasEffect(MobEffects.MINING_FATIGUE) &&
+                    !player.hasEffect(MobEffects.HUNGER) &&
+                    !player.hasEffect(MobEffects.NAUSEA) &&
+                    !player.hasEffect(MobEffects.SLOWNESS),
+            )
 
             ItemStack(Items.BREAD, 1).finishUsingItem(level, player)
-            val fed = player.getAttachedOrCreate(AlimentAttachments.DATA)
-            logger.info("PHYS peaceful after a loaf of bread: glucose {}", fed.glucose)
-            check("and a meal does not move it either", fed.glucose == AlimentData.GLUCOSE_NORMAL)
+            check(
+                "nothing eaten reaches a peaceful body",
+                player.getAttachedOrCreate(AlimentAttachments.DATA) == ill,
+            )
 
-            // Leaving, and the same loop drains. Without this the checks above would also pass on a
+            // Leaving, and everything resumes. Without this the checks above would also pass on a
             // model that had simply stopped, which is the failure they exist to catch.
             server.setDifficulty(Difficulty.NORMAL, true)
-            repeat(2_000) { AlimentSymptoms.tick(player) }
-            val free = player.getAttachedOrCreate(AlimentAttachments.DATA)
-            logger.info("PHYS normal after the same 2000 real ticks: glucose {}", free.glucose)
-            check("leaving peaceful lets it drain again", free.glucose < AlimentData.GLUCOSE_NORMAL)
-
-            // What holding rather than clearing means for a body that was already crashing. This is a
-            // consequence of the design and not a fault in it, so it is pinned rather than left to be
-            // discovered: the crash does not improve on its own and food cannot help, because the one
-            // thing that could raise the sugar went off along with everything else.
-            //
-            // Only the damage the tick *asks for* is asserted here. `FakePlayer` is invulnerable, so
-            // its health bar cannot move and says nothing either way - whether a held crash can
-            // actually kill on peaceful is settled by vanilla rather than by this suite, and the two
-            // numbers that settle it are in docs/PHYSIOLOGY.md.
-            server.setDifficulty(Difficulty.PEACEFUL, true)
-            player.setAttached(AlimentAttachments.DATA, AlimentData.HEALTHY.copy(glucose = 0.5f))
-            repeat(200) { AlimentSymptoms.tick(player) }
-            val stuck = player.getAttachedOrCreate(AlimentAttachments.DATA)
+            AlimentSymptoms.tick(player)
+            val resumed = player.getAttachedOrCreate(AlimentAttachments.DATA)
             logger.info(
-                "PHYS held crash: glucose {} tier {} asking for {} damage a pass",
-                stuck.glucose, stuck.hypoglycemiaTier, stuck.hypoglycemiaDamage,
+                "PHYS back on normal after a tick: bacteria {} temperature {} water {}",
+                resumed.bacteria, resumed.temperature, resumed.water,
             )
-            check("a body that enters peaceful crashing stays crashing", stuck.glucose == 0.5f)
-            check("and the crash is still asking for its damage", stuck.hypoglycemiaDamage > 0f)
+            check("going back to normal resumes the model", resumed != ill)
+            check("and the fever shimmer comes back", player.getPostEffects().contains(AlimentSymptoms.HEAT_HAZE))
         } finally {
             player.setGameMode(GameType.SURVIVAL)
             player.removeAllEffects()
@@ -3676,109 +3750,60 @@ class AlimentPhysiologySelfTest : ModInitializer {
                     .any { it.contains("immune response active") },
         )
 
-        // --- the peaceful hold, which is a property of the world rather than of the body, so it is
-        //     the one thing on the readout the state cannot be asked about on its own.
-        val heldLines = AlimentCommand.statusLines(AlimentData.HEALTHY, true)
-        logger.info("PHYS status glucose line while held: {}", heldLines.first { it.contains("glucose") })
-        check("the glucose line says when the sugar is being held", heldLines.any { it.contains("[held: peaceful]") })
-        check("and does not say it otherwise", !text.contains("[held: peaceful]"))
+        // --- there is nothing on the readout that says "frozen", and that is the decision: the
+        //     readout describes the body as stored, and a frozen body is one nothing is happening to
+        //     rather than one whose numbers mean something different. Tagging it would mean tagging
+        //     every line, which is a readout explaining its own absence instead of the body.
         check(
-            "the hold is printed beside the crash rather than instead of it",
-            AlimentCommand.statusLines(AlimentData.HEALTHY.copy(glucose = 1f), true)
-                .any { it.contains("[hypoglycaemic crash") && it.contains("[held: peaceful]") },
+            "no line claims the body is frozen",
+            !text.contains("held") && !text.contains("frozen") && !text.contains("peaceful"),
         )
     }
 
     /**
-     * The sugar curve's off switch, from the model's side. Peaceful difficulty sets it.
+     * The fixture the freeze tests are built on is genuinely ill, on every axis at once.
      *
-     * Every way into the blood glucose is checked on its own, because "the hold works" is only true
-     * if it closes all of them: the fasting drain, the body's own insulin clearing a load, an injected
-     * dose of aspart, and a meal. The meal is why the hold is on `addGlucose` as well as on the tick -
-     * the tick only ever takes glucose *away*, so a hold that stopped there would leave eating as the
-     * one thing still able to move a sugar it had pinned.
+     * This is a guard on the *test data*, and it exists because the freeze checks are all negative:
+     * they say nothing moved, nothing was applied, nothing was left on the screen. A body that was
+     * healthy to begin with would satisfy every one of them while proving nothing, so this states
+     * separately that one tick really does move each axis - which is what makes "it did not move"
+     * mean something.
      *
-     * Holding is not clearing, and the last block says so in the strongest form available: a held
-     * tick differs from a free one in exactly one field, so the switch cannot be quietly changing
-     * anything else on its way past.
+     * It also pins the shape of the change: the model's tick no longer takes a hold flag at all, so
+     * there is nothing here to drive by hand any more. The switch is the caller not calling this, and
+     * that is tested from the outside in `peacefulFreezesTheBody` and `creativeIsFrozen`.
      */
-    private fun glucoseHeldInPeaceful() {
-        val normal = AlimentData.TEMPERATURE_NORMAL
+    private fun peacefulIsFrozen() {
+        val ill = AlimentData.HEALTHY.copy(
+            bacteria = 70f,
+            virus = 20f,
+            temperature = 41f,
+            water = 5f,
+            electrolytes = Electrolytes(120f, 6.5f, 0.4f, 101f, 3.2f),
+            traceElements = TraceElements(0.1f, 10f),
+            glucose = 0.5f,
+            salicin = 2f,
+            ethanol = 0.5f,
+        )
 
-        // 1. The fasting drain, which is the only thing moving a healthy body's sugar.
-        var freeFasting = AlimentData.HEALTHY.copy(glucose = AlimentData.GLUCOSE_NORMAL)
-        var heldFasting = freeFasting
-        repeat(6_000) {
-            freeFasting = AlimentPhysiology.tick(freeFasting)
-            heldFasting = AlimentPhysiology.tick(heldFasting, normal, true)
-        }
+        val ticked = AlimentPhysiology.tick(ill)
         logger.info(
-            "PHYS glucose after 6000 fasting ticks: free {} held {}",
-            freeFasting.glucose, heldFasting.glucose,
+            "PHYS the freeze fixture is live: bacteria {} -> {} temperature {} -> {} water {} -> {} glucose {} -> {}",
+            ill.bacteria, ticked.bacteria, ill.temperature, ticked.temperature,
+            ill.water, ticked.water, ill.glucose, ticked.glucose,
         )
-        check("a fasting body drains", freeFasting.glucose < AlimentData.GLUCOSE_NORMAL)
-        check("and a held one does not move at all", heldFasting.glucose == AlimentData.GLUCOSE_NORMAL)
+        check("the fixture's infection is really moving", ticked.bacteria != ill.bacteria)
+        check("its temperature is really moving", ticked.temperature != ill.temperature)
+        check("its water is really moving", ticked.water != ill.water)
+        check("its electrolytes are really moving", ticked.electrolytes != ill.electrolytes)
+        check("its glucose is really moving", ticked.glucose != ill.glucose)
+        check("its drugs are really moving", ticked.ethanol != ill.ethanol)
 
-        // 2. The body's own insulin, which is what disposes of a load rather than holding a baseline.
-        var freeLoad = AlimentData.HEALTHY.copy(glucose = 9f)
-        var heldLoad = freeLoad
-        repeat(6_000) {
-            freeLoad = AlimentPhysiology.tick(freeLoad)
-            heldLoad = AlimentPhysiology.tick(heldLoad, normal, true)
-        }
-        logger.info(
-            "PHYS glucose after 6000 ticks from 9.0: free {} held {}",
-            freeLoad.glucose, heldLoad.glucose,
-        )
-        check("a sugar load is disposed of", freeLoad.glucose < 9f)
-        check("and a held one is left exactly where it was", heldLoad.glucose == 9f)
-
-        // 3. Injected aspart, which has no brake and would otherwise take a body under the reference
-        //    range inside the same stretch.
-        val injected = AlimentPhysiology.injectInsulin(
-            AlimentData.HEALTHY.copy(glucose = AlimentData.GLUCOSE_NORMAL),
-        )
-        var freeInjected = injected
-        var heldInjected = injected
-        repeat(6_000) {
-            freeInjected = AlimentPhysiology.tick(freeInjected)
-            heldInjected = AlimentPhysiology.tick(heldInjected, normal, true)
-        }
-        logger.info(
-            "PHYS glucose after an injection and 6000 ticks: free {} held {}",
-            freeInjected.glucose, heldInjected.glucose,
-        )
-        check("injected insulin takes the sugar down", freeInjected.glucose < AlimentData.GLUCOSE_NORMAL)
-        check("and the hold stops that too", heldInjected.glucose == AlimentData.GLUCOSE_NORMAL)
-
-        // 4. Food, the one rise in the system.
-        val fed = AlimentPhysiology.addGlucose(AlimentData.HEALTHY, AlimentData.GLUCOSE_PER_BREAD)
-        val fedHeld = AlimentPhysiology.addGlucose(AlimentData.HEALTHY, AlimentData.GLUCOSE_PER_BREAD, true)
-        logger.info("PHYS a loaf of bread: free {} held {}", fed.glucose, fedHeld.glucose)
-        check("a loaf raises the glucose", fed.glucose == 5.7f)
-        check("and does not raise a held one", fedHeld.glucose == AlimentData.GLUCOSE_NORMAL)
-        val lowAndHeld = AlimentPhysiology.addGlucose(
-            AlimentData.HEALTHY.copy(glucose = 3f), AlimentData.GLUCOSE_PER_BREAD, true,
-        )
-        check("so a held body cannot eat its way out of a low sugar either", lowAndHeld.glucose == 3f)
-
-        // 5. The switch touches nothing else. Insulin is included deliberately: it is a *response* to
-        //    the glucose rather than a thing that moves it, so it still follows a held level, and both
-        //    ticks below compute it from the same input.
-        var settled = AlimentData.HEALTHY.copy(glucose = 8f)
-        repeat(6_000) { settled = AlimentPhysiology.tick(settled, normal, true) }
-        val freeTick = AlimentPhysiology.tick(settled, normal, false)
-        val heldTick = AlimentPhysiology.tick(settled, normal, true)
-        logger.info(
-            "PHYS one tick from a settled 8.0: free {} held {} identical-but-for-glucose {}",
-            freeTick.glucose, heldTick.glucose, heldTick.copy(glucose = freeTick.glucose) == freeTick,
-        )
-        check("the two ticks really do differ", heldTick != freeTick)
-        check("held glucose is the input, to the last bit", heldTick.glucose == settled.glucose)
-        check(
-            "and the hold changes that one field and no other",
-            heldTick.copy(glucose = freeTick.glucose) == freeTick,
-        )
+        // And a meal would really move it too, which is the axis the freeze has to cover for food
+        // rather than for time: on a frozen body the early return in `onItemConsumed` is what stops
+        // this, not a flag on the model.
+        val fed = AlimentPhysiology.addGlucose(ill, AlimentData.GLUCOSE_PER_BREAD)
+        check("and a meal would really move it", fed.glucose != ill.glucose)
     }
 
     private fun check(name: String, ok: Boolean) {

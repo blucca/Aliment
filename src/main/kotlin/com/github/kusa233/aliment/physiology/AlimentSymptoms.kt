@@ -83,35 +83,30 @@ object AlimentSymptoms {
     private const val EFFECT_INTERVAL_TICKS = 40
 
     /**
-     * True while the physiology leaves this player completely alone.
+     * True while the physiology leaves this player completely alone: creative mode, or a peaceful
+     * world.
      *
-     * Creative mode is not playing the game, so nothing is simulated, nothing is applied and the body
-     * is left exactly as it was: a player who goes creative while ill stops being ill *visibly* on the
-     * same tick, and the infection is still there if they go back to survival. Freezing rather than
-     * resetting is deliberate - `creative` should not be a cure the player can use mid-fight, and it
-     * is the only reading of "the state stops updating" that does not silently throw data away.
+     * Neither is playing the game, so nothing is simulated, nothing is applied and the body is left
+     * exactly as it was: a player who goes creative while ill stops being ill *visibly* on the same
+     * tick, and the infection is still there if they go back to survival. Freezing rather than
+     * resetting is deliberate - neither should be a cure the player can use mid-fight, and it is the
+     * only reading of "the state stops updating" that does not silently throw data away.
+     *
+     * Peaceful is here because it is the one difficulty that promises nothing can kill the player,
+     * and this mod has several ways to take hitpoints off by itself - a hypoglycaemic crash, a
+     * potassium excess, and the sepsis and tissue damage of a severe infection among them - none of
+     * which any difficulty setting intercepts. Rather than soften each of them, the whole system is
+     * switched off there. That is why there is no longer a sugar-only switch beside this one: it
+     * existed to stop the one lethal curve, and once every curve is stopped for the same reason a
+     * second, partial mechanism would only be a way for the two to disagree.
+     *
+     * What follows from freezing rather than clearing is worth knowing before it surprises someone:
+     * a player who enters Peaceful already crashing stays crashing and cannot eat their way out of
+     * it, because the fix and the cause are switched off together.
      */
     @JvmStatic
-    fun isFrozen(player: Player): Boolean = player.isCreative
-
-    /**
-     * True while the player's blood glucose is left exactly where it is: peaceful difficulty.
-     *
-     * Peaceful is the one difficulty that promises nothing can kill the player, and the sugar curve
-     * is the only thing in this mod that takes hitpoints away on its own - a hypoglycaemic crash
-     * hurts you with magic damage, which no difficulty setting intercepts. Rather than soften the
-     * crash, the whole curve is switched off there: the fasting drain stops, the body's own insulin
-     * and any injected aspart stop disposing, and food stops adding.
-     *
-     * It *holds* the level rather than resetting it, for the same reason [isFrozen] freezes rather
-     * than clears - Peaceful should not be a cure the player can flick on to top themselves up, and
-     * the sugar they had is the sugar they find again on the way back out. What follows from that,
-     * and is worth knowing before it surprises someone, is that a player who enters Peaceful already
-     * crashing stays crashing and cannot eat their way out of it: both the fix and the cause are
-     * turned off together.
-     */
-    @JvmStatic
-    fun isGlucoseHeld(player: Player): Boolean = player.level().difficulty == Difficulty.PEACEFUL
+    fun isFrozen(player: Player): Boolean =
+        player.isCreative || player.level().difficulty == Difficulty.PEACEFUL
 
     /**
      * Runs the whole system for every online player, once per server tick.
@@ -127,7 +122,8 @@ object AlimentSymptoms {
     }
 
     /**
-     * Runs one tick of the whole system for [player], or nothing at all while [isFrozen].
+     * Runs one tick of the whole system for [player], or takes everything the mod put on them back
+     * off while [isFrozen].
      */
     fun tick(player: ServerPlayer) {
         // The finger a microneedle pricked only bleeds for a few seconds, and nothing else counts it
@@ -139,16 +135,26 @@ object AlimentSymptoms {
         }
 
         if (isFrozen(player)) {
-            // Anything already on the screen has to come off: a frozen body must not keep a fever
-            // shimmer, a motion blur or a shiver running. The shake stops by itself, because the
-            // client only ever shakes when the counter below moves.
+            // Nothing is simulated, so nothing is applied - and what the mod *already* put on the
+            // player has to come back off, or a frozen body keeps wearing the symptoms of an illness
+            // that has stopped advancing. Two of those would otherwise never leave at all: the two
+            // indicators below are added with an infinite duration and removed by hand, and the
+            // mining penalty is an attribute modifier that no other code path ever clears.
+            //
+            // The ordinary vanilla effects - the weakness, the nausea, the mining fatigue - are left
+            // to lapse on their own. They are applied for three refresh intervals at a time and
+            // nothing refreshes them once this branch is taken, so they are gone within six seconds;
+            // removing them by hand would mean guessing which of them the mod was responsible for,
+            // and would take a player's own potion of weakness with it.
             clearPostEffects(player)
+            clearIndicators(player)
+            clearMiningPenalty(player)
             return
         }
 
         val before = player.getAttachedOrCreate(AlimentAttachments.DATA)
 
-        var data = AlimentPhysiology.tick(before, ambientTemperature(player), isGlucoseHeld(player))
+        var data = AlimentPhysiology.tick(before, ambientTemperature(player))
         // Both of these roll once a second, and both are contagion: something touched the player,
         // or the player's own immune system stopped keeping its own flora in check.
         data = AlimentInfection.rollContact(player, data, runtime)
@@ -194,14 +200,41 @@ object AlimentSymptoms {
         val penalty = AlimentModelBridge.miningPenalty(data).toDouble()
 
         if (penalty <= 0.0) {
-            if (instance.hasModifier(MINING_MODIFIER_ID)) {
-                instance.removeModifier(MINING_MODIFIER_ID)
-            }
+            clearMiningPenalty(player)
             return
         }
         instance.addOrUpdateTransientModifier(
             AttributeModifier(MINING_MODIFIER_ID, -penalty, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL),
         )
+    }
+
+    /**
+     * Takes the mining penalty back off.
+     *
+     * This is the same removal [applyMiningPenalty] does when the penalty falls to zero, pulled out
+     * so the frozen path can reach it: an attribute modifier is not an effect and has no lifetime of
+     * its own, so a body frozen mid-penalty would keep the slower pickaxe forever.
+     */
+    private fun clearMiningPenalty(player: ServerPlayer) {
+        val instance = player.getAttribute(Attributes.BLOCK_BREAK_SPEED) ?: return
+        if (instance.hasModifier(MINING_MODIFIER_ID)) {
+            instance.removeModifier(MINING_MODIFIER_ID)
+        }
+    }
+
+    /**
+     * Takes the mod's two HUD indicators back off.
+     *
+     * They are the one pair of things here that is given an infinite duration and removed by hand
+     * (see [indicator]), so unlike the ordinary effects they cannot lapse on their own - a player
+     * frozen at a fever would wear the icon for as long as they stayed frozen.
+     */
+    private fun clearIndicators(player: ServerPlayer) {
+        for (effect in listOf(AlimentEffects.FEVER, AlimentEffects.PAIN)) {
+            if (player.hasEffect(effect)) {
+                player.removeEffect(effect)
+            }
+        }
     }
 
     /**
@@ -220,8 +253,8 @@ object AlimentSymptoms {
     /**
      * True while the player's stimulant load is too high for sleep. Used by `PlayerSleepMixin`.
      *
-     * A frozen (creative) body is left alone like everything else, so a player cannot dodge the
-     * restriction by switching game mode.
+     * A frozen body - creative or peaceful - is left alone like everything else, so a player cannot
+     * dodge the restriction by switching game mode or turning the difficulty down.
      */
     @JvmStatic
     fun isTooStimulatedToSleep(player: Player): Boolean {
